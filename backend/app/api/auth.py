@@ -18,6 +18,30 @@ from app.models.user import User, UserRole
 router = APIRouter()
 
 
+# ===== 임시: 첫 번째 유저 활성화 (배포 후 삭제) =====
+
+@router.post("/activate-first-user", response_model=APIResponse)
+async def activate_first_user(db: Session = Depends(get_db)):
+    """첫 번째 유저를 팀장으로 활성화 (임시 엔드포인트)"""
+    auth_service = AuthService(db)
+
+    # 첫 번째 유저 찾기
+    first_user = db.query(User).order_by(User.id).first()
+
+    if not first_user:
+        raise HTTPException(status_code=404, detail="유저가 없습니다")
+
+    # 활성화 및 팀장 설정
+    first_user.is_active = True
+    first_user.role = UserRole.MANAGER.value
+    db.commit()
+
+    return APIResponse(
+        success=True,
+        message=f"{first_user.full_name}님이 팀장으로 활성화되었습니다"
+    )
+
+
 # ===== 회원가입 관련 =====
 
 @router.post("/send-verification", response_model=APIResponse)
