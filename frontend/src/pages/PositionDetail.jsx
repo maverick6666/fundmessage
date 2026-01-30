@@ -27,6 +27,9 @@ export function PositionDetail() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [closeData, setCloseData] = useState({
+    ticker_name: '',
+    average_buy_price: '',
+    total_quantity: '',
     total_sell_amount: '',
   });
   const [confirmData, setConfirmData] = useState({
@@ -50,6 +53,13 @@ export function PositionDetail() {
         total_quantity: data.total_quantity || '',
         ticker_name: data.ticker_name || '',
       });
+      // 종료 폼 데이터 초기화 (기존 포지션 정보로)
+      setCloseData({
+        ticker_name: data.ticker_name || '',
+        average_buy_price: data.average_buy_price || '',
+        total_quantity: data.total_quantity || '',
+        total_sell_amount: '',
+      });
     } catch (error) {
       console.error('Failed to fetch position:', error);
     } finally {
@@ -64,6 +74,19 @@ export function PositionDetail() {
     }
     setActionLoading(true);
     try {
+      // 포지션 정보 수정이 있으면 먼저 업데이트
+      const buyPriceChanged = parseFloat(closeData.average_buy_price) !== parseFloat(position.average_buy_price);
+      const quantityChanged = parseFloat(closeData.total_quantity) !== parseFloat(position.total_quantity);
+      const nameChanged = closeData.ticker_name !== position.ticker_name;
+
+      if (buyPriceChanged || quantityChanged || nameChanged) {
+        await positionService.confirmPositionInfo(id, {
+          average_buy_price: parseFloat(closeData.average_buy_price),
+          total_quantity: parseFloat(closeData.total_quantity),
+          ticker_name: closeData.ticker_name || null,
+        });
+      }
+
       await positionService.closePosition(id, {
         total_sell_amount: parseFloat(closeData.total_sell_amount),
       });
@@ -338,36 +361,74 @@ export function PositionDetail() {
       <Modal
         isOpen={showCloseModal}
         onClose={() => setShowCloseModal(false)}
-        title="포지션 수동 종료"
+        title="포지션 종료"
       >
         <div className="space-y-4">
-          <div className="bg-gray-50 p-3 rounded-lg text-sm">
-            <p className="text-gray-600">진입 금액: <span className="font-medium">{formatCurrency(position.total_buy_amount)}</span></p>
+          <p className="text-sm text-gray-600">
+            포지션 정보를 확인하고 청산 금액을 입력해주세요. 정보가 다르면 수정 가능합니다.
+          </p>
+
+          <div className="border-b pb-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">포지션 정보</h4>
+            <Input
+              label="종목명"
+              type="text"
+              value={closeData.ticker_name}
+              onChange={(e) => setCloseData({ ...closeData, ticker_name: e.target.value })}
+              placeholder="예: 삼성전자"
+            />
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Input
+                label="평균 매입가"
+                type="number"
+                value={closeData.average_buy_price}
+                onChange={(e) => setCloseData({ ...closeData, average_buy_price: e.target.value })}
+                placeholder="예: 72500"
+              />
+              <Input
+                label="수량"
+                type="number"
+                value={closeData.total_quantity}
+                onChange={(e) => setCloseData({ ...closeData, total_quantity: e.target.value })}
+                placeholder="예: 100"
+              />
+            </div>
+            {closeData.average_buy_price && closeData.total_quantity && (
+              <div className="mt-2 text-sm text-gray-600">
+                진입 금액: <span className="font-medium">{formatCurrency(parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity))}</span>
+              </div>
+            )}
           </div>
-          <Input
-            label="청산 금액 (실제 계좌로 돌아온 금액)"
-            type="number"
-            value={closeData.total_sell_amount}
-            onChange={(e) => setCloseData({ ...closeData, total_sell_amount: e.target.value })}
-            placeholder="예: 10500000"
-            required
-          />
-          {closeData.total_sell_amount && position.total_buy_amount && (
+
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-3">청산 정보</h4>
+            <Input
+              label="청산 금액 (실제 계좌로 돌아온 금액)"
+              type="number"
+              value={closeData.total_sell_amount}
+              onChange={(e) => setCloseData({ ...closeData, total_sell_amount: e.target.value })}
+              placeholder="예: 10500000"
+              required
+            />
+          </div>
+
+          {closeData.total_sell_amount && closeData.average_buy_price && closeData.total_quantity && (
             <div className="bg-gray-50 p-3 rounded-lg">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">예상 수익금</span>
-                <span className={getProfitLossClass(parseFloat(closeData.total_sell_amount) - parseFloat(position.total_buy_amount))}>
-                  {formatCurrency(parseFloat(closeData.total_sell_amount) - parseFloat(position.total_buy_amount))}
+                <span className={getProfitLossClass(parseFloat(closeData.total_sell_amount) - (parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity)))}>
+                  {formatCurrency(parseFloat(closeData.total_sell_amount) - (parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity)))}
                 </span>
               </div>
               <div className="flex justify-between text-sm mt-1">
                 <span className="text-gray-600">예상 수익률</span>
-                <span className={getProfitLossClass(parseFloat(closeData.total_sell_amount) - parseFloat(position.total_buy_amount))}>
-                  {formatPercent((parseFloat(closeData.total_sell_amount) - parseFloat(position.total_buy_amount)) / parseFloat(position.total_buy_amount))}
+                <span className={getProfitLossClass(parseFloat(closeData.total_sell_amount) - (parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity)))}>
+                  {formatPercent((parseFloat(closeData.total_sell_amount) - (parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity))) / (parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity)))}
                 </span>
               </div>
             </div>
           )}
+
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button variant="secondary" onClick={() => setShowCloseModal(false)}>
               취소

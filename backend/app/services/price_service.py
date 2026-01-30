@@ -23,8 +23,7 @@ class PriceService:
     _cache_duration = timedelta(minutes=1)
 
     def __init__(self):
-        self.kis_token: Optional[str] = None
-        self.kis_token_expires: Optional[datetime] = None
+        pass
 
     async def get_price(self, ticker: str, market: str) -> Optional[Decimal]:
         """시세 조회 (통합)"""
@@ -52,71 +51,28 @@ class PriceService:
         return price
 
     async def get_korean_price(self, ticker: str) -> Optional[Decimal]:
-        """한국 주식 시세 (한국투자증권 API)"""
-        # API 키가 없으면 None 반환
-        if not settings.kis_app_key or not settings.kis_app_secret:
-            return None
-
+        """한국 주식 시세 (네이버 금융)"""
         try:
-            # 토큰 발급/갱신
-            await self._ensure_kis_token()
-
-            if not self.kis_token:
-                return None
-
             async with httpx.AsyncClient() as client:
-                headers = {
-                    "content-type": "application/json; charset=utf-8",
-                    "authorization": f"Bearer {self.kis_token}",
-                    "appkey": settings.kis_app_key,
-                    "appsecret": settings.kis_app_secret,
-                    "tr_id": "FHKST01010100"  # 주식현재가 시세
-                }
-
-                params = {
-                    "FID_COND_MRKT_DIV_CODE": "J",  # 주식
-                    "FID_INPUT_ISCD": ticker
-                }
-
+                # 네이버 금융 모바일 API (15분 지연)
                 response = await client.get(
-                    "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price",
-                    headers=headers,
-                    params=params
+                    f"https://m.stock.naver.com/api/stock/{ticker}/basic",
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    },
+                    timeout=10.0
                 )
 
                 if response.status_code == 200:
                     data = response.json()
-                    if data.get("rt_cd") == "0":
-                        price_str = data.get("output", {}).get("stck_prpr", "0")
-                        return Decimal(price_str)
+                    # 현재가 추출
+                    current_price = data.get("stockEndPrice") or data.get("closePrice")
+                    if current_price:
+                        return Decimal(str(current_price))
         except Exception as e:
-            print(f"한국 주식 시세 조회 오류: {e}")
+            print(f"네이버 금융 시세 조회 오류: {e}")
 
         return None
-
-    async def _ensure_kis_token(self):
-        """한투 API 토큰 발급/갱신"""
-        if self.kis_token and self.kis_token_expires and datetime.now() < self.kis_token_expires:
-            return
-
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    "https://openapi.koreainvestment.com:9443/oauth2/tokenP",
-                    json={
-                        "grant_type": "client_credentials",
-                        "appkey": settings.kis_app_key,
-                        "appsecret": settings.kis_app_secret
-                    }
-                )
-
-                if response.status_code == 200:
-                    data = response.json()
-                    self.kis_token = data.get("access_token")
-                    expires_in = int(data.get("expires_in", 86400))
-                    self.kis_token_expires = datetime.now() + timedelta(seconds=expires_in - 60)
-        except Exception as e:
-            print(f"한투 API 토큰 발급 오류: {e}")
 
     async def get_us_price(self, ticker: str) -> Optional[Decimal]:
         """미국 주식 시세 (Yahoo Finance)"""
