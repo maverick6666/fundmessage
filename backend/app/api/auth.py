@@ -87,10 +87,8 @@ async def signup(
             detail="이미 가입된 이메일입니다"
         )
 
-    # username 자동 생성 (이메일 앞부분 사용)
-    username = data.username or data.email.split('@')[0]
-
-    # 이미 사용 중인 사용자명인지 확인 (중복 시 숫자 추가)
+    # username은 이름(full_name)을 그대로 사용 (동명이인 시 숫자 추가)
+    username = data.full_name
     base_username = username
     counter = 1
     while auth_service.get_user_by_username(username):
