@@ -23,8 +23,6 @@ router = APIRouter()
 @router.post("/activate-first-user", response_model=APIResponse)
 async def activate_first_user(db: Session = Depends(get_db)):
     """첫 번째 유저를 팀장으로 활성화 (임시 엔드포인트)"""
-    auth_service = AuthService(db)
-
     # 첫 번째 유저 찾기
     first_user = db.query(User).order_by(User.id).first()
 
@@ -35,11 +33,29 @@ async def activate_first_user(db: Session = Depends(get_db)):
     first_user.is_active = True
     first_user.role = UserRole.MANAGER.value
     db.commit()
+    db.refresh(first_user)
 
     return APIResponse(
         success=True,
-        message=f"{first_user.full_name}님이 팀장으로 활성화되었습니다"
+        message=f"{first_user.full_name}님이 팀장으로 활성화되었습니다 (is_active={first_user.is_active})"
     )
+
+
+@router.get("/check-users", response_model=APIResponse)
+async def check_users(db: Session = Depends(get_db)):
+    """모든 유저 상태 확인 (디버그용)"""
+    users = db.query(User).all()
+    user_list = [
+        {
+            "id": u.id,
+            "email": u.email,
+            "full_name": u.full_name,
+            "role": u.role,
+            "is_active": u.is_active
+        }
+        for u in users
+    ]
+    return APIResponse(success=True, data=user_list)
 
 
 # ===== 회원가입 관련 =====
