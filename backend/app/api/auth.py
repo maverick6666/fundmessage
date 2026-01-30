@@ -58,6 +58,29 @@ async def check_users(db: Session = Depends(get_db)):
     return APIResponse(success=True, data=user_list)
 
 
+@router.post("/setup-real-manager", response_model=APIResponse)
+async def setup_real_manager(email: str, db: Session = Depends(get_db)):
+    """시드 계정 삭제하고 지정된 이메일을 팀장으로 설정 (임시)"""
+    # 시드 계정 삭제
+    seed_account = db.query(User).filter(User.email == "manager@fund.com").first()
+    if seed_account:
+        db.delete(seed_account)
+
+    # 지정된 유저를 팀장으로
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="유저를 찾을 수 없습니다")
+
+    user.role = UserRole.MANAGER.value
+    user.is_active = True
+    db.commit()
+
+    return APIResponse(
+        success=True,
+        message=f"{user.full_name}님이 팀장으로 설정되었습니다. 시드 계정은 삭제되었습니다."
+    )
+
+
 # ===== 회원가입 관련 =====
 
 @router.post("/send-verification", response_model=APIResponse)

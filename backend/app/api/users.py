@@ -153,3 +153,50 @@ async def deactivate_user(
         data=UserResponse.model_validate(user),
         message=f"{user.full_name}님의 계정이 비활성화되었습니다"
     )
+
+
+@router.post("/{user_id}/transfer-manager", response_model=APIResponse)
+async def transfer_manager_role(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager)
+):
+    """팀장 권한 이전 (현재 팀장만 가능)"""
+    from app.models.user import UserRole
+
+    auth_service = AuthService(db)
+
+    # 자기 자신에게 이전 불가
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="자기 자신에게 이전할 수 없습니다"
+        )
+
+    # 대상 유저 확인
+    new_manager = auth_service.get_user_by_id(user_id)
+    if not new_manager:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="유저를 찾을 수 없습니다"
+        )
+
+    if not new_manager.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="비활성화된 유저에게 이전할 수 없습니다"
+        )
+
+    # 권한 이전: 현재 팀장 → 팀원, 대상 → 팀장
+    current_user.role = UserRole.MEMBER.value
+    new_manager.role = UserRole.MANAGER.value
+    db.commit()
+
+    return APIResponse(
+        success=True,
+        data={
+            "previous_manager": current_user.full_name,
+            "new_manager": new_manager.full_name
+        },
+        message=f"팀장 권한이 {new_manager.full_name}님에게 이전되었습니다"
+    )

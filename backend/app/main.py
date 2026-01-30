@@ -71,34 +71,10 @@ async def websocket_endpoint(
         manager.disconnect(websocket, user_id)
 
 
-# Startup event - create initial manager user if not exists
+# Startup event (시드 계정 생성 제거됨 - 첫 가입자가 자동으로 팀장이 됨)
 @app.on_event("startup")
 async def startup_event():
-    from app.services.auth_service import AuthService
-    from app.schemas.user import UserCreate
-    from app.models.user import UserRole
-
-    db = next(get_db())
-    try:
-        auth_service = AuthService(db)
-
-        # Check if manager exists
-        existing_manager = auth_service.get_user_by_email("manager@fund.com")
-        if not existing_manager:
-            # Create initial manager
-            manager_data = UserCreate(
-                email="manager@fund.com",
-                username="manager",
-                password="manager123!",  # Change in production
-                full_name="Fund Manager",
-                role=UserRole.MANAGER.value
-            )
-            auth_service.create_user(manager_data)
-            print("Initial manager user created: manager@fund.com / manager123!")
-    except Exception as e:
-        print(f"Startup error: {e}")
-    finally:
-        db.close()
+    print("Fund Team Messenger API started")
 
 
 if __name__ == "__main__":
