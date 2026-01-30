@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 데이터베이스
+  db:
+    image: postgres:15-alpine
+    container_name: fundmessage-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-funduser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-fundpass123}
+      POSTGRES_DB: ${DB_NAME:-fundmessenger}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-funduser} -d ${DB_NAME:-fundmessenger}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI 백엔드
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fundmessage-backend
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-funduser}:${DB_PASSWORD:-fundpass123}@db:5432/${DB_NAME:-fundmessenger}
+      SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-in-production}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      # 시세 API 키
+      KIS_APP_KEY: ${KIS_APP_KEY:-}
+      KIS_APP_SECRET: ${KIS_APP_SECRET:-}
+      KIS_ACCOUNT_NO: ${KIS_ACCOUNT_NO:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  # React 프론트엔드
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
+    container_name: fundmessage-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

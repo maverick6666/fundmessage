@@ -1,0 +1,33 @@
+# FastAPI
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# Database
+sqlalchemy>=2.0.25
+psycopg2-binary>=2.9.9
+alembic>=1.13.1
+
+# Authentication
+pyjwt>=2.8.0
+bcrypt>=4.0.0
+python-jose[cryptography]>=3.3.0
+
+# Validation
+pydantic>=2.5.3
+pydantic-settings>=2.1.0
+email-validator>=2.1.0
+
+# WebSocket
+python-socketio>=5.11.0
+
+# HTTP Client (for KIS API)
+httpx>=0.26.0
+websockets>=12.0
+
+# Utils
+python-dotenv>=1.0.0
+
+# Price APIs
+yfinance>=0.2.36
+aiohttp>=3.9.0
