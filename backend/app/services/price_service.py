@@ -304,6 +304,7 @@ class PriceService:
 
     async def _get_korean_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
         """한국 주식 캔들 데이터 (네이버 금융)"""
+        print(f"[Candles] Fetching Korean candles for {ticker}, tf={timeframe}, limit={limit}")
         try:
             # 타임프레임 변환
             if timeframe in ["1d", "day"]:
@@ -329,6 +330,7 @@ class PriceService:
                     name = info_data.get("stockName") or info_data.get("name") or ticker
 
                 # 차트 데이터 조회
+                print(f"[Candles] Requesting price data from Naver...")
                 response = await client.get(
                     f"https://m.stock.naver.com/api/stock/{ticker}/price",
                     params={"pageSize": limit, "type": chart_type},
@@ -336,8 +338,10 @@ class PriceService:
                     timeout=10.0
                 )
 
+                print(f"[Candles] Naver response status: {response.status_code}")
                 if response.status_code == 200:
                     data = response.json()
+                    print(f"[Candles] Got {len(data) if isinstance(data, list) else 'non-list'} items from Naver")
                     candles = []
 
                     for item in data:
@@ -373,14 +377,19 @@ class PriceService:
                     # 시간순 정렬 (오래된 것 먼저)
                     candles.sort(key=lambda x: x["time"])
 
+                    print(f"[Candles] Parsed {len(candles)} candles successfully")
                     return {
                         "ticker": ticker,
                         "name": name,
                         "market": "KOSPI",
                         "candles": candles
                     }
+                else:
+                    print(f"[Candles] Naver API returned non-200: {response.text[:200]}")
         except Exception as e:
-            print(f"한국 주식 캔들 조회 오류: {e}")
+            print(f"[Candles] Error fetching Korean candles: {e}")
+            import traceback
+            traceback.print_exc()
         return None
 
     async def _get_us_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
