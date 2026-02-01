@@ -99,13 +99,21 @@ class PriceService:
                 if response.status_code == 200:
                     data = response.json()
                     name = data.get("stockName") or data.get("name")
-                    price = data.get("stockEndPrice") or data.get("closePrice")
+                    price_str = data.get("closePrice") or data.get("stockEndPrice")
+
+                    # 콤마 제거 후 숫자 변환
+                    price = None
+                    if price_str:
+                        try:
+                            price = float(str(price_str).replace(",", ""))
+                        except ValueError:
+                            pass
 
                     if name:
                         return {
                             "ticker": ticker,
                             "name": name,
-                            "price": float(price) if price else None
+                            "price": price
                         }
         except Exception as e:
             print(f"한국 주식 조회 오류: {e}")
@@ -285,6 +293,15 @@ class PriceService:
             return await self._get_crypto_candles(ticker, timeframe, limit)
         return None
 
+    def _parse_korean_price(self, value) -> float:
+        """한국 주식 가격 파싱 (콤마 제거)"""
+        if value is None:
+            return 0.0
+        try:
+            return float(str(value).replace(",", ""))
+        except (ValueError, TypeError):
+            return 0.0
+
     async def _get_korean_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
         """한국 주식 캔들 데이터 (네이버 금융)"""
         try:
@@ -325,23 +342,32 @@ class PriceService:
 
                     for item in data:
                         try:
-                            # 날짜 파싱 (YYYYMMDD 형식)
-                            date_str = str(item.get("localDate", ""))
-                            if len(date_str) == 8:
+                            # 날짜 파싱 (YYYY-MM-DD 또는 YYYYMMDD 형식)
+                            date_str = item.get("localTradedAt") or item.get("localDate", "")
+                            if not date_str:
+                                continue
+
+                            # ISO 형식 (2026-01-30) 또는 YYYYMMDD
+                            date_str = str(date_str)[:10]  # 시간 부분 제거
+                            if "-" in date_str:
+                                dt = datetime.strptime(date_str, "%Y-%m-%d")
+                            elif len(date_str) == 8:
                                 dt = datetime.strptime(date_str, "%Y%m%d")
-                                timestamp = int(dt.timestamp())
                             else:
                                 continue
 
+                            timestamp = int(dt.timestamp())
+
                             candles.append({
                                 "time": timestamp,
-                                "open": float(item.get("openPrice", 0)),
-                                "high": float(item.get("highPrice", 0)),
-                                "low": float(item.get("lowPrice", 0)),
-                                "close": float(item.get("closePrice", 0)),
+                                "open": self._parse_korean_price(item.get("openPrice")),
+                                "high": self._parse_korean_price(item.get("highPrice")),
+                                "low": self._parse_korean_price(item.get("lowPrice")),
+                                "close": self._parse_korean_price(item.get("closePrice")),
                                 "volume": float(item.get("accumulatedTradingVolume", 0))
                             })
-                        except (ValueError, TypeError):
+                        except (ValueError, TypeError) as e:
+                            print(f"캔들 파싱 오류: {e}, item: {item}")
                             continue
 
                     # 시간순 정렬 (오래된 것 먼저)
