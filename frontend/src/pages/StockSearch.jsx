@@ -47,7 +47,12 @@ export default function StockSearch() {
       // 캔들 데이터 조회 (종목 정보 포함)
       const result = await priceService.getCandles(ticker.trim(), market, timeframe, 200);
 
+      console.log('API Response:', result);
+
       if (result.success && result.data) {
+        console.log('Candles count:', result.data.candles?.length);
+        console.log('First candle:', result.data.candles?.[0]);
+
         setStockInfo({
           ticker: result.data.ticker,
           name: result.data.name,

@@ -90,8 +90,18 @@ export function StockChart({ candles, loading, height = 400 }) {
 
   // 캔들 데이터 업데이트
   useEffect(() => {
-    if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
-    if (!candles || candles.length === 0) return;
+    console.log('StockChart received candles:', candles?.length);
+
+    if (!candlestickSeriesRef.current || !volumeSeriesRef.current) {
+      console.log('Chart series not ready');
+      return;
+    }
+    if (!candles || candles.length === 0) {
+      console.log('No candles data');
+      return;
+    }
+
+    console.log('Setting chart data with', candles.length, 'candles');
 
     const candlestickData = candles.map(candle => ({
       time: candle.time,
