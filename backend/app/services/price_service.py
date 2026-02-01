@@ -273,6 +273,219 @@ class PriceService:
             "profit_rate": float(profit_rate)
         }
 
+    # ========== 캔들 데이터 API ==========
+
+    async def get_candles(self, ticker: str, market: str, timeframe: str = "1d", limit: int = 100) -> Optional[Dict[str, Any]]:
+        """캔들(OHLCV) 데이터 조회"""
+        if market in ["KOSPI", "KOSDAQ"]:
+            return await self._get_korean_candles(ticker, timeframe, limit)
+        elif market in ["NASDAQ", "NYSE"]:
+            return await self._get_us_candles(ticker, timeframe, limit)
+        elif market == "CRYPTO":
+            return await self._get_crypto_candles(ticker, timeframe, limit)
+        return None
+
+    async def _get_korean_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
+        """한국 주식 캔들 데이터 (네이버 금융)"""
+        try:
+            # 타임프레임 변환
+            if timeframe in ["1d", "day"]:
+                chart_type = "day"
+            elif timeframe in ["1w", "week"]:
+                chart_type = "week"
+            elif timeframe in ["1M", "month"]:
+                chart_type = "month"
+            else:
+                chart_type = "day"
+
+            async with httpx.AsyncClient() as client:
+                # 종목 정보 조회
+                info_response = await client.get(
+                    f"https://m.stock.naver.com/api/stock/{ticker}/basic",
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=10.0
+                )
+
+                name = ticker
+                if info_response.status_code == 200:
+                    info_data = info_response.json()
+                    name = info_data.get("stockName") or info_data.get("name") or ticker
+
+                # 차트 데이터 조회
+                response = await client.get(
+                    f"https://m.stock.naver.com/api/stock/{ticker}/price",
+                    params={"pageSize": limit, "type": chart_type},
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=10.0
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    candles = []
+
+                    for item in data:
+                        try:
+                            # 날짜 파싱 (YYYYMMDD 형식)
+                            date_str = str(item.get("localDate", ""))
+                            if len(date_str) == 8:
+                                dt = datetime.strptime(date_str, "%Y%m%d")
+                                timestamp = int(dt.timestamp())
+                            else:
+                                continue
+
+                            candles.append({
+                                "time": timestamp,
+                                "open": float(item.get("openPrice", 0)),
+                                "high": float(item.get("highPrice", 0)),
+                                "low": float(item.get("lowPrice", 0)),
+                                "close": float(item.get("closePrice", 0)),
+                                "volume": float(item.get("accumulatedTradingVolume", 0))
+                            })
+                        except (ValueError, TypeError):
+                            continue
+
+                    # 시간순 정렬 (오래된 것 먼저)
+                    candles.sort(key=lambda x: x["time"])
+
+                    return {
+                        "ticker": ticker,
+                        "name": name,
+                        "market": "KOSPI",
+                        "candles": candles
+                    }
+        except Exception as e:
+            print(f"한국 주식 캔들 조회 오류: {e}")
+        return None
+
+    async def _get_us_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
+        """미국 주식 캔들 데이터 (Yahoo Finance)"""
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                self._fetch_yfinance_candles,
+                ticker, timeframe, limit
+            )
+            return result
+        except Exception as e:
+            print(f"미국 주식 캔들 조회 오류: {e}")
+        return None
+
+    def _fetch_yfinance_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
+        """Yahoo Finance에서 캔들 데이터 조회 (동기)"""
+        try:
+            stock = yf.Ticker(ticker)
+
+            # 타임프레임에 따른 기간 설정
+            if timeframe in ["1d", "day"]:
+                period = "1y" if limit > 100 else "6mo"
+                interval = "1d"
+            elif timeframe in ["1w", "week"]:
+                period = "5y"
+                interval = "1wk"
+            elif timeframe in ["1M", "month"]:
+                period = "max"
+                interval = "1mo"
+            elif timeframe in ["1h", "hour"]:
+                period = "1mo"
+                interval = "1h"
+            else:
+                period = "6mo"
+                interval = "1d"
+
+            hist = stock.history(period=period, interval=interval)
+
+            if hist.empty:
+                return None
+
+            # 종목명 조회
+            info = stock.info
+            name = info.get("shortName") or info.get("longName") or ticker
+
+            candles = []
+            for idx, row in hist.iterrows():
+                timestamp = int(idx.timestamp())
+                candles.append({
+                    "time": timestamp,
+                    "open": float(row["Open"]),
+                    "high": float(row["High"]),
+                    "low": float(row["Low"]),
+                    "close": float(row["Close"]),
+                    "volume": float(row["Volume"])
+                })
+
+            # limit 적용
+            if len(candles) > limit:
+                candles = candles[-limit:]
+
+            return {
+                "ticker": ticker,
+                "name": name,
+                "market": "US",
+                "candles": candles
+            }
+        except Exception as e:
+            print(f"yfinance 캔들 조회 오류: {e}")
+        return None
+
+    async def _get_crypto_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
+        """암호화폐 캔들 데이터 (Binance)"""
+        try:
+            symbol = ticker.upper()
+            if not symbol.endswith("USDT"):
+                symbol = f"{symbol}USDT"
+
+            # 타임프레임 변환
+            interval_map = {
+                "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m",
+                "1h": "1h", "4h": "4h", "1d": "1d", "day": "1d",
+                "1w": "1w", "week": "1w", "1M": "1M", "month": "1M"
+            }
+            interval = interval_map.get(timeframe, "1d")
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://api.binance.com/api/v3/klines",
+                    params={
+                        "symbol": symbol,
+                        "interval": interval,
+                        "limit": min(limit, 1000)
+                    },
+                    timeout=10.0
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+
+                    # 암호화폐 이름
+                    crypto_names = {
+                        "BTC": "비트코인", "ETH": "이더리움", "XRP": "리플",
+                        "SOL": "솔라나", "DOGE": "도지코인", "ADA": "에이다"
+                    }
+                    base_symbol = symbol.replace("USDT", "")
+                    name = crypto_names.get(base_symbol, base_symbol)
+
+                    candles = []
+                    for item in data:
+                        candles.append({
+                            "time": int(item[0] / 1000),  # ms -> s
+                            "open": float(item[1]),
+                            "high": float(item[2]),
+                            "low": float(item[3]),
+                            "close": float(item[4]),
+                            "volume": float(item[5])
+                        })
+
+                    return {
+                        "ticker": symbol,
+                        "name": name,
+                        "market": "CRYPTO",
+                        "candles": candles
+                    }
+        except Exception as e:
+            print(f"암호화폐 캔들 조회 오류: {e}")
+        return None
+
 
 # 싱글톤 인스턴스
 price_service = PriceService()

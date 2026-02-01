@@ -21,5 +21,13 @@ export const priceService = {
   async getPositionsWithPrices() {
     const response = await api.get('/prices/positions');
     return response.data.data;
+  },
+
+  // 캔들(차트) 데이터 조회
+  async getCandles(ticker, market, timeframe = '1d', limit = 100) {
+    const response = await api.get('/prices/candles', {
+      params: { ticker, market, timeframe, limit }
+    });
+    return response.data;
   }
 };

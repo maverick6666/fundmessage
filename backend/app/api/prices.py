@@ -60,6 +60,29 @@ async def lookup_ticker(
     )
 
 
+@router.get("/candles", response_model=APIResponse)
+async def get_candles(
+    ticker: str,
+    market: str = Query(..., description="KOSPI, KOSDAQ, NASDAQ, NYSE, CRYPTO"),
+    timeframe: str = Query("1d", description="1d, 1w, 1M, 1h 등"),
+    limit: int = Query(100, ge=1, le=500),
+    current_user: User = Depends(get_current_user)
+):
+    """캔들(OHLCV) 데이터 조회"""
+    result = await price_service.get_candles(ticker, market, timeframe, limit)
+
+    if result is None:
+        return APIResponse(
+            success=False,
+            message="차트 데이터를 조회할 수 없습니다"
+        )
+
+    return APIResponse(
+        success=True,
+        data=result
+    )
+
+
 @router.get("/positions", response_model=APIResponse)
 async def get_positions_with_prices(
     db: Session = Depends(get_db),

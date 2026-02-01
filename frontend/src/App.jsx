@@ -12,6 +12,7 @@ import { MyRequests } from './pages/MyRequests';
 import { Discussion } from './pages/Discussion';
 import { Stats } from './pages/Stats';
 import { TeamManagement } from './pages/TeamManagement';
+import StockSearch from './pages/StockSearch';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -69,6 +70,15 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Dashboard />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/stock-search"
+        element={
+          <PrivateRoute>
+            <StockSearch />
           </PrivateRoute>
         }
       />
