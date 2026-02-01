@@ -51,26 +51,22 @@ class PriceService:
         return price
 
     async def get_korean_price(self, ticker: str) -> Optional[Decimal]:
-        """한국 주식 시세 (네이버 금융)"""
+        """한국 주식 시세 (Yahoo Finance 사용)"""
         try:
-            async with httpx.AsyncClient() as client:
-                # 네이버 금융 모바일 API (15분 지연)
-                response = await client.get(
-                    f"https://m.stock.naver.com/api/stock/{ticker}/basic",
-                    headers={
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                    },
-                    timeout=10.0
-                )
+            # Yahoo Finance 티커 형식으로 변환
+            yahoo_ticker = f"{ticker}.KS"
 
-                if response.status_code == 200:
-                    data = response.json()
-                    # 현재가 추출
-                    current_price = data.get("stockEndPrice") or data.get("closePrice")
-                    if current_price:
-                        return Decimal(str(current_price))
+            loop = asyncio.get_event_loop()
+            price = await loop.run_in_executor(None, self._fetch_yfinance_price, yahoo_ticker)
+
+            # .KS로 안되면 .KQ로 시도
+            if price is None:
+                yahoo_ticker = f"{ticker}.KQ"
+                price = await loop.run_in_executor(None, self._fetch_yfinance_price, yahoo_ticker)
+
+            return price
         except Exception as e:
-            print(f"네이버 금융 시세 조회 오류: {e}")
+            print(f"한국 주식 시세 조회 오류: {e}")
 
         return None
 
@@ -85,36 +81,23 @@ class PriceService:
         return None
 
     async def _lookup_korean(self, ticker: str) -> Optional[Dict[str, Any]]:
-        """한국 주식 종목명 조회"""
+        """한국 주식 종목명 조회 (Yahoo Finance 사용)"""
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"https://m.stock.naver.com/api/stock/{ticker}/basic",
-                    headers={
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                    },
-                    timeout=10.0
-                )
+            # Yahoo Finance 티커 형식으로 변환
+            yahoo_ticker = f"{ticker}.KS"
 
-                if response.status_code == 200:
-                    data = response.json()
-                    name = data.get("stockName") or data.get("name")
-                    price_str = data.get("closePrice") or data.get("stockEndPrice")
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, self._fetch_yfinance_info, yahoo_ticker)
 
-                    # 콤마 제거 후 숫자 변환
-                    price = None
-                    if price_str:
-                        try:
-                            price = float(str(price_str).replace(",", ""))
-                        except ValueError:
-                            pass
+            # .KS로 안되면 .KQ로 시도
+            if result is None:
+                yahoo_ticker = f"{ticker}.KQ"
+                result = await loop.run_in_executor(None, self._fetch_yfinance_info, yahoo_ticker)
 
-                    if name:
-                        return {
-                            "ticker": ticker,
-                            "name": name,
-                            "price": price
-                        }
+            if result:
+                result["ticker"] = ticker  # 원래 티커로 복원
+
+            return result
         except Exception as e:
             print(f"한국 주식 조회 오류: {e}")
         return None
@@ -293,103 +276,36 @@ class PriceService:
             return await self._get_crypto_candles(ticker, timeframe, limit)
         return None
 
-    def _parse_korean_price(self, value) -> float:
-        """한국 주식 가격 파싱 (콤마 제거)"""
-        if value is None:
-            return 0.0
-        try:
-            return float(str(value).replace(",", ""))
-        except (ValueError, TypeError):
-            return 0.0
-
     async def _get_korean_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
-        """한국 주식 캔들 데이터 (네이버 금융)"""
-        print(f"[Candles] Fetching Korean candles for {ticker}, tf={timeframe}, limit={limit}")
+        """한국 주식 캔들 데이터 (Yahoo Finance 사용)"""
         try:
-            # 타임프레임 변환
-            if timeframe in ["1d", "day"]:
-                chart_type = "day"
-            elif timeframe in ["1w", "week"]:
-                chart_type = "week"
-            elif timeframe in ["1M", "month"]:
-                chart_type = "month"
-            else:
-                chart_type = "day"
+            # Yahoo Finance 티커 형식으로 변환 (KOSPI: .KS, KOSDAQ: .KQ)
+            # 일단 .KS로 시도하고 안되면 .KQ로 시도
+            yahoo_ticker = f"{ticker}.KS"
 
-            async with httpx.AsyncClient() as client:
-                # 종목 정보 조회
-                info_response = await client.get(
-                    f"https://m.stock.naver.com/api/stock/{ticker}/basic",
-                    headers={"User-Agent": "Mozilla/5.0"},
-                    timeout=10.0
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                self._fetch_yfinance_candles,
+                yahoo_ticker, timeframe, limit
+            )
+
+            # .KS로 안되면 .KQ로 시도
+            if result is None:
+                yahoo_ticker = f"{ticker}.KQ"
+                result = await loop.run_in_executor(
+                    None,
+                    self._fetch_yfinance_candles,
+                    yahoo_ticker, timeframe, limit
                 )
 
-                name = ticker
-                if info_response.status_code == 200:
-                    info_data = info_response.json()
-                    name = info_data.get("stockName") or info_data.get("name") or ticker
+            if result:
+                result["ticker"] = ticker  # 원래 티커로 복원
+                result["market"] = "KOSPI"
 
-                # 차트 데이터 조회
-                print(f"[Candles] Requesting price data from Naver...")
-                response = await client.get(
-                    f"https://m.stock.naver.com/api/stock/{ticker}/price",
-                    params={"pageSize": limit, "type": chart_type},
-                    headers={"User-Agent": "Mozilla/5.0"},
-                    timeout=10.0
-                )
-
-                print(f"[Candles] Naver response status: {response.status_code}")
-                if response.status_code == 200:
-                    data = response.json()
-                    print(f"[Candles] Got {len(data) if isinstance(data, list) else 'non-list'} items from Naver")
-                    candles = []
-
-                    for item in data:
-                        try:
-                            # 날짜 파싱 (YYYY-MM-DD 또는 YYYYMMDD 형식)
-                            date_str = item.get("localTradedAt") or item.get("localDate", "")
-                            if not date_str:
-                                continue
-
-                            # ISO 형식 (2026-01-30) 또는 YYYYMMDD
-                            date_str = str(date_str)[:10]  # 시간 부분 제거
-                            if "-" in date_str:
-                                dt = datetime.strptime(date_str, "%Y-%m-%d")
-                            elif len(date_str) == 8:
-                                dt = datetime.strptime(date_str, "%Y%m%d")
-                            else:
-                                continue
-
-                            timestamp = int(dt.timestamp())
-
-                            candles.append({
-                                "time": timestamp,
-                                "open": self._parse_korean_price(item.get("openPrice")),
-                                "high": self._parse_korean_price(item.get("highPrice")),
-                                "low": self._parse_korean_price(item.get("lowPrice")),
-                                "close": self._parse_korean_price(item.get("closePrice")),
-                                "volume": float(item.get("accumulatedTradingVolume", 0))
-                            })
-                        except (ValueError, TypeError) as e:
-                            print(f"캔들 파싱 오류: {e}, item: {item}")
-                            continue
-
-                    # 시간순 정렬 (오래된 것 먼저)
-                    candles.sort(key=lambda x: x["time"])
-
-                    print(f"[Candles] Parsed {len(candles)} candles successfully")
-                    return {
-                        "ticker": ticker,
-                        "name": name,
-                        "market": "KOSPI",
-                        "candles": candles
-                    }
-                else:
-                    print(f"[Candles] Naver API returned non-200: {response.text[:200]}")
+            return result
         except Exception as e:
-            print(f"[Candles] Error fetching Korean candles: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"한국 주식 캔들 조회 오류: {e}")
         return None
 
     async def _get_us_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
