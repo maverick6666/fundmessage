@@ -74,6 +74,115 @@ class PriceService:
 
         return None
 
+    async def lookup_ticker(self, ticker: str, market: str) -> Optional[Dict[str, Any]]:
+        """종목 코드로 종목명과 현재가 조회"""
+        if market in ["KOSPI", "KOSDAQ"]:
+            return await self._lookup_korean(ticker)
+        elif market in ["NASDAQ", "NYSE"]:
+            return await self._lookup_us(ticker)
+        elif market == "CRYPTO":
+            return await self._lookup_crypto(ticker)
+        return None
+
+    async def _lookup_korean(self, ticker: str) -> Optional[Dict[str, Any]]:
+        """한국 주식 종목명 조회"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"https://m.stock.naver.com/api/stock/{ticker}/basic",
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    },
+                    timeout=10.0
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    name = data.get("stockName") or data.get("name")
+                    price = data.get("stockEndPrice") or data.get("closePrice")
+
+                    if name:
+                        return {
+                            "ticker": ticker,
+                            "name": name,
+                            "price": float(price) if price else None
+                        }
+        except Exception as e:
+            print(f"한국 주식 조회 오류: {e}")
+        return None
+
+    async def _lookup_us(self, ticker: str) -> Optional[Dict[str, Any]]:
+        """미국 주식 종목명 조회"""
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, self._fetch_yfinance_info, ticker)
+            return result
+        except Exception as e:
+            print(f"미국 주식 조회 오류: {e}")
+        return None
+
+    def _fetch_yfinance_info(self, ticker: str) -> Optional[Dict[str, Any]]:
+        """Yahoo Finance에서 종목 정보 조회 (동기)"""
+        try:
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            fast_info = stock.fast_info
+
+            name = info.get("shortName") or info.get("longName") or ticker
+            price = fast_info.get("lastPrice") or fast_info.get("regularMarketPrice")
+
+            return {
+                "ticker": ticker,
+                "name": name,
+                "price": float(price) if price else None
+            }
+        except Exception:
+            pass
+        return None
+
+    async def _lookup_crypto(self, ticker: str) -> Optional[Dict[str, Any]]:
+        """암호화폐 정보 조회"""
+        try:
+            symbol = ticker.upper()
+            if not symbol.endswith("USDT"):
+                symbol = f"{symbol}USDT"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://api.binance.com/api/v3/ticker/price",
+                    params={"symbol": symbol}
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    price_str = data.get("price", "0")
+
+                    # 일반적인 암호화폐 이름 매핑
+                    crypto_names = {
+                        "BTC": "비트코인",
+                        "ETH": "이더리움",
+                        "XRP": "리플",
+                        "SOL": "솔라나",
+                        "DOGE": "도지코인",
+                        "ADA": "에이다",
+                        "AVAX": "아발란체",
+                        "MATIC": "폴리곤",
+                        "DOT": "폴카닷",
+                        "LINK": "체인링크"
+                    }
+
+                    base_symbol = ticker.upper().replace("USDT", "")
+                    name = crypto_names.get(base_symbol, base_symbol)
+
+                    return {
+                        "ticker": ticker.upper(),
+                        "name": name,
+                        "price": float(price_str)
+                    }
+        except Exception as e:
+            print(f"암호화폐 조회 오류: {e}")
+        return None
+
     async def get_us_price(self, ticker: str) -> Optional[Decimal]:
         """미국 주식 시세 (Yahoo Finance)"""
         try:

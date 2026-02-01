@@ -41,6 +41,20 @@ class RequestService:
 
         return requests, total
 
+    def _convert_targets_to_json(self, targets) -> list:
+        """Decimal을 float로 변환하여 JSON 직렬화 가능하게 함"""
+        if not targets:
+            return None
+        result = []
+        for t in targets:
+            item = t.model_dump() if hasattr(t, 'model_dump') else t
+            # Decimal을 float로 변환
+            result.append({
+                k: float(v) if isinstance(v, Decimal) else v
+                for k, v in item.items()
+            })
+        return result
+
     def create_buy_request(self, request_data: BuyRequestCreate, requester_id: int) -> Request:
         request = Request(
             requester_id=requester_id,
@@ -52,10 +66,10 @@ class RequestService:
             order_amount=request_data.order_amount,
             order_quantity=request_data.order_quantity,
             buy_price=request_data.buy_price,
-            buy_orders=[o.model_dump() for o in request_data.buy_orders] if request_data.buy_orders else None,
+            buy_orders=None,  # Legacy field - not used
             target_ratio=request_data.target_ratio,
-            take_profit_targets=[t.model_dump() for t in request_data.take_profit_targets] if request_data.take_profit_targets else None,
-            stop_loss_targets=[t.model_dump() for t in request_data.stop_loss_targets] if request_data.stop_loss_targets else None,
+            take_profit_targets=self._convert_targets_to_json(request_data.take_profit_targets),
+            stop_loss_targets=self._convert_targets_to_json(request_data.stop_loss_targets),
             memo=request_data.memo,
             status=RequestStatus.PENDING.value
         )

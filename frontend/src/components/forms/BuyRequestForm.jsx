@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { requestService } from '../../services/requestService';
+import { priceService } from '../../services/priceService';
 
 const MARKETS = [
   { value: 'KOSPI', label: '코스피' },
@@ -13,21 +14,72 @@ const MARKETS = [
 
 export function BuyRequestForm({ onSuccess, onCancel }) {
   const [loading, setLoading] = useState(false);
+  const [lookupLoading, setLookupLoading] = useState(false);
   const [formData, setFormData] = useState({
     target_ticker: '',
     ticker_name: '',
     target_market: 'KOSPI',
-    order_type: 'amount', // 'amount' 또는 'quantity'
-    order_amount: '',     // 매수 금액
     order_quantity: '',   // 매수 수량
-    buy_price: '',        // 매수 희망가 (비어있으면 시장가)
+    buy_price: '',        // 매수 희망가
     take_profit_targets: [{ price: '', ratio: '1' }],
     stop_loss_targets: [{ price: '', ratio: '1' }],
     memo: '',
   });
+  const [currentPrice, setCurrentPrice] = useState(null);
+
+  // 거래대금 계산
+  const totalAmount = formData.order_quantity && formData.buy_price
+    ? parseFloat(formData.order_quantity) * parseFloat(formData.buy_price)
+    : null;
+
+  // 종목 코드 조회 (debounce)
+  const lookupTicker = useCallback(async (ticker, market) => {
+    if (!ticker || ticker.length < 2) {
+      setFormData(prev => ({ ...prev, ticker_name: '' }));
+      setCurrentPrice(null);
+      return;
+    }
+
+    setLookupLoading(true);
+    try {
+      const result = await priceService.lookupTicker(ticker, market);
+      if (result.success && result.data) {
+        setFormData(prev => ({
+          ...prev,
+          ticker_name: result.data.name || ''
+        }));
+        setCurrentPrice(result.data.price);
+      } else {
+        setFormData(prev => ({ ...prev, ticker_name: '' }));
+        setCurrentPrice(null);
+      }
+    } catch (error) {
+      setFormData(prev => ({ ...prev, ticker_name: '' }));
+      setCurrentPrice(null);
+    } finally {
+      setLookupLoading(false);
+    }
+  }, []);
+
+  // 종목 코드 변경 시 자동 조회
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.target_ticker) {
+        lookupTicker(formData.target_ticker, formData.target_market);
+      }
+    }, 500); // 0.5초 debounce
+
+    return () => clearTimeout(timer);
+  }, [formData.target_ticker, formData.target_market, lookupTicker]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.order_quantity || !formData.buy_price) {
+      alert('수량과 매수가를 입력해주세요.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -35,14 +87,9 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
         target_ticker: formData.target_ticker,
         ticker_name: formData.ticker_name || null,
         target_market: formData.target_market,
-        order_type: formData.order_type,
-        order_amount: formData.order_type === 'amount' && formData.order_amount
-          ? parseFloat(formData.order_amount)
-          : null,
-        order_quantity: formData.order_type === 'quantity' && formData.order_quantity
-          ? parseFloat(formData.order_quantity)
-          : null,
-        buy_price: formData.buy_price ? parseFloat(formData.buy_price) : null,
+        order_type: 'quantity',
+        order_quantity: parseFloat(formData.order_quantity),
+        buy_price: parseFloat(formData.buy_price),
         take_profit_targets: formData.take_profit_targets
           .filter(t => t.price)
           .map(t => ({ price: parseFloat(t.price), ratio: parseFloat(t.ratio) })),
@@ -80,6 +127,19 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
     setFormData({ ...formData, stop_loss_targets: newTargets });
   };
 
+  // 현재가를 매수가에 자동 입력
+  const applyCurrentPrice = () => {
+    if (currentPrice) {
+      setFormData({ ...formData, buy_price: currentPrice.toString() });
+    }
+  };
+
+  // 금액 포맷팅
+  const formatNumber = (num) => {
+    if (num === null || num === undefined) return '-';
+    return num.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* 시장 선택 */}
@@ -90,7 +150,7 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
             <button
               key={market.value}
               type="button"
-              onClick={() => setFormData({ ...formData, target_market: market.value })}
+              onClick={() => setFormData({ ...formData, target_market: market.value, target_ticker: '', ticker_name: '' })}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 formData.target_market === market.value
                   ? 'bg-primary-600 text-white'
@@ -104,82 +164,78 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
       </div>
 
       {/* 종목 정보 */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Input
+              label="종목 코드"
+              placeholder={formData.target_market === 'CRYPTO' ? 'BTC' : '005930'}
+              value={formData.target_ticker}
+              onChange={(e) => setFormData({ ...formData, target_ticker: e.target.value })}
+              required
+            />
+          </div>
+          <div>
+            <Input
+              label="종목명"
+              placeholder={lookupLoading ? '조회중...' : '자동 조회됨'}
+              value={formData.ticker_name}
+              onChange={(e) => setFormData({ ...formData, ticker_name: e.target.value })}
+              disabled={lookupLoading}
+            />
+          </div>
+        </div>
+
+        {/* 현재가 표시 */}
+        {currentPrice && (
+          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+            <span className="text-sm text-blue-700">
+              현재가: <strong>{formatNumber(currentPrice)}</strong>원
+            </span>
+            <button
+              type="button"
+              onClick={applyCurrentPrice}
+              className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded"
+            >
+              매수가에 적용
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 수량과 매수가 */}
       <div className="grid grid-cols-2 gap-4">
         <Input
-          label="종목 코드"
-          placeholder={formData.target_market === 'CRYPTO' ? 'BTC' : '005930'}
-          value={formData.target_ticker}
-          onChange={(e) => setFormData({ ...formData, target_ticker: e.target.value })}
+          label="매수 수량"
+          type="number"
+          step="any"
+          placeholder={formData.target_market === 'CRYPTO' ? '0.5' : '10'}
+          value={formData.order_quantity}
+          onChange={(e) => setFormData({ ...formData, order_quantity: e.target.value })}
           required
         />
         <Input
-          label="종목명 (선택)"
-          placeholder={formData.target_market === 'CRYPTO' ? '비트코인' : '삼성전자'}
-          value={formData.ticker_name}
-          onChange={(e) => setFormData({ ...formData, ticker_name: e.target.value })}
-        />
-      </div>
-
-      {/* 매수 방법 선택 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">매수 방법</label>
-        <div className="flex gap-4">
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="order_type"
-              value="amount"
-              checked={formData.order_type === 'amount'}
-              onChange={(e) => setFormData({ ...formData, order_type: e.target.value })}
-              className="mr-2"
-            />
-            금액으로
-          </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="order_type"
-              value="quantity"
-              checked={formData.order_type === 'quantity'}
-              onChange={(e) => setFormData({ ...formData, order_type: e.target.value })}
-              className="mr-2"
-            />
-            수량으로
-          </label>
-        </div>
-      </div>
-
-      {/* 금액 또는 수량 입력 */}
-      <div className="grid grid-cols-2 gap-4">
-        {formData.order_type === 'amount' ? (
-          <Input
-            label="매수 금액"
-            type="number"
-            placeholder="1000000"
-            value={formData.order_amount}
-            onChange={(e) => setFormData({ ...formData, order_amount: e.target.value })}
-            required
-          />
-        ) : (
-          <Input
-            label="매수 수량"
-            type="number"
-            step="any"
-            placeholder={formData.target_market === 'CRYPTO' ? '0.5' : '10'}
-            value={formData.order_quantity}
-            onChange={(e) => setFormData({ ...formData, order_quantity: e.target.value })}
-            required
-          />
-        )}
-        <Input
-          label="매수 희망가 (비우면 시장가)"
+          label="매수가"
           type="number"
           step="any"
-          placeholder="시장가"
+          placeholder="희망 매수가"
           value={formData.buy_price}
           onChange={(e) => setFormData({ ...formData, buy_price: e.target.value })}
+          required
         />
       </div>
+
+      {/* 거래대금 표시 */}
+      {totalAmount !== null && (
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">예상 거래대금</span>
+            <span className="text-lg font-bold text-gray-900">
+              {formatNumber(totalAmount)}원
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* 익절가 */}
       <div>

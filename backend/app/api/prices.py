@@ -39,6 +39,27 @@ async def get_quote(
     )
 
 
+@router.get("/lookup", response_model=APIResponse)
+async def lookup_ticker(
+    ticker: str,
+    market: str = Query(..., description="KOSPI, KOSDAQ, NASDAQ, NYSE, CRYPTO"),
+    current_user: User = Depends(get_current_user)
+):
+    """종목 코드로 종목명과 현재가 조회"""
+    result = await price_service.lookup_ticker(ticker, market)
+
+    if result is None:
+        return APIResponse(
+            success=False,
+            message="종목을 찾을 수 없습니다"
+        )
+
+    return APIResponse(
+        success=True,
+        data=result
+    )
+
+
 @router.get("/positions", response_model=APIResponse)
 async def get_positions_with_prices(
     db: Session = Depends(get_db),
