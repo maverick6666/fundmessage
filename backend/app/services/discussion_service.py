@@ -40,6 +40,7 @@ class DiscussionService:
         )
 
         self.db.add(discussion)
+        self.db.flush()  # discussion.id를 얻기 위해 flush
 
         # Add system message
         system_message = Message(

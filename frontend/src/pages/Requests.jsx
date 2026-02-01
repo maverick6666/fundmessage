@@ -88,6 +88,11 @@ export function Requests() {
 
   const openApproveModal = (request) => {
     setSelectedRequest(request);
+    // 희망 매수가와 수량이 있으면 기본값으로 설정
+    setApproveData({
+      executed_price: request.buy_price ? String(request.buy_price) : '',
+      executed_quantity: request.order_quantity ? String(request.order_quantity) : '',
+    });
     setShowApproveModal(true);
   };
 
@@ -150,6 +155,20 @@ export function Requests() {
 
                   {request.request_type === 'buy' && (
                     <div className="space-y-2 text-sm">
+                      {/* 희망 매수가 & 수량 (종목검색에서 요청 시) */}
+                      {request.buy_price && (
+                        <div>
+                          <span className="text-gray-500">희망 매수가: </span>
+                          <span className="font-medium">{formatCurrency(request.buy_price)}</span>
+                        </div>
+                      )}
+                      {request.order_quantity && (
+                        <div>
+                          <span className="text-gray-500">주문 수량: </span>
+                          <span className="font-medium">{request.order_quantity}</span>
+                        </div>
+                      )}
+                      {/* 분할 매수 계획 (기존 요청 폼) */}
                       {request.buy_orders?.length > 0 && (
                         <div>
                           <span className="text-gray-500">매수 계획: </span>
@@ -160,10 +179,12 @@ export function Requests() {
                           ))}
                         </div>
                       )}
-                      <div>
-                        <span className="text-gray-500">목표 비중: </span>
-                        {formatPercent(request.target_ratio)}
-                      </div>
+                      {request.target_ratio && (
+                        <div>
+                          <span className="text-gray-500">목표 비중: </span>
+                          {formatPercent(request.target_ratio)}
+                        </div>
+                      )}
                       {request.take_profit_targets?.length > 0 && (
                         <div>
                           <span className="text-gray-500">익절: </span>

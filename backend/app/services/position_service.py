@@ -12,6 +12,19 @@ class PositionService:
     def __init__(self, db: Session):
         self.db = db
 
+    def _convert_targets(self, targets) -> Optional[list]:
+        """Decimal을 float로 변환하여 JSON 직렬화 가능하게 함"""
+        if not targets:
+            return None
+        result = []
+        for t in targets:
+            item = t.model_dump() if hasattr(t, 'model_dump') else t
+            result.append({
+                k: float(v) if isinstance(v, Decimal) else v
+                for k, v in item.items()
+            })
+        return result
+
     def get_position_by_id(self, position_id: int) -> Optional[Position]:
         return self.db.query(Position).filter(Position.id == position_id).first()
 
@@ -61,8 +74,8 @@ class PositionService:
             average_buy_price=position_data.average_buy_price,
             total_quantity=position_data.total_quantity,
             total_buy_amount=position_data.total_buy_amount,
-            take_profit_targets=[t.model_dump() for t in position_data.take_profit_targets] if position_data.take_profit_targets else None,
-            stop_loss_targets=[t.model_dump() for t in position_data.stop_loss_targets] if position_data.stop_loss_targets else None,
+            take_profit_targets=self._convert_targets(position_data.take_profit_targets),
+            stop_loss_targets=self._convert_targets(position_data.stop_loss_targets),
             opened_at=datetime.utcnow(),
             opened_by=position_data.opened_by
         )
@@ -93,9 +106,9 @@ class PositionService:
 
         # Update targets if provided
         if take_profit_targets:
-            position.take_profit_targets = take_profit_targets
+            position.take_profit_targets = self._convert_targets(take_profit_targets)
         if stop_loss_targets:
-            position.stop_loss_targets = stop_loss_targets
+            position.stop_loss_targets = self._convert_targets(stop_loss_targets)
 
         self.db.commit()
         self.db.refresh(position)
@@ -113,9 +126,9 @@ class PositionService:
         update_dict = update_data.model_dump(exclude_unset=True)
 
         if "take_profit_targets" in update_dict and update_dict["take_profit_targets"]:
-            update_dict["take_profit_targets"] = [t.model_dump() if hasattr(t, 'model_dump') else t for t in update_dict["take_profit_targets"]]
+            update_dict["take_profit_targets"] = self._convert_targets(update_dict["take_profit_targets"])
         if "stop_loss_targets" in update_dict and update_dict["stop_loss_targets"]:
-            update_dict["stop_loss_targets"] = [t.model_dump() if hasattr(t, 'model_dump') else t for t in update_dict["stop_loss_targets"]]
+            update_dict["stop_loss_targets"] = self._convert_targets(update_dict["stop_loss_targets"])
 
         for key, value in update_dict.items():
             setattr(position, key, value)
