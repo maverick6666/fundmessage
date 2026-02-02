@@ -34,6 +34,16 @@ export const positionService = {
     return response.data.data;
   },
 
+  // 계획 항목 완료 상태 토글 (팀장용)
+  async togglePlanItem(id, planType, index, completed) {
+    const response = await api.post(`/positions/${id}/toggle-plan`, {
+      plan_type: planType,
+      index,
+      completed
+    });
+    return response.data.data;
+  },
+
   // 팀 설정
   async getTeamSettings() {
     const response = await api.get('/positions/settings/team');

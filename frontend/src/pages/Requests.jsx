@@ -21,14 +21,10 @@ export function Requests() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDiscussModal, setShowDiscussModal] = useState(false);
 
-  const [approveData, setApproveData] = useState({
-    executed_price: '',
-    executed_quantity: '',
-  });
+  const [approveLoading, setApproveLoading] = useState(null); // 승인 중인 요청 ID
   const [rejectReason, setRejectReason] = useState('');
   const [discussTitle, setDiscussTitle] = useState('');
 
@@ -51,17 +47,18 @@ export function Requests() {
     }
   };
 
-  const handleApprove = async () => {
+  const handleApprove = async (request) => {
+    if (approveLoading) return;
+
+    setApproveLoading(request.id);
     try {
-      await requestService.approveRequest(selectedRequest.id, {
-        executed_price: parseFloat(approveData.executed_price),
-        executed_quantity: parseFloat(approveData.executed_quantity),
-      });
-      setShowApproveModal(false);
-      setApproveData({ executed_price: '', executed_quantity: '' });
+      // 모달 없이 바로 승인 (요청자의 희망가/수량 사용)
+      await requestService.approveRequest(request.id, {});
       fetchRequests();
     } catch (error) {
       alert(error.response?.data?.detail || '승인에 실패했습니다.');
+    } finally {
+      setApproveLoading(null);
     }
   };
 
@@ -85,15 +82,6 @@ export function Requests() {
     } catch (error) {
       alert(error.response?.data?.detail || '토론 시작에 실패했습니다.');
     }
-  };
-
-  const openApproveModal = (request) => {
-    setSelectedRequest(request);
-    setApproveData({
-      executed_price: request.buy_price ? String(request.buy_price) : '',
-      executed_quantity: request.order_quantity ? String(request.order_quantity) : '',
-    });
-    setShowApproveModal(true);
   };
 
   const openRejectModal = (request) => {
@@ -208,7 +196,11 @@ export function Requests() {
                   <div className="flex gap-2 lg:flex-col">
                     {(request.status === 'pending' || request.status === 'discussion') && (
                       <>
-                        <Button size="sm" onClick={() => openApproveModal(request)}>
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprove(request)}
+                          loading={approveLoading === request.id}
+                        >
                           승인
                         </Button>
                         <Button size="sm" variant="danger" onClick={() => openRejectModal(request)}>
@@ -330,46 +322,6 @@ export function Requests() {
           ))}
         </div>
       )}
-
-      {/* Approve Modal */}
-      <Modal
-        isOpen={showApproveModal}
-        onClose={() => setShowApproveModal(false)}
-        title="요청 승인"
-      >
-        <div className="space-y-4">
-          <div className="bg-gray-50 p-3 rounded">
-            <p className="font-medium">{selectedRequest?.ticker_name || selectedRequest?.target_ticker}</p>
-            <p className="text-sm text-gray-600">
-              {getRequestTypeLabel(selectedRequest?.request_type)} 요청
-            </p>
-          </div>
-
-          <Input
-            label="체결 가격"
-            type="number"
-            value={approveData.executed_price}
-            onChange={(e) => setApproveData({ ...approveData, executed_price: e.target.value })}
-            required
-          />
-          <Input
-            label="체결 수량"
-            type="number"
-            value={approveData.executed_quantity}
-            onChange={(e) => setApproveData({ ...approveData, executed_quantity: e.target.value })}
-            required
-          />
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="secondary" onClick={() => setShowApproveModal(false)}>
-              취소
-            </Button>
-            <Button onClick={handleApprove}>
-              승인
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Reject Modal */}
       <Modal

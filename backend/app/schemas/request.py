@@ -35,8 +35,9 @@ class SellRequestCreate(BaseModel):
 
 
 class RequestApprove(BaseModel):
-    executed_price: Decimal
-    executed_quantity: Decimal
+    # 팀장이 직접 입력하지 않으면 요청자의 희망 가격/수량 사용
+    executed_price: Optional[Decimal] = None
+    executed_quantity: Optional[Decimal] = None
     executed_at: Optional[datetime] = None
 
 

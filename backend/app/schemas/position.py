@@ -9,6 +9,14 @@ from app.schemas.user import UserBrief
 class PriceTarget(BaseModel):
     price: Decimal
     ratio: Decimal = Field(..., ge=0, le=1)
+    completed: bool = False  # 실행 완료 여부
+
+
+class BuyPlanItem(BaseModel):
+    price: Decimal  # 매수 희망가
+    quantity: Optional[Decimal] = None  # 매수 수량
+    ratio: Optional[Decimal] = None  # 비율 (기존 호환)
+    completed: bool = False  # 실행 완료 여부
 
 
 class ContributorInfo(BaseModel):
@@ -63,8 +71,13 @@ class PositionResponse(BaseModel):
     average_buy_price: Optional[Decimal]
     total_quantity: Optional[Decimal]
     total_buy_amount: Optional[Decimal]
+    buy_plan: Optional[List[dict]] = None  # 분할 매수 계획
     take_profit_targets: Optional[List[dict]]
     stop_loss_targets: Optional[List[dict]]
+    # 남은 계획 수 (프론트에서 표시용)
+    remaining_buys: int = 0
+    remaining_take_profits: int = 0
+    remaining_stop_losses: int = 0
     average_sell_price: Optional[Decimal]
     total_sell_amount: Optional[Decimal]
     profit_loss: Optional[Decimal]
@@ -92,6 +105,10 @@ class PositionBrief(BaseModel):
     total_buy_amount: Optional[Decimal]
     profit_loss: Optional[Decimal] = None
     profit_rate: Optional[Decimal] = None
+    # 남은 계획 수
+    remaining_buys: int = 0
+    remaining_take_profits: int = 0
+    remaining_stop_losses: int = 0
 
     class Config:
         from_attributes = True

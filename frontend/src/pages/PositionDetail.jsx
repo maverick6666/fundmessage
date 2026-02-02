@@ -121,6 +121,15 @@ export function PositionDetail() {
     }
   };
 
+  const handleTogglePlan = async (planType, index, completed) => {
+    try {
+      const updatedPosition = await positionService.togglePlanItem(id, planType, index, completed);
+      setPosition(updatedPosition);
+    } catch (error) {
+      alert(error.response?.data?.detail || '상태 변경에 실패했습니다.');
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-12 text-gray-500">로딩중...</div>;
   }
@@ -259,21 +268,70 @@ export function PositionDetail() {
           </div>
         </Card>
 
-        {/* Targets */}
+        {/* Buy Plan & Targets */}
         <Card>
           <CardHeader>
-            <CardTitle>목표가 설정</CardTitle>
+            <CardTitle>매매 계획</CardTitle>
           </CardHeader>
 
           <div className="space-y-4">
+            {/* 매수 계획 */}
+            {position.buy_plan?.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">분할 매수</p>
+                <div className="space-y-1">
+                  {position.buy_plan.map((item, i) => (
+                    <div key={i} className={`flex items-center justify-between text-sm p-2 rounded ${item.completed ? 'bg-gray-100' : 'bg-blue-50'}`}>
+                      <div className="flex items-center gap-2">
+                        {isManager() && position.status === 'open' && (
+                          <input
+                            type="checkbox"
+                            checked={item.completed}
+                            onChange={(e) => handleTogglePlan('buy', i, e.target.checked)}
+                            className="w-4 h-4 text-primary-600 rounded"
+                          />
+                        )}
+                        <span className={item.completed ? 'text-gray-500 line-through' : 'text-blue-700'}>
+                          {formatCurrency(item.price)}
+                          {item.quantity && ` x ${item.quantity}`}
+                          {item.ratio && ` (${formatPercent(item.ratio)})`}
+                        </span>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded ${item.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                        {item.completed ? '완료' : '대기'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 익절가 */}
             <div>
               <p className="text-sm font-medium text-gray-700 mb-2">익절가</p>
               {position.take_profit_targets?.length > 0 ? (
                 <div className="space-y-1">
                   {position.take_profit_targets.map((target, i) => (
-                    <div key={i} className="flex justify-between text-sm bg-red-50 p-2 rounded">
-                      <span className="text-red-700">{formatCurrency(target.price)}</span>
-                      <span className="text-red-600">{formatPercent(target.ratio)}</span>
+                    <div key={i} className={`flex items-center justify-between text-sm p-2 rounded ${target.completed ? 'bg-gray-100' : 'bg-red-50'}`}>
+                      <div className="flex items-center gap-2">
+                        {isManager() && position.status === 'open' && (
+                          <input
+                            type="checkbox"
+                            checked={target.completed}
+                            onChange={(e) => handleTogglePlan('take_profit', i, e.target.checked)}
+                            className="w-4 h-4 text-primary-600 rounded"
+                          />
+                        )}
+                        <span className={target.completed ? 'text-gray-500 line-through' : 'text-red-700'}>
+                          {formatCurrency(target.price)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={target.completed ? 'text-gray-500' : 'text-red-600'}>{formatPercent(target.ratio)}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${target.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                          {target.completed ? '완료' : '대기'}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -282,14 +340,32 @@ export function PositionDetail() {
               )}
             </div>
 
+            {/* 손절가 */}
             <div>
               <p className="text-sm font-medium text-gray-700 mb-2">손절가</p>
               {position.stop_loss_targets?.length > 0 ? (
                 <div className="space-y-1">
                   {position.stop_loss_targets.map((target, i) => (
-                    <div key={i} className="flex justify-between text-sm bg-blue-50 p-2 rounded">
-                      <span className="text-blue-700">{formatCurrency(target.price)}</span>
-                      <span className="text-blue-600">{formatPercent(target.ratio)}</span>
+                    <div key={i} className={`flex items-center justify-between text-sm p-2 rounded ${target.completed ? 'bg-gray-100' : 'bg-blue-50'}`}>
+                      <div className="flex items-center gap-2">
+                        {isManager() && position.status === 'open' && (
+                          <input
+                            type="checkbox"
+                            checked={target.completed}
+                            onChange={(e) => handleTogglePlan('stop_loss', i, e.target.checked)}
+                            className="w-4 h-4 text-primary-600 rounded"
+                          />
+                        )}
+                        <span className={target.completed ? 'text-gray-500 line-through' : 'text-blue-700'}>
+                          {formatCurrency(target.price)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={target.completed ? 'text-gray-500' : 'text-blue-600'}>{formatPercent(target.ratio)}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${target.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                          {target.completed ? '완료' : '대기'}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>

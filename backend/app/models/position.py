@@ -28,9 +28,13 @@ class Position(Base):
     total_quantity = Column(Numeric(20, 8), default=0)
     total_buy_amount = Column(Numeric(20, 2), default=0)
 
-    # Targets (JSONB)
-    take_profit_targets = Column(JSON)  # [{"price": 55000, "ratio": 0.5}, ...]
-    stop_loss_targets = Column(JSON)    # [{"price": 45000, "ratio": 1.0}]
+    # Buy plan - 분할 매수 계획 [{"price": 50000, "quantity": 10, "completed": true}, ...]
+    buy_plan = Column(JSON)
+
+    # Targets (JSONB) - completed 플래그 포함
+    # [{"price": 55000, "ratio": 0.5, "completed": false}, ...]
+    take_profit_targets = Column(JSON)
+    stop_loss_targets = Column(JSON)
 
     # Sell info
     average_sell_price = Column(Numeric(20, 4))

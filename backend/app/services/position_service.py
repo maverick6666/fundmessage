@@ -86,13 +86,57 @@ class PositionService:
 
         return position
 
+    def create_position_from_request(
+        self,
+        ticker: str,
+        ticker_name: Optional[str],
+        market: str,
+        buy_price: Decimal,
+        quantity: Decimal,
+        buy_plan: Optional[list],
+        take_profit_targets: Optional[list],
+        stop_loss_targets: Optional[list],
+        opened_by: int
+    ) -> Position:
+        """요청 승인 시 포지션 생성 (is_info_confirmed = False)"""
+        # Check if there's already an open position for this ticker
+        existing = self.get_open_position_by_ticker(ticker, market)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Open position for {ticker} already exists"
+            )
+
+        position = Position(
+            ticker=ticker,
+            ticker_name=ticker_name,
+            market=market,
+            status=PositionStatus.OPEN.value,
+            is_info_confirmed=False,  # 팀장이 아직 확인 안 함
+            average_buy_price=buy_price,
+            total_quantity=quantity,
+            total_buy_amount=buy_price * quantity,
+            buy_plan=buy_plan,
+            take_profit_targets=take_profit_targets,
+            stop_loss_targets=stop_loss_targets,
+            opened_at=datetime.utcnow(),
+            opened_by=opened_by
+        )
+
+        self.db.add(position)
+        self.db.commit()
+        self.db.refresh(position)
+
+        return position
+
     def add_to_position(
         self,
         position: Position,
         additional_quantity: Decimal,
         additional_price: Decimal,
         take_profit_targets: Optional[List[dict]] = None,
-        stop_loss_targets: Optional[List[dict]] = None
+        stop_loss_targets: Optional[List[dict]] = None,
+        buy_plan: Optional[List[dict]] = None
     ) -> Position:
         # Calculate new average price
         old_total = position.total_buy_amount or Decimal(0)
@@ -104,11 +148,21 @@ class PositionService:
         position.total_quantity = new_total_quantity
         position.total_buy_amount = new_total_amount
 
-        # Update targets if provided
+        # 추가 매수 시 정보 미확인 상태로
+        position.is_info_confirmed = False
+
+        # Merge buy plan (기존 + 새로운)
+        if buy_plan:
+            existing_plan = position.buy_plan or []
+            position.buy_plan = existing_plan + buy_plan
+
+        # Merge targets (기존 + 새로운)
         if take_profit_targets:
-            position.take_profit_targets = self._convert_targets(take_profit_targets)
+            existing_tp = position.take_profit_targets or []
+            position.take_profit_targets = existing_tp + take_profit_targets
         if stop_loss_targets:
-            position.stop_loss_targets = self._convert_targets(stop_loss_targets)
+            existing_sl = position.stop_loss_targets or []
+            position.stop_loss_targets = existing_sl + stop_loss_targets
 
         self.db.commit()
         self.db.refresh(position)
@@ -193,6 +247,40 @@ class PositionService:
         # Recalculate total buy amount
         if position.average_buy_price:
             position.total_buy_amount = position.total_quantity * position.average_buy_price
+
+        self.db.commit()
+        self.db.refresh(position)
+
+        return position
+
+    def toggle_plan_item(
+        self,
+        position_id: int,
+        plan_type: str,  # 'buy', 'take_profit', 'stop_loss'
+        index: int,
+        completed: bool
+    ) -> Position:
+        """계획 항목의 완료 상태 토글"""
+        position = self.get_position_by_id(position_id)
+        if not position:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Position not found"
+            )
+
+        if plan_type == 'buy':
+            if position.buy_plan and index < len(position.buy_plan):
+                position.buy_plan[index]['completed'] = completed
+                # SQLAlchemy JSON 변경 감지를 위해 새 리스트로
+                position.buy_plan = list(position.buy_plan)
+        elif plan_type == 'take_profit':
+            if position.take_profit_targets and index < len(position.take_profit_targets):
+                position.take_profit_targets[index]['completed'] = completed
+                position.take_profit_targets = list(position.take_profit_targets)
+        elif plan_type == 'stop_loss':
+            if position.stop_loss_targets and index < len(position.stop_loss_targets):
+                position.stop_loss_targets[index]['completed'] = completed
+                position.stop_loss_targets = list(position.stop_loss_targets)
 
         self.db.commit()
         self.db.refresh(position)

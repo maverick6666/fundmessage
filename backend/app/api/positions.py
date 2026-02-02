@@ -17,6 +17,13 @@ from app.models.team_settings import TeamSettings
 router = APIRouter()
 
 
+def _count_remaining(items: list) -> int:
+    """미완료 항목 수 계산"""
+    if not items:
+        return 0
+    return sum(1 for item in items if not item.get('completed', False))
+
+
 def position_to_response(position) -> PositionResponse:
     return PositionResponse(
         id=position.id,
@@ -28,8 +35,12 @@ def position_to_response(position) -> PositionResponse:
         average_buy_price=position.average_buy_price,
         total_quantity=position.total_quantity,
         total_buy_amount=position.total_buy_amount,
+        buy_plan=position.buy_plan,
         take_profit_targets=position.take_profit_targets,
         stop_loss_targets=position.stop_loss_targets,
+        remaining_buys=_count_remaining(position.buy_plan),
+        remaining_take_profits=_count_remaining(position.take_profit_targets),
+        remaining_stop_losses=_count_remaining(position.stop_loss_targets),
         average_sell_price=position.average_sell_price,
         total_sell_amount=position.total_sell_amount,
         profit_loss=position.profit_loss,
@@ -148,6 +159,37 @@ async def confirm_position_info(
         success=True,
         data=position_to_response(position),
         message="포지션 정보가 확인되었습니다"
+    )
+
+
+from pydantic import BaseModel
+
+class TogglePlanItem(BaseModel):
+    plan_type: str  # 'buy', 'take_profit', 'stop_loss'
+    index: int
+    completed: bool
+
+
+@router.post("/{position_id}/toggle-plan", response_model=APIResponse)
+async def toggle_plan_item(
+    position_id: int,
+    toggle_data: TogglePlanItem,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager)
+):
+    """매수/익절/손절 계획 항목 완료 상태 토글 (팀장만)"""
+    position_service = PositionService(db)
+    position = position_service.toggle_plan_item(
+        position_id,
+        toggle_data.plan_type,
+        toggle_data.index,
+        toggle_data.completed
+    )
+
+    return APIResponse(
+        success=True,
+        data=position_to_response(position),
+        message="계획 상태가 업데이트되었습니다"
     )
 
 
