@@ -6,7 +6,8 @@ from app.schemas.user import UserBrief
 
 
 class DiscussionCreate(BaseModel):
-    request_id: int
+    request_id: Optional[int] = None
+    position_id: Optional[int] = None
     title: str = Field(..., max_length=200)
 
 
@@ -32,7 +33,8 @@ class MessageResponse(BaseModel):
 
 class DiscussionResponse(BaseModel):
     id: int
-    request_id: int
+    request_id: Optional[int] = None
+    position_id: Optional[int] = None
     title: str
     status: str
     summary: Optional[str]

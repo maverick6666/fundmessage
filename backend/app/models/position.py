@@ -59,3 +59,4 @@ class Position(Base):
     closer = relationship("User", back_populates="closed_positions", foreign_keys=[closed_by])
     requests = relationship("Request", back_populates="position")
     price_alerts = relationship("PriceAlert", back_populates="position")
+    discussions = relationship("Discussion", back_populates="position")

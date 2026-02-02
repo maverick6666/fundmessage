@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { StockChart } from '../components/charts/StockChart';
 import { BuyRequestForm } from '../components/forms/BuyRequestForm';
 import { priceService } from '../services/priceService';
+import { positionService } from '../services/positionService';
 
 const MARKETS = [
   { value: 'KOSPI', label: '코스피' },
@@ -28,6 +30,7 @@ export default function StockSearch() {
   const [candles, setCandles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [existingPosition, setExistingPosition] = useState(null);
 
   const [showBuyForm, setShowBuyForm] = useState(false);
 
@@ -42,6 +45,7 @@ export default function StockSearch() {
     setError(null);
     setStockInfo(null);
     setCandles([]);
+    setExistingPosition(null);
 
     try {
       // 캔들 데이터 조회 (종목 정보 포함)
@@ -72,6 +76,16 @@ export default function StockSearch() {
           }
         } catch (e) {
           // 현재가 조회 실패해도 차트는 표시
+        }
+
+        // 열린 포지션 확인
+        try {
+          const positionsResult = await positionService.getPositions({ status: 'open', ticker: ticker.trim().toUpperCase() });
+          if (positionsResult.positions?.length > 0) {
+            setExistingPosition(positionsResult.positions[0]);
+          }
+        } catch (e) {
+          // 포지션 조회 실패해도 무시
         }
       } else {
         setError(result.message || '종목을 찾을 수 없습니다');
@@ -239,11 +253,33 @@ export default function StockSearch() {
           {showBuyForm && (
             <div className="px-4 pb-4 border-t">
               <div className="pt-4">
+                {existingPosition && (
+                  <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-yellow-800">이미 열린 포지션이 있습니다</h3>
+                        <p className="text-sm text-yellow-700 mt-1">
+                          {existingPosition.ticker_name || existingPosition.ticker} 포지션이 진행중입니다. 추가매수는 해당 포지션에서 요청해주세요.
+                        </p>
+                        <Link
+                          to={`/positions/${existingPosition.id}`}
+                          className="inline-block mt-2 text-sm font-medium text-yellow-800 hover:text-yellow-900 underline"
+                        >
+                          열린 포지션으로 이동 →
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <BuyRequestFormWithPreset
                   ticker={stockInfo.ticker}
                   tickerName={stockInfo.name}
                   market={market}
                   currentPrice={stockInfo.price}
+                  existingPosition={existingPosition}
                   onSuccess={handleBuySuccess}
                   onCancel={() => setShowBuyForm(false)}
                 />
@@ -257,16 +293,40 @@ export default function StockSearch() {
 }
 
 // 종목 정보가 미리 채워진 매수 요청 폼
-function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, onSuccess, onCancel }) {
+function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, existingPosition, onSuccess, onCancel }) {
   const [loading, setLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState([]);
   const [formData, setFormData] = useState({
-    order_quantity: '',
-    buy_price: currentPrice ? String(Math.round(currentPrice * 1000) / 1000) : '',
     buy_orders: [{ price: currentPrice ? String(Math.round(currentPrice * 1000) / 1000) : '', quantity: '' }],
     take_profit_targets: [{ price: '', quantity: '' }],
     stop_loss_targets: [{ price: '', quantity: '' }],
     memo: '',
   });
+
+  // 매수 추가
+  const addBuyOrder = () => {
+    if (formData.buy_orders.length < 4) {
+      setFormData({
+        ...formData,
+        buy_orders: [...formData.buy_orders, { price: '', quantity: '' }]
+      });
+    }
+  };
+
+  // 매수 삭제
+  const removeBuyOrder = (index) => {
+    if (formData.buy_orders.length > 1) {
+      const newOrders = formData.buy_orders.filter((_, i) => i !== index);
+      setFormData({ ...formData, buy_orders: newOrders });
+    }
+  };
+
+  // 매수 업데이트
+  const updateBuyOrder = (index, field, value) => {
+    const newOrders = [...formData.buy_orders];
+    newOrders[index] = { ...newOrders[index], [field]: value };
+    setFormData({ ...formData, buy_orders: newOrders });
+  };
 
   // 익절 타겟 추가
   const addTakeProfitTarget = () => {
@@ -284,6 +344,13 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
       const newTargets = formData.take_profit_targets.filter((_, i) => i !== index);
       setFormData({ ...formData, take_profit_targets: newTargets });
     }
+  };
+
+  // 익절 타겟 업데이트
+  const updateTakeProfitTarget = (index, field, value) => {
+    const newTargets = [...formData.take_profit_targets];
+    newTargets[index] = { ...newTargets[index], [field]: value };
+    setFormData({ ...formData, take_profit_targets: newTargets });
   };
 
   // 손절 타겟 추가
@@ -304,13 +371,6 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
     }
   };
 
-  // 익절 타겟 업데이트
-  const updateTakeProfitTarget = (index, field, value) => {
-    const newTargets = [...formData.take_profit_targets];
-    newTargets[index] = { ...newTargets[index], [field]: value };
-    setFormData({ ...formData, take_profit_targets: newTargets });
-  };
-
   // 손절 타겟 업데이트
   const updateStopLossTarget = (index, field, value) => {
     const newTargets = [...formData.stop_loss_targets];
@@ -318,41 +378,152 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
     setFormData({ ...formData, stop_loss_targets: newTargets });
   };
 
-  // 분할 매수 추가
-  const addBuyOrder = () => {
-    if (formData.buy_orders.length < 4) {
-      setFormData({
-        ...formData,
-        buy_orders: [...formData.buy_orders, { price: '', quantity: '' }]
-      });
+  // 유효한 매수 항목들 (가격과 수량이 둘 다 입력된)
+  const validBuyOrders = formData.buy_orders.filter(o => o.price && o.quantity);
+
+  // 총 매수 수량
+  const totalBuyQuantity = validBuyOrders.reduce((sum, o) => sum + parseFloat(o.quantity || 0), 0);
+
+  // 평균 매수가 (가중평균)
+  const avgBuyPrice = totalBuyQuantity > 0
+    ? validBuyOrders.reduce((sum, o) => sum + parseFloat(o.price || 0) * parseFloat(o.quantity || 0), 0) / totalBuyQuantity
+    : 0;
+
+  // 총 거래대금
+  const totalAmount = validBuyOrders.reduce((sum, o) => sum + parseFloat(o.price || 0) * parseFloat(o.quantity || 0), 0);
+
+  // 유효성 검사
+  const validateForm = () => {
+    const errors = [];
+    const MAX_PRICE = 1000000000000; // 1조
+    const MAX_QUANTITY = 1000000000; // 10억
+
+    // 매수 검증
+    const buyOrders = formData.buy_orders.filter(o => o.price || o.quantity);
+    if (buyOrders.length === 0) {
+      errors.push('최소 하나의 매수 항목을 입력해주세요.');
     }
-  };
 
-  // 분할 매수 삭제
-  const removeBuyOrder = (index) => {
-    if (formData.buy_orders.length > 1) {
-      const newOrders = formData.buy_orders.filter((_, i) => i !== index);
-      setFormData({ ...formData, buy_orders: newOrders });
+    buyOrders.forEach((order, i) => {
+      const num = i + 1;
+      if (!order.price && order.quantity) {
+        errors.push(`매수 ${num}: 매수가를 입력해주세요.`);
+      }
+      if (order.price && !order.quantity) {
+        errors.push(`매수 ${num}: 수량을 입력해주세요.`);
+      }
+      if (order.price) {
+        const price = parseFloat(order.price);
+        if (isNaN(price) || price <= 0) {
+          errors.push(`매수 ${num}: 매수가가 올바르지 않습니다.`);
+        } else if (price > MAX_PRICE) {
+          errors.push(`매수 ${num}: 매수가가 너무 큽니다 (최대 ${MAX_PRICE.toLocaleString()}).`);
+        }
+      }
+      if (order.quantity) {
+        const qty = parseFloat(order.quantity);
+        if (isNaN(qty) || qty <= 0) {
+          errors.push(`매수 ${num}: 수량이 올바르지 않습니다.`);
+        } else if (qty > MAX_QUANTITY) {
+          errors.push(`매수 ${num}: 수량이 너무 큽니다 (최대 ${MAX_QUANTITY.toLocaleString()}).`);
+        }
+      }
+    });
+
+    // 익절 검증
+    const takeProfitTargets = formData.take_profit_targets.filter(t => t.price || t.quantity);
+    takeProfitTargets.forEach((target, i) => {
+      const num = i + 1;
+      if (!target.price && target.quantity) {
+        errors.push(`익절 ${num}: 익절가를 입력해주세요.`);
+      }
+      if (target.price && !target.quantity) {
+        errors.push(`익절 ${num}: 수량을 입력해주세요.`);
+      }
+      if (target.price) {
+        const price = parseFloat(target.price);
+        if (isNaN(price) || price <= 0) {
+          errors.push(`익절 ${num}: 익절가가 올바르지 않습니다.`);
+        } else if (price > MAX_PRICE) {
+          errors.push(`익절 ${num}: 익절가가 너무 큽니다 (최대 ${MAX_PRICE.toLocaleString()}).`);
+        } else if (avgBuyPrice > 0 && price <= avgBuyPrice) {
+          errors.push(`익절 ${num}: 익절가(${price.toLocaleString()})는 평균 매수가(${avgBuyPrice.toLocaleString()})보다 높아야 합니다.`);
+        }
+      }
+      if (target.quantity) {
+        const qty = parseFloat(target.quantity);
+        if (isNaN(qty) || qty <= 0) {
+          errors.push(`익절 ${num}: 수량이 올바르지 않습니다.`);
+        } else if (qty > MAX_QUANTITY) {
+          errors.push(`익절 ${num}: 수량이 너무 큽니다 (최대 ${MAX_QUANTITY.toLocaleString()}).`);
+        }
+      }
+    });
+
+    // 손절 검증
+    const stopLossTargets = formData.stop_loss_targets.filter(t => t.price || t.quantity);
+    stopLossTargets.forEach((target, i) => {
+      const num = i + 1;
+      if (!target.price && target.quantity) {
+        errors.push(`손절 ${num}: 손절가를 입력해주세요.`);
+      }
+      if (target.price && !target.quantity) {
+        errors.push(`손절 ${num}: 수량을 입력해주세요.`);
+      }
+      if (target.price) {
+        const price = parseFloat(target.price);
+        if (isNaN(price) || price <= 0) {
+          errors.push(`손절 ${num}: 손절가가 올바르지 않습니다.`);
+        } else if (price > MAX_PRICE) {
+          errors.push(`손절 ${num}: 손절가가 너무 큽니다 (최대 ${MAX_PRICE.toLocaleString()}).`);
+        } else if (avgBuyPrice > 0 && price >= avgBuyPrice) {
+          errors.push(`손절 ${num}: 손절가(${price.toLocaleString()})는 평균 매수가(${avgBuyPrice.toLocaleString()})보다 낮아야 합니다.`);
+        }
+      }
+      if (target.quantity) {
+        const qty = parseFloat(target.quantity);
+        if (isNaN(qty) || qty <= 0) {
+          errors.push(`손절 ${num}: 수량이 올바르지 않습니다.`);
+        } else if (qty > MAX_QUANTITY) {
+          errors.push(`손절 ${num}: 수량이 너무 큽니다 (최대 ${MAX_QUANTITY.toLocaleString()}).`);
+        }
+      }
+    });
+
+    // 총 익절/손절 수량이 매수 수량을 초과하는지 확인
+    const totalTakeProfitQty = takeProfitTargets
+      .filter(t => t.price && t.quantity)
+      .reduce((sum, t) => sum + parseFloat(t.quantity || 0), 0);
+    const totalStopLossQty = stopLossTargets
+      .filter(t => t.price && t.quantity)
+      .reduce((sum, t) => sum + parseFloat(t.quantity || 0), 0);
+
+    if (totalBuyQuantity > 0) {
+      if (totalTakeProfitQty > totalBuyQuantity) {
+        errors.push(`익절 총 수량(${totalTakeProfitQty.toLocaleString()})이 매수 수량(${totalBuyQuantity.toLocaleString()})을 초과합니다.`);
+      }
+      if (totalStopLossQty > totalBuyQuantity) {
+        errors.push(`손절 총 수량(${totalStopLossQty.toLocaleString()})이 매수 수량(${totalBuyQuantity.toLocaleString()})을 초과합니다.`);
+      }
     }
-  };
 
-  // 분할 매수 업데이트
-  const updateBuyOrder = (index, field, value) => {
-    const newOrders = [...formData.buy_orders];
-    newOrders[index] = { ...newOrders[index], [field]: value };
-    setFormData({ ...formData, buy_orders: newOrders });
+    return errors;
   };
-
-  // 거래대금 계산
-  const totalAmount = formData.order_quantity && formData.buy_price
-    ? parseFloat(formData.order_quantity) * parseFloat(formData.buy_price)
-    : null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setValidationErrors([]);
 
-    if (!formData.order_quantity || !formData.buy_price) {
-      alert('수량과 매수가를 입력해주세요.');
+    // 이미 열린 포지션이 있는 경우 차단
+    if (existingPosition) {
+      setValidationErrors([`${ticker}에 이미 열린 포지션이 있습니다. 해당 포지션에서 추가매수를 요청해주세요.`]);
+      return;
+    }
+
+    // 유효성 검사
+    const errors = validateForm();
+    if (errors.length > 0) {
+      setValidationErrors(errors);
       return;
     }
 
@@ -361,16 +532,19 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
     try {
       const { requestService } = await import('../services/requestService');
 
+      // 유효한 매수 항목들
+      const validBuyOrders = formData.buy_orders
+        .filter(o => o.price && o.quantity)
+        .map(o => ({ price: parseFloat(o.price), quantity: parseFloat(o.quantity) }));
+
       const data = {
         target_ticker: ticker,
         ticker_name: tickerName,
         target_market: market,
         order_type: 'quantity',
-        order_quantity: parseFloat(formData.order_quantity),
-        buy_price: parseFloat(formData.buy_price),
-        buy_orders: formData.buy_orders
-          .filter(o => o.price && o.quantity)
-          .map(o => ({ price: parseFloat(o.price), quantity: parseFloat(o.quantity) })),
+        order_quantity: totalBuyQuantity,
+        buy_price: avgBuyPrice,
+        buy_orders: validBuyOrders.length > 0 ? validBuyOrders : null,
         take_profit_targets: formData.take_profit_targets
           .filter(t => t.price && t.quantity)
           .map(t => ({ price: parseFloat(t.price), quantity: parseFloat(t.quantity) })),
@@ -380,14 +554,13 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
         memo: formData.memo || null,
       };
 
-      if (data.buy_orders.length === 0) data.buy_orders = null;
       if (data.take_profit_targets.length === 0) data.take_profit_targets = null;
       if (data.stop_loss_targets.length === 0) data.stop_loss_targets = null;
 
       await requestService.createBuyRequest(data);
       onSuccess?.();
     } catch (error) {
-      alert(error.response?.data?.detail || '요청 생성에 실패했습니다.');
+      setValidationErrors([error.response?.data?.detail || '요청 생성에 실패했습니다.']);
     } finally {
       setLoading(false);
     }
@@ -396,6 +569,12 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
   const formatNumber = (num) => {
     if (num === null || num === undefined) return '-';
     return num.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+  };
+
+  const getCurrencyUnit = () => {
+    if (market === 'NASDAQ' || market === 'NYSE') return ' USD';
+    if (market === 'CRYPTO') return ' USDT';
+    return '원';
   };
 
   return (
@@ -407,53 +586,36 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
         </p>
       </div>
 
-      {/* 수량과 매수가 */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">매수 수량</label>
-          <input
-            type="number"
-            step="any"
-            placeholder={market === 'CRYPTO' ? '0.5' : '10'}
-            value={formData.order_quantity}
-            onChange={(e) => setFormData({ ...formData, order_quantity: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">매수가</label>
-          <input
-            type="number"
-            step="any"
-            placeholder="희망 매수가"
-            value={formData.buy_price}
-            onChange={(e) => setFormData({ ...formData, buy_price: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            required
-          />
-        </div>
-      </div>
-
-      {/* 거래대금 */}
-      {totalAmount !== null && (
-        <div className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
-          <span className="text-sm text-gray-600">예상 거래대금</span>
-          <span className="text-lg font-bold text-gray-900">{formatNumber(totalAmount)}{market === 'NASDAQ' || market === 'NYSE' ? ' USD' : market === 'CRYPTO' ? ' USDT' : '원'}</span>
+      {/* 유효성 검사 에러 표시 */}
+      {validationErrors.length > 0 && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <div className="flex-1">
+              <h3 className="font-medium text-red-800 text-sm">입력 오류</h3>
+              <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
+                {validationErrors.map((error, i) => (
+                  <li key={i}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* 분할 매수 */}
+      {/* 매수 */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">분할 매수</label>
+          <label className="text-sm font-medium text-gray-700">매수</label>
           {formData.buy_orders.length < 4 && (
             <button
               type="button"
               onClick={addBuyOrder}
               className="text-xs text-primary-600 hover:text-primary-700"
             >
-              + 분할 추가
+              + 추가
             </button>
           )}
         </div>
@@ -475,7 +637,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
                 placeholder="수량"
                 value={order.quantity}
                 onChange={(e) => updateBuyOrder(index, 'quantity', e.target.value)}
-                className="w-24 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                className="w-28 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
               />
               {formData.buy_orders.length > 1 && (
                 <button
@@ -493,17 +655,35 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
         </div>
       </div>
 
-      {/* 분할 익절 */}
+      {/* 거래대금 요약 */}
+      {totalAmount > 0 && (
+        <div className="p-3 bg-gray-50 rounded-lg">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">총 수량</span>
+            <span className="font-medium text-gray-900">{formatNumber(totalBuyQuantity)}</span>
+          </div>
+          <div className="flex justify-between items-center text-sm mt-1">
+            <span className="text-gray-600">평균 매수가</span>
+            <span className="font-medium text-gray-900">{formatNumber(avgBuyPrice)}{getCurrencyUnit()}</span>
+          </div>
+          <div className="flex justify-between items-center mt-2 pt-2 border-t">
+            <span className="text-sm text-gray-600">예상 거래대금</span>
+            <span className="text-lg font-bold text-gray-900">{formatNumber(totalAmount)}{getCurrencyUnit()}</span>
+          </div>
+        </div>
+      )}
+
+      {/* 익절 */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">분할 익절</label>
+          <label className="text-sm font-medium text-gray-700">익절</label>
           {formData.take_profit_targets.length < 4 && (
             <button
               type="button"
               onClick={addTakeProfitTarget}
               className="text-xs text-primary-600 hover:text-primary-700"
             >
-              + 익절 추가
+              + 추가
             </button>
           )}
         </div>
@@ -525,7 +705,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
                 placeholder="수량"
                 value={target.quantity}
                 onChange={(e) => updateTakeProfitTarget(index, 'quantity', e.target.value)}
-                className="w-24 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                className="w-28 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
               />
               {formData.take_profit_targets.length > 1 && (
                 <button
@@ -543,17 +723,17 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
         </div>
       </div>
 
-      {/* 분할 손절 */}
+      {/* 손절 */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">분할 손절</label>
+          <label className="text-sm font-medium text-gray-700">손절</label>
           {formData.stop_loss_targets.length < 4 && (
             <button
               type="button"
               onClick={addStopLossTarget}
               className="text-xs text-primary-600 hover:text-primary-700"
             >
-              + 손절 추가
+              + 추가
             </button>
           )}
         </div>
@@ -575,7 +755,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
                 placeholder="수량"
                 value={target.quantity}
                 onChange={(e) => updateStopLossTarget(index, 'quantity', e.target.value)}
-                className="w-24 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                className="w-28 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
               />
               {formData.stop_loss_targets.length > 1 && (
                 <button

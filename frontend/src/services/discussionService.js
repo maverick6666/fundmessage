@@ -1,8 +1,22 @@
 import api from './api';
 
 export const discussionService = {
+  async createDiscussion({ requestId, positionId, title }) {
+    const response = await api.post('/discussions', {
+      request_id: requestId || null,
+      position_id: positionId || null,
+      title
+    });
+    return response.data.data;
+  },
+
   async getDiscussion(id) {
     const response = await api.get(`/discussions/${id}`);
+    return response.data.data;
+  },
+
+  async getPositionDiscussions(positionId) {
+    const response = await api.get(`/discussions/position/${positionId}`);
     return response.data.data;
   },
 

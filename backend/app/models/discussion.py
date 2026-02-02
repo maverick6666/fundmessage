@@ -15,7 +15,8 @@ class Discussion(Base):
     __tablename__ = "discussions"
 
     id = Column(Integer, primary_key=True, index=True)
-    request_id = Column(Integer, ForeignKey("requests.id", ondelete="CASCADE"), nullable=False)
+    request_id = Column(Integer, ForeignKey("requests.id", ondelete="CASCADE"), nullable=True)
+    position_id = Column(Integer, ForeignKey("positions.id", ondelete="CASCADE"), nullable=True)
 
     title = Column(String(200), nullable=False)
     status = Column(String(20), nullable=False, default=DiscussionStatus.OPEN.value, index=True)
@@ -35,6 +36,7 @@ class Discussion(Base):
 
     # Relationships
     request = relationship("Request", back_populates="discussions")
+    position = relationship("Position", back_populates="discussions")
     opener = relationship("User", back_populates="opened_discussions", foreign_keys=[opened_by])
     closer = relationship("User", back_populates="closed_discussions", foreign_keys=[closed_by])
     messages = relationship("Message", back_populates="discussion", order_by="Message.created_at")

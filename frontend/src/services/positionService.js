@@ -55,6 +55,19 @@ export const positionService = {
     return response.data.data;
   },
 
+  // 환전
+  async exchangeCurrency({ fromCurrency, toCurrency, fromAmount, toAmount, exchangeRate, memo }) {
+    const response = await api.post('/positions/settings/team/exchange', {
+      from_currency: fromCurrency,
+      to_currency: toCurrency,
+      from_amount: fromAmount,
+      to_amount: toAmount,
+      exchange_rate: exchangeRate,
+      memo
+    });
+    return response.data;
+  },
+
   // 수정 이력 조회
   async getAuditLogs(id) {
     const response = await api.get(`/positions/${id}/audit-logs`);

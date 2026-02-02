@@ -9,6 +9,44 @@ export function formatNumber(value, decimals = 0) {
   }).format(value);
 }
 
+// 수량 포맷 - 뒷자리 0 제거
+export function formatQuantity(value) {
+  if (value == null) return '-';
+  const num = parseFloat(value);
+  if (Number.isInteger(num)) {
+    return num.toLocaleString('ko-KR');
+  }
+  // 소수점 뒷자리 0 제거
+  return parseFloat(num.toFixed(8)).toLocaleString('ko-KR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 8,
+  });
+}
+
+// 가격 포맷 - 뒷자리 0 제거
+export function formatPrice(value, market = 'KRX') {
+  if (value == null) return '-';
+  const num = parseFloat(value);
+
+  const isUS = market === 'NASDAQ' || market === 'NYSE' || market === 'USD';
+  const isCrypto = market === 'CRYPTO' || market === 'USDT';
+
+  if (isUS) {
+    // 달러 - 최대 소수점 3자리, 뒷자리 0 제거
+    const formatted = parseFloat(num.toFixed(3));
+    return '$' + formatted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+  }
+
+  if (isCrypto) {
+    // USDT - 최대 소수점 4자리, 뒷자리 0 제거
+    const formatted = parseFloat(num.toFixed(4));
+    return formatted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + ' USDT';
+  }
+
+  // 원화 - 소수점 없음
+  return '₩' + Math.round(num).toLocaleString('ko-KR');
+}
+
 export function formatCurrency(value, market = 'KRX') {
   if (value == null) return '-';
 

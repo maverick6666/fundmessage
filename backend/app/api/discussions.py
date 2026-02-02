@@ -1,10 +1,11 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.discussion import (
-    DiscussionResponse, DiscussionClose,
+    DiscussionResponse, DiscussionClose, DiscussionCreate,
     MessageCreate, MessageResponse, DiscussionMessagesResponse
 )
 from app.schemas.user import UserBrief
@@ -20,6 +21,7 @@ def discussion_to_response(discussion, message_count: int = 0) -> DiscussionResp
     return DiscussionResponse(
         id=discussion.id,
         request_id=discussion.request_id,
+        position_id=discussion.position_id,
         title=discussion.title,
         status=discussion.status,
         summary=discussion.summary,
@@ -39,6 +41,45 @@ def message_to_response(message) -> MessageResponse:
         content=message.content,
         message_type=message.message_type,
         created_at=message.created_at
+    )
+
+
+@router.post("", response_model=APIResponse, status_code=201)
+async def create_discussion(
+    discussion_data: DiscussionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager_or_admin)
+):
+    """Create a new discussion (manager/admin only)"""
+    discussion_service = DiscussionService(db)
+    discussion = discussion_service.create_discussion(discussion_data, current_user.id)
+    message_count = discussion_service.get_message_count(discussion.id)
+
+    return APIResponse(
+        success=True,
+        data=discussion_to_response(discussion, message_count),
+        message="Discussion created successfully"
+    )
+
+
+@router.get("/position/{position_id}", response_model=APIResponse)
+async def get_position_discussions(
+    position_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get discussions for a position"""
+    discussion_service = DiscussionService(db)
+    discussions = discussion_service.get_discussions_by_position_id(position_id)
+
+    return APIResponse(
+        success=True,
+        data=[
+            {
+                **discussion_to_response(d, discussion_service.get_message_count(d.id)).model_dump(),
+            }
+            for d in discussions
+        ]
     )
 
 

@@ -158,10 +158,10 @@ export function MyRequests() {
                   <div className="mt-3 pt-3 border-t space-y-2 text-sm">
                     {request.request_type === 'buy' && (
                       <>
-                        {/* 분할 매수 계획 */}
+                        {/* 매수 계획 */}
                         {request.buy_orders?.length > 0 && (
                           <div>
-                            <span className="text-gray-500">분할 매수: </span>
+                            <span className="text-gray-500">매수 계획: </span>
                             {request.buy_orders.map((o, i) => (
                               <span key={i} className="mr-2">
                                 {formatCurrency(o.price, request.target_market)} ({formatPercent(o.ratio)})

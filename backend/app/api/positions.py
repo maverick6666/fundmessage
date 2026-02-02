@@ -1,6 +1,7 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.schemas.position import (
@@ -55,6 +56,136 @@ def position_to_response(position) -> PositionResponse:
     )
 
 
+# ============================================
+# 팀 설정 엔드포인트 (정적 라우트 먼저!)
+# ============================================
+
+@router.get("/settings/team", response_model=APIResponse)
+async def get_team_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """팀 설정 조회"""
+    settings = db.query(TeamSettings).first()
+    if not settings:
+        settings = TeamSettings(initial_capital_krw=0, initial_capital_usd=0)
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+
+    return APIResponse(
+        success=True,
+        data=TeamSettingsResponse.model_validate(settings)
+    )
+
+
+@router.put("/settings/team", response_model=APIResponse)
+async def update_team_settings(
+    settings_data: TeamSettingsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager)
+):
+    """팀 설정 수정 (팀장만)"""
+    settings = db.query(TeamSettings).first()
+    if not settings:
+        settings = TeamSettings(
+            initial_capital_krw=settings_data.initial_capital_krw or 0,
+            initial_capital_usd=settings_data.initial_capital_usd or 0,
+            description=settings_data.description
+        )
+        db.add(settings)
+    else:
+        if settings_data.initial_capital_krw is not None:
+            settings.initial_capital_krw = settings_data.initial_capital_krw
+        if settings_data.initial_capital_usd is not None:
+            settings.initial_capital_usd = settings_data.initial_capital_usd
+        if settings_data.description is not None:
+            settings.description = settings_data.description
+
+    db.commit()
+    db.refresh(settings)
+
+    return APIResponse(
+        success=True,
+        data=TeamSettingsResponse.model_validate(settings),
+        message="팀 설정이 저장되었습니다"
+    )
+
+
+class CurrencyExchange(BaseModel):
+    from_currency: str  # 'KRW' or 'USD'
+    to_currency: str    # 'KRW' or 'USD'
+    from_amount: float
+    to_amount: float
+    exchange_rate: Optional[float] = None
+    memo: Optional[str] = None
+
+
+@router.post("/settings/team/exchange", response_model=APIResponse)
+async def exchange_currency(
+    exchange_data: CurrencyExchange,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager)
+):
+    """환전 (팀장만) - 원화 <-> 달러"""
+    settings = db.query(TeamSettings).first()
+    if not settings:
+        from fastapi import HTTPException, status
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="팀 설정이 없습니다")
+
+    # 환전 처리
+    if exchange_data.from_currency == 'KRW' and exchange_data.to_currency == 'USD':
+        if settings.initial_capital_krw < exchange_data.from_amount:
+            from fastapi import HTTPException, status
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="원화 잔액이 부족합니다")
+        settings.initial_capital_krw -= exchange_data.from_amount
+        settings.initial_capital_usd = (settings.initial_capital_usd or 0) + exchange_data.to_amount
+    elif exchange_data.from_currency == 'USD' and exchange_data.to_currency == 'KRW':
+        if (settings.initial_capital_usd or 0) < exchange_data.from_amount:
+            from fastapi import HTTPException, status
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="달러 잔액이 부족합니다")
+        settings.initial_capital_usd -= exchange_data.from_amount
+        settings.initial_capital_krw = (settings.initial_capital_krw or 0) + exchange_data.to_amount
+    else:
+        from fastapi import HTTPException, status
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="잘못된 통화입니다")
+
+    # 환전 이력 저장
+    exchange_log = {
+        'from_currency': exchange_data.from_currency,
+        'to_currency': exchange_data.to_currency,
+        'from_amount': exchange_data.from_amount,
+        'to_amount': exchange_data.to_amount,
+        'exchange_rate': exchange_data.exchange_rate,
+        'memo': exchange_data.memo
+    }
+    if settings.exchange_history is None:
+        settings.exchange_history = []
+    from datetime import datetime
+    settings.exchange_history.append({
+        **exchange_log,
+        'user_id': current_user.id,
+        'user_name': current_user.full_name,
+        'timestamp': datetime.utcnow().isoformat()
+    })
+
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(settings, 'exchange_history')
+
+    db.commit()
+    db.refresh(settings)
+
+    return APIResponse(
+        success=True,
+        data=TeamSettingsResponse.model_validate(settings),
+        message=f"{exchange_data.from_amount:,.0f} {exchange_data.from_currency} → {exchange_data.to_amount:,.2f} {exchange_data.to_currency} 환전 완료"
+    )
+
+
+# ============================================
+# 포지션 목록 엔드포인트
+# ============================================
+
 @router.get("", response_model=APIResponse)
 async def get_positions(
     status: Optional[str] = None,
@@ -84,6 +215,22 @@ async def get_positions(
             limit=limit
         )
     )
+
+
+# ============================================
+# 개별 포지션 엔드포인트 (동적 라우트)
+# ============================================
+
+class TogglePlanItem(BaseModel):
+    plan_type: str  # 'buy', 'take_profit', 'stop_loss'
+    index: int
+    completed: bool
+
+
+class UpdatePlans(BaseModel):
+    buy_plan: Optional[list] = None
+    take_profit_targets: Optional[list] = None
+    stop_loss_targets: Optional[list] = None
 
 
 @router.get("/{position_id}", response_model=APIResponse)
@@ -161,20 +308,6 @@ async def confirm_position_info(
         data=position_to_response(position),
         message="포지션 정보가 확인되었습니다"
     )
-
-
-from pydantic import BaseModel
-
-class TogglePlanItem(BaseModel):
-    plan_type: str  # 'buy', 'take_profit', 'stop_loss'
-    index: int
-    completed: bool
-
-
-class UpdatePlans(BaseModel):
-    buy_plan: Optional[list] = None
-    take_profit_targets: Optional[list] = None
-    stop_loss_targets: Optional[list] = None
 
 
 @router.post("/{position_id}/toggle-plan", response_model=APIResponse)
@@ -256,54 +389,4 @@ async def get_position_audit_logs(
                 for log in logs
             ]
         }
-    )
-
-
-# 팀 설정 엔드포인트
-@router.get("/settings/team", response_model=APIResponse)
-async def get_team_settings(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """팀 설정 조회"""
-    settings = db.query(TeamSettings).first()
-    if not settings:
-        # 설정이 없으면 기본값으로 생성
-        settings = TeamSettings(initial_capital=0)
-        db.add(settings)
-        db.commit()
-        db.refresh(settings)
-
-    return APIResponse(
-        success=True,
-        data=TeamSettingsResponse.model_validate(settings)
-    )
-
-
-@router.put("/settings/team", response_model=APIResponse)
-async def update_team_settings(
-    settings_data: TeamSettingsUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_manager)
-):
-    """팀 설정 수정 (팀장만)"""
-    settings = db.query(TeamSettings).first()
-    if not settings:
-        settings = TeamSettings(
-            initial_capital=settings_data.initial_capital,
-            description=settings_data.description
-        )
-        db.add(settings)
-    else:
-        settings.initial_capital = settings_data.initial_capital
-        if settings_data.description is not None:
-            settings.description = settings_data.description
-
-    db.commit()
-    db.refresh(settings)
-
-    return APIResponse(
-        success=True,
-        data=TeamSettingsResponse.model_validate(settings),
-        message="팀 설정이 저장되었습니다"
     )

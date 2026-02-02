@@ -124,13 +124,16 @@ class PositionListResponse(BaseModel):
 
 # 팀 설정 스키마
 class TeamSettingsUpdate(BaseModel):
-    initial_capital: Decimal
+    initial_capital_krw: Optional[Decimal] = None  # 원화
+    initial_capital_usd: Optional[Decimal] = None  # 달러
     description: Optional[str] = None
 
 
 class TeamSettingsResponse(BaseModel):
     id: int
-    initial_capital: Decimal
+    initial_capital_krw: Optional[Decimal] = 0  # 원화
+    initial_capital_usd: Optional[Decimal] = 0  # 달러
+    exchange_history: Optional[List[dict]] = None  # 환전 이력
     description: Optional[str]
     updated_at: datetime
 

@@ -279,7 +279,7 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
           onClick={() => setFormData({ ...formData, take_profit_targets: [...formData.take_profit_targets, { price: '', ratio: '' }] })}
           className="text-sm text-primary-600 hover:text-primary-700"
         >
-          + 분할 익절 추가
+          + 익절 추가
         </button>
       </div>
 

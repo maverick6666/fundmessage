@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from app.models.discussion import Discussion, DiscussionStatus
 from app.models.message import Message, MessageType
 from app.models.request import Request, RequestStatus
+from app.models.position import Position
 from app.schemas.discussion import DiscussionCreate, DiscussionClose, MessageCreate
 
 
@@ -19,20 +20,46 @@ class DiscussionService:
     def get_discussion_by_request_id(self, request_id: int) -> Optional[Discussion]:
         return self.db.query(Discussion).filter(Discussion.request_id == request_id).first()
 
+    def get_discussion_by_position_id(self, position_id: int) -> Optional[Discussion]:
+        return self.db.query(Discussion).filter(Discussion.position_id == position_id).first()
+
+    def get_discussions_by_position_id(self, position_id: int) -> List[Discussion]:
+        return self.db.query(Discussion).filter(Discussion.position_id == position_id).order_by(Discussion.opened_at.desc()).all()
+
     def create_discussion(self, discussion_data: DiscussionCreate, opened_by: int) -> Discussion:
-        # Check if request exists and is in pending status
-        request = self.db.query(Request).filter(Request.id == discussion_data.request_id).first()
-        if not request:
+        # Either request_id or position_id must be provided
+        if not discussion_data.request_id and not discussion_data.position_id:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Request not found"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Either request_id or position_id must be provided"
             )
 
-        # Update request status to discussion
-        request.status = RequestStatus.DISCUSSION.value
+        request = None
+        position = None
+
+        if discussion_data.request_id:
+            # Check if request exists
+            request = self.db.query(Request).filter(Request.id == discussion_data.request_id).first()
+            if not request:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Request not found"
+                )
+            # Update request status to discussion
+            request.status = RequestStatus.DISCUSSION.value
+
+        if discussion_data.position_id:
+            # Check if position exists
+            position = self.db.query(Position).filter(Position.id == discussion_data.position_id).first()
+            if not position:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Position not found"
+                )
 
         discussion = Discussion(
             request_id=discussion_data.request_id,
+            position_id=discussion_data.position_id,
             title=discussion_data.title,
             status=DiscussionStatus.OPEN.value,
             opened_by=opened_by,
