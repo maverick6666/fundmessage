@@ -31,16 +31,32 @@ export function Discussion() {
     // Join discussion room
     joinDiscussion(parseInt(id));
 
-    // Subscribe to new messages
-    const unsubscribe = subscribe('message_received', (data) => {
+    // Subscribe to new messages from others
+    const unsubscribeReceived = subscribe('message_received', (data) => {
       if (data.discussion_id === parseInt(id)) {
-        setMessages(prev => [...prev, data]);
+        setMessages(prev => {
+          // Avoid duplicates
+          if (prev.some(m => m.id === data.id)) return prev;
+          return [...prev, data];
+        });
+      }
+    });
+
+    // Subscribe to confirmation of own sent messages
+    const unsubscribeSent = subscribe('message_sent', (data) => {
+      if (data.discussion_id === parseInt(id)) {
+        setMessages(prev => {
+          // Avoid duplicates
+          if (prev.some(m => m.id === data.id)) return prev;
+          return [...prev, data];
+        });
       }
     });
 
     return () => {
       leaveDiscussion(parseInt(id));
-      unsubscribe();
+      unsubscribeReceived();
+      unsubscribeSent();
     };
   }, [id]);
 

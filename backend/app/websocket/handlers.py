@@ -60,6 +60,7 @@ async def handle_websocket_message(
                 user_id
             )
 
+            # Broadcast to others (exclude sender)
             await manager.broadcast_to_discussion(
                 discussion_id,
                 {
@@ -75,7 +76,27 @@ async def handle_websocket_message(
                         "content": message.content,
                         "created_at": message.created_at.isoformat() if message.created_at else None
                     }
-                }
+                },
+                exclude_user=user_id
+            )
+
+            # Send confirmation to sender with message ID
+            await manager.send_personal_message(
+                {
+                    "type": "message_sent",
+                    "data": {
+                        "id": message.id,
+                        "discussion_id": message.discussion_id,
+                        "user": {
+                            "id": message.user.id,
+                            "username": message.user.username,
+                            "full_name": message.user.full_name
+                        },
+                        "content": message.content,
+                        "created_at": message.created_at.isoformat() if message.created_at else None
+                    }
+                },
+                user_id
             )
 
     elif message_type == "subscribe_price":
