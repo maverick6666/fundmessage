@@ -227,7 +227,10 @@ class PositionService:
 
         # 보유 기간 계산
         if position.opened_at:
-            delta = position.closed_at - position.opened_at
+            # timezone-aware/naive datetime 호환 처리
+            opened = position.opened_at.replace(tzinfo=None) if position.opened_at.tzinfo else position.opened_at
+            closed = position.closed_at.replace(tzinfo=None) if position.closed_at.tzinfo else position.closed_at
+            delta = closed - opened
             position.holding_period_hours = int(delta.total_seconds() / 3600)
 
         self.db.commit()

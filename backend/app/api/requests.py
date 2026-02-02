@@ -26,13 +26,30 @@ def request_to_response(request) -> RequestResponse:
 
     position = None
     if request.position:
+        # 남은 계획 수 계산
+        remaining_buys = 0
+        remaining_tps = 0
+        remaining_sls = 0
+        if request.position.buy_plan:
+            remaining_buys = sum(1 for b in request.position.buy_plan if not b.get('completed', False))
+        if request.position.take_profit_targets:
+            remaining_tps = sum(1 for t in request.position.take_profit_targets if not t.get('completed', False))
+        if request.position.stop_loss_targets:
+            remaining_sls = sum(1 for s in request.position.stop_loss_targets if not s.get('completed', False))
+
         position = PositionBrief(
             id=request.position.id,
             ticker=request.position.ticker,
             ticker_name=request.position.ticker_name,
+            market=request.position.market,
             status=request.position.status,
+            is_info_confirmed=request.position.is_info_confirmed,
             average_buy_price=request.position.average_buy_price,
-            total_quantity=request.position.total_quantity
+            total_quantity=request.position.total_quantity,
+            total_buy_amount=request.position.total_buy_amount,
+            remaining_buys=remaining_buys,
+            remaining_take_profits=remaining_tps,
+            remaining_stop_losses=remaining_sls
         )
 
     # 토론중인 경우 가장 최근 discussion의 id를 가져옴
