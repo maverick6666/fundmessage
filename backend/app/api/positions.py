@@ -339,9 +339,9 @@ async def update_plans(
     position_id: int,
     plans_data: UpdatePlans,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_manager)
+    current_user: User = Depends(get_current_user)
 ):
-    """매매 계획 수정 (분할매수, 익절, 손절) - 팀장만"""
+    """매매 계획 수정 (분할매수, 익절, 손절) - 모든 팀원"""
     position_service = PositionService(db)
     position = position_service.update_plans(
         position_id,

@@ -54,6 +54,10 @@ export function PositionDetail() {
   const [editingInfo, setEditingInfo] = useState(false);
   const [infoData, setInfoData] = useState({ average_buy_price: '', total_quantity: '', ticker_name: '' });
 
+  // 계획 항목 편집 상태
+  const [editingPlanItem, setEditingPlanItem] = useState(null); // { planType, index }
+  const [editPlanData, setEditPlanData] = useState({ price: '', quantity: '' });
+
   useEffect(() => {
     fetchPosition();
     fetchDiscussions();
@@ -135,7 +139,7 @@ export function PositionDetail() {
     }
   };
 
-  // 체크박스 토글
+  // 체크박스 토글 (팀장만)
   const handleTogglePlan = async (planType, index, completed) => {
     try {
       const updatedPosition = await positionService.togglePlanItem(id, planType, index, completed);
@@ -146,7 +150,7 @@ export function PositionDetail() {
     }
   };
 
-  // 계획 항목 추가
+  // 계획 항목 추가 (모든 팀원)
   const handleAddPlanItem = async (planType) => {
     const newItem = { price: '', quantity: '', completed: false };
     const currentPlans = {
@@ -165,12 +169,16 @@ export function PositionDetail() {
         stopLossTargets: updatedPlans.stop_loss_targets
       });
       setPosition(updatedPosition);
+      // 새로 추가된 항목 편집 모드로 전환
+      const newIndex = updatedPlans[key].length - 1;
+      setEditingPlanItem({ planType, index: newIndex });
+      setEditPlanData({ price: '', quantity: '' });
     } catch (error) {
       alert(error.response?.data?.detail || '추가에 실패했습니다.');
     }
   };
 
-  // 계획 항목 삭제
+  // 계획 항목 삭제 (모든 팀원)
   const handleRemovePlanItem = async (planType, index) => {
     const currentPlans = {
       buy_plan: position.buy_plan || [],
@@ -188,14 +196,25 @@ export function PositionDetail() {
         stopLossTargets: updatedPlans.stop_loss_targets.length > 0 ? updatedPlans.stop_loss_targets : null
       });
       setPosition(updatedPosition);
+      setEditingPlanItem(null);
       if (showAuditLogs) fetchAuditLogs();
     } catch (error) {
       alert(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
-  // 계획 항목 수정
-  const handleUpdatePlanItem = async (planType, index, field, value) => {
+  // 계획 항목 수정 저장 (모든 팀원)
+  const handleSavePlanItem = async () => {
+    if (!editingPlanItem) return;
+
+    const { planType, index } = editingPlanItem;
+
+    // 빈 값 체크
+    if (!editPlanData.price || !editPlanData.quantity) {
+      alert('가격과 수량을 모두 입력해주세요.');
+      return;
+    }
+
     const currentPlans = {
       buy_plan: [...(position.buy_plan || [])],
       take_profit_targets: [...(position.take_profit_targets || [])],
@@ -203,7 +222,11 @@ export function PositionDetail() {
     };
 
     const key = planType === 'buy' ? 'buy_plan' : planType === 'take_profit' ? 'take_profit_targets' : 'stop_loss_targets';
-    currentPlans[key][index] = { ...currentPlans[key][index], [field]: value };
+    currentPlans[key][index] = {
+      ...currentPlans[key][index],
+      price: parseFloat(editPlanData.price),
+      quantity: parseFloat(editPlanData.quantity)
+    };
 
     try {
       const updatedPosition = await positionService.updatePlans(id, {
@@ -212,9 +235,26 @@ export function PositionDetail() {
         stopLossTargets: currentPlans.stop_loss_targets
       });
       setPosition(updatedPosition);
+      setEditingPlanItem(null);
+      if (showAuditLogs) fetchAuditLogs();
     } catch (error) {
       alert(error.response?.data?.detail || '수정에 실패했습니다.');
     }
+  };
+
+  // 계획 항목 편집 시작
+  const startEditPlanItem = (planType, index, item) => {
+    setEditingPlanItem({ planType, index });
+    setEditPlanData({
+      price: item.price || '',
+      quantity: item.quantity || ''
+    });
+  };
+
+  // 계획 항목 편집 취소
+  const cancelEditPlanItem = () => {
+    setEditingPlanItem(null);
+    setEditPlanData({ price: '', quantity: '' });
   };
 
   const fetchAuditLogs = async () => {
@@ -283,8 +323,8 @@ export function PositionDetail() {
   const quantityWarning = useMemo(() => {
     if (!position || position.status === 'closed') return null;
     const totalQty = parseFloat(position.total_quantity) || 0;
-    const tpQty = (position.take_profit_targets || []).filter(t => !t.completed).reduce((sum, t) => sum + (parseFloat(t.quantity) || 0), 0);
-    const slQty = (position.stop_loss_targets || []).filter(t => !t.completed).reduce((sum, t) => sum + (parseFloat(t.quantity) || 0), 0);
+    const tpQty = (position.take_profit_targets || []).filter(t => !t.completed && t.price && t.quantity).reduce((sum, t) => sum + (parseFloat(t.quantity) || 0), 0);
+    const slQty = (position.stop_loss_targets || []).filter(t => !t.completed && t.price && t.quantity).reduce((sum, t) => sum + (parseFloat(t.quantity) || 0), 0);
     const warnings = [];
     if (tpQty > totalQty) warnings.push(`익절 계획 수량(${tpQty})이 보유 수량(${totalQty})보다 많습니다`);
     if (slQty > totalQty) warnings.push(`손절 계획 수량(${slQty})이 보유 수량(${totalQty})보다 많습니다`);
@@ -293,11 +333,16 @@ export function PositionDetail() {
 
   const hasUncompletedPlans = useMemo(() => {
     if (!position) return false;
-    const uncompletedTp = (position.take_profit_targets || []).filter(t => !t.completed).length;
-    const uncompletedSl = (position.stop_loss_targets || []).filter(t => !t.completed).length;
-    const uncompletedBuy = (position.buy_plan || []).filter(b => !b.completed).length;
+    const uncompletedTp = (position.take_profit_targets || []).filter(t => !t.completed && t.price && t.quantity).length;
+    const uncompletedSl = (position.stop_loss_targets || []).filter(t => !t.completed && t.price && t.quantity).length;
+    const uncompletedBuy = (position.buy_plan || []).filter(b => !b.completed && b.price && b.quantity).length;
     return uncompletedTp > 0 || uncompletedSl > 0 || uncompletedBuy > 0;
   }, [position]);
+
+  // 열린 토론방이 있는지 확인
+  const hasOpenDiscussion = useMemo(() => {
+    return discussions.some(d => d.status === 'open');
+  }, [discussions]);
 
   const handleClose = async () => {
     if (!closeData.total_sell_amount) {
@@ -362,10 +407,80 @@ export function PositionDetail() {
   // 계획 항목 렌더링 헬퍼
   const renderPlanItem = (item, index, planType, colorClass, isClosed) => {
     const isCancelled = isClosed && !item.completed;
+    const isEditing = editingPlanItem?.planType === planType && editingPlanItem?.index === index;
+    const hasValidValues = item.price && item.quantity;
+
+    // 편집 모드
+    if (isEditing && !isClosed) {
+      return (
+        <div key={index} className={`flex items-center gap-2 text-sm p-2 rounded ${colorClass}`}>
+          <input
+            type="number"
+            step="any"
+            placeholder="가격"
+            value={editPlanData.price}
+            onChange={(e) => setEditPlanData({ ...editPlanData, price: e.target.value })}
+            className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+            autoFocus
+          />
+          <span>×</span>
+          <input
+            type="number"
+            step="any"
+            placeholder="수량"
+            value={editPlanData.quantity}
+            onChange={(e) => setEditPlanData({ ...editPlanData, quantity: e.target.value })}
+            className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+          />
+          <button
+            onClick={handleSavePlanItem}
+            className="p-1 text-green-600 hover:text-green-700"
+            title="저장"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+          <button
+            onClick={cancelEditPlanItem}
+            className="p-1 text-gray-400 hover:text-gray-600"
+            title="취소"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      );
+    }
+
+    // 빈 값인 경우 - 입력 필요 표시
+    if (!hasValidValues && !isClosed) {
+      return (
+        <div key={index} className={`flex items-center justify-between text-sm p-2 rounded ${colorClass}`}>
+          <span
+            className="text-gray-400 italic cursor-pointer hover:text-gray-600"
+            onClick={() => startEditPlanItem(planType, index, item)}
+          >
+            클릭하여 가격/수량 입력
+          </span>
+          <button
+            onClick={() => handleRemovePlanItem(planType, index)}
+            className="p-1 text-gray-400 hover:text-red-500"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      );
+    }
+
+    // 일반 표시 모드
     return (
       <div key={index} className={`flex items-center justify-between text-sm p-2 rounded ${item.completed ? 'bg-gray-100' : isCancelled ? 'bg-gray-50' : colorClass}`}>
         <div className="flex items-center gap-2 flex-1">
-          {isManager() && !isClosed && (
+          {isManager() && !isClosed && hasValidValues && (
             <input
               type="checkbox"
               checked={item.completed}
@@ -373,7 +488,10 @@ export function PositionDetail() {
               className="w-4 h-4 text-primary-600 rounded"
             />
           )}
-          <span className={item.completed ? 'text-gray-500 line-through' : isCancelled ? 'text-gray-400 line-through' : ''}>
+          <span
+            className={`${item.completed ? 'text-gray-500 line-through' : isCancelled ? 'text-gray-400 line-through' : ''} ${!isClosed ? 'cursor-pointer hover:underline' : ''}`}
+            onClick={() => !isClosed && startEditPlanItem(planType, index, item)}
+          >
             {formatCurrency(item.price, position.market)} × {formatQuantity(item.quantity)}
           </span>
         </div>
@@ -385,7 +503,7 @@ export function PositionDetail() {
           }`}>
             {item.completed ? '완료' : isCancelled ? '취소됨' : '대기'}
           </span>
-          {isManager() && !isClosed && (
+          {!isClosed && (
             <button
               onClick={() => handleRemovePlanItem(planType, index)}
               className="p-1 text-gray-400 hover:text-red-500"
@@ -424,21 +542,41 @@ export function PositionDetail() {
           )}
         </div>
 
-        {position.status === 'open' && (
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="secondary" onClick={() => setShowAddBuyModal(true)}>추가매수 요청</Button>
-            <Button variant="secondary" onClick={() => setShowSellModal(true)}>매도 요청</Button>
-            {isManagerOrAdmin() && (
-              <Button variant="secondary" onClick={() => {
-                setDiscussionTitle(`${position.ticker_name || position.ticker} 토론`);
-                setShowDiscussionModal(true);
-              }}>토론방 열기</Button>
-            )}
-            {isManagerOrAdmin() && (
-              <Button variant="danger" onClick={() => setShowCloseModal(true)}>수동 종료</Button>
-            )}
-          </div>
-        )}
+        <div className="flex gap-2 flex-wrap">
+          {/* 토론방 입장 버튼 - 모든 사용자에게 표시 */}
+          {hasOpenDiscussion && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const openDiscussion = discussions.find(d => d.status === 'open');
+                if (openDiscussion) navigate(`/discussions/${openDiscussion.id}`);
+              }}
+            >
+              <span className="flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                토론방 입장
+              </span>
+            </Button>
+          )}
+
+          {position.status === 'open' && (
+            <>
+              <Button variant="secondary" onClick={() => setShowAddBuyModal(true)}>추가매수 요청</Button>
+              <Button variant="secondary" onClick={() => setShowSellModal(true)}>매도 요청</Button>
+              {isManagerOrAdmin() && (
+                <Button variant="secondary" onClick={() => {
+                  setDiscussionTitle(`${position.ticker_name || position.ticker} 토론`);
+                  setShowDiscussionModal(true);
+                }}>토론방 열기</Button>
+              )}
+              {isManagerOrAdmin() && (
+                <Button variant="danger" onClick={() => setShowCloseModal(true)}>수동 종료</Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* 잔량 경고 */}
@@ -457,7 +595,7 @@ export function PositionDetail() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Position Info - 인라인 편집 */}
+        {/* Position Info - 인라인 편집 (팀장만) */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between w-full">
@@ -536,7 +674,7 @@ export function PositionDetail() {
           )}
         </Card>
 
-        {/* 매매 계획 - 인라인 추가/삭제 */}
+        {/* 매매 계획 - 모든 팀원이 추가/수정/삭제 가능 */}
         <Card>
           <CardHeader>
             <CardTitle>매매 계획</CardTitle>
@@ -547,7 +685,7 @@ export function PositionDetail() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium text-gray-700">매수</p>
-                {isManager() && position.status === 'open' && (
+                {position.status === 'open' && (
                   <button onClick={() => handleAddPlanItem('buy')} className="text-xs text-primary-600 hover:text-primary-700">+ 추가</button>
                 )}
               </div>
@@ -564,7 +702,7 @@ export function PositionDetail() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium text-gray-700">익절가</p>
-                {isManager() && position.status === 'open' && (
+                {position.status === 'open' && (
                   <button onClick={() => handleAddPlanItem('take_profit')} className="text-xs text-primary-600 hover:text-primary-700">+ 추가</button>
                 )}
               </div>
@@ -581,7 +719,7 @@ export function PositionDetail() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium text-gray-700">손절가</p>
-                {isManager() && position.status === 'open' && (
+                {position.status === 'open' && (
                   <button onClick={() => handleAddPlanItem('stop_loss')} className="text-xs text-primary-600 hover:text-primary-700">+ 추가</button>
                 )}
               </div>
