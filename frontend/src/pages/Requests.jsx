@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
@@ -19,6 +19,7 @@ export function Requests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [expandedId, setExpandedId] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -88,7 +89,6 @@ export function Requests() {
 
   const openApproveModal = (request) => {
     setSelectedRequest(request);
-    // 희망 매수가와 수량이 있으면 기본값으로 설정
     setApproveData({
       executed_price: request.buy_price ? String(request.buy_price) : '',
       executed_quantity: request.order_quantity ? String(request.order_quantity) : '',
@@ -103,8 +103,12 @@ export function Requests() {
 
   const openDiscussModal = (request) => {
     setSelectedRequest(request);
-    setDiscussTitle(`${request.target_ticker} ${getRequestTypeLabel(request.request_type)} 논의`);
+    setDiscussTitle(`${request.ticker_name || request.target_ticker} ${getRequestTypeLabel(request.request_type)} 논의`);
     setShowDiscussModal(true);
+  };
+
+  const toggleExpand = (id) => {
+    setExpandedId(expandedId === id ? null : id);
   };
 
   return (
@@ -137,118 +141,188 @@ export function Requests() {
         <div className="grid gap-4">
           {requests.map(request => (
             <Card key={request.id}>
-              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className={`badge ${request.request_type === 'buy' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
-                      {getRequestTypeLabel(request.request_type)}
-                    </span>
-                    <span className="font-bold text-lg">{request.target_ticker}</span>
-                    <span className={`badge ${getStatusBadgeClass(request.status)}`}>
-                      {getStatusLabel(request.status)}
-                    </span>
-                  </div>
-
-                  <div className="text-sm text-gray-600 mb-3">
-                    요청자: {request.requester.full_name} | {formatRelativeTime(request.created_at)}
-                  </div>
-
-                  {request.request_type === 'buy' && (
-                    <div className="space-y-2 text-sm">
-                      {/* 희망 매수가 & 수량 (종목검색에서 요청 시) */}
-                      {request.buy_price && (
-                        <div>
-                          <span className="text-gray-500">희망 매수가: </span>
-                          <span className="font-medium">{formatCurrency(request.buy_price)}</span>
-                        </div>
-                      )}
-                      {request.order_quantity && (
-                        <div>
-                          <span className="text-gray-500">주문 수량: </span>
-                          <span className="font-medium">{request.order_quantity}</span>
-                        </div>
-                      )}
-                      {/* 분할 매수 계획 (기존 요청 폼) */}
-                      {request.buy_orders?.length > 0 && (
-                        <div>
-                          <span className="text-gray-500">매수 계획: </span>
-                          {request.buy_orders.map((o, i) => (
-                            <span key={i} className="mr-2">
-                              {formatCurrency(o.price)} ({formatPercent(o.ratio)})
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {request.target_ratio && (
-                        <div>
-                          <span className="text-gray-500">목표 비중: </span>
-                          {formatPercent(request.target_ratio)}
-                        </div>
-                      )}
-                      {request.take_profit_targets?.length > 0 && (
-                        <div>
-                          <span className="text-gray-500">익절: </span>
-                          {request.take_profit_targets.map((t, i) => (
-                            <span key={i} className="mr-2 text-red-600">
-                              {formatCurrency(t.price)} ({formatPercent(t.ratio)})
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {request.stop_loss_targets?.length > 0 && (
-                        <div>
-                          <span className="text-gray-500">손절: </span>
-                          {request.stop_loss_targets.map((t, i) => (
-                            <span key={i} className="mr-2 text-blue-600">
-                              {formatCurrency(t.price)} ({formatPercent(t.ratio)})
-                            </span>
-                          ))}
-                        </div>
-                      )}
+              <div className="flex flex-col">
+                {/* 헤더 및 액션 버튼 */}
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                  <div className="flex-1">
+                    {/* 종목명, 상태 */}
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className={`badge ${request.request_type === 'buy' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                        {getRequestTypeLabel(request.request_type)}
+                      </span>
+                      <span className="font-bold text-lg">{request.ticker_name || request.target_ticker}</span>
+                      <span className="text-gray-500 text-sm">({request.target_ticker})</span>
+                      <span className={`badge ${getStatusBadgeClass(request.status)}`}>
+                        {getStatusLabel(request.status)}
+                      </span>
                     </div>
-                  )}
 
-                  {request.request_type === 'sell' && (
-                    <div className="space-y-1 text-sm">
-                      <div>
-                        <span className="text-gray-500">매도 수량: </span>
-                        {request.sell_quantity}
+                    {/* 요청자, 시간 */}
+                    <div className="text-sm text-gray-600 mb-2">
+                      요청자: {request.requester.full_name} | {formatRelativeTime(request.created_at)}
+                    </div>
+
+                    {/* 매수 요청 기본 정보 */}
+                    {request.request_type === 'buy' && (
+                      <div className="flex flex-wrap gap-4 text-sm">
+                        {request.buy_price && (
+                          <span>
+                            <span className="text-gray-500">희망 매수가: </span>
+                            <span className="font-medium">{formatCurrency(request.buy_price)}</span>
+                          </span>
+                        )}
+                        {request.order_quantity && (
+                          <span>
+                            <span className="text-gray-500">희망 수량: </span>
+                            <span className="font-medium">{request.order_quantity}</span>
+                          </span>
+                        )}
                       </div>
-                      {request.sell_price && (
-                        <div>
-                          <span className="text-gray-500">매도 가격: </span>
-                          {formatCurrency(request.sell_price)}
-                        </div>
-                      )}
-                      {request.sell_reason && (
-                        <div>
-                          <span className="text-gray-500">사유: </span>
-                          {request.sell_reason}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
 
-                  {request.rejection_reason && (
-                    <div className="mt-2 p-2 bg-red-50 rounded text-sm text-red-700">
-                      거부 사유: {request.rejection_reason}
-                    </div>
-                  )}
-                </div>
+                    {/* 매도 요청 기본 정보 */}
+                    {request.request_type === 'sell' && (
+                      <div className="flex flex-wrap gap-4 text-sm">
+                        <span>
+                          <span className="text-gray-500">매도 수량: </span>
+                          <span className="font-medium">{request.sell_quantity}</span>
+                        </span>
+                        {request.sell_price && (
+                          <span>
+                            <span className="text-gray-500">매도가: </span>
+                            <span className="font-medium">{formatCurrency(request.sell_price)}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
 
-                {(request.status === 'pending' || request.status === 'discussion') && (
+                    {/* 거부 사유 */}
+                    {request.rejection_reason && (
+                      <div className="mt-2 p-2 bg-red-50 rounded text-sm text-red-700">
+                        거부 사유: {request.rejection_reason}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 액션 버튼 */}
                   <div className="flex gap-2 lg:flex-col">
-                    <Button size="sm" onClick={() => openApproveModal(request)}>
-                      승인
-                    </Button>
-                    <Button size="sm" variant="danger" onClick={() => openRejectModal(request)}>
-                      거부
-                    </Button>
+                    {(request.status === 'pending' || request.status === 'discussion') && (
+                      <>
+                        <Button size="sm" onClick={() => openApproveModal(request)}>
+                          승인
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => openRejectModal(request)}>
+                          거부
+                        </Button>
+                      </>
+                    )}
                     {request.status === 'pending' && (
                       <Button size="sm" variant="secondary" onClick={() => openDiscussModal(request)}>
                         토론
                       </Button>
                     )}
+                    {request.status === 'discussion' && request.discussion_id && (
+                      <Link to={`/discussions/${request.discussion_id}`}>
+                        <Button size="sm" variant="secondary" className="w-full">
+                          토론방
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+
+                {/* 세부사항 토글 버튼 */}
+                <button
+                  onClick={() => toggleExpand(request.id)}
+                  className="mt-3 pt-3 border-t flex items-center justify-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+                >
+                  {expandedId === request.id ? (
+                    <>
+                      <span>접기</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />
+                      </svg>
+                    </>
+                  ) : (
+                    <>
+                      <span>세부사항</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </>
+                  )}
+                </button>
+
+                {/* 세부사항 (확장 시) */}
+                {expandedId === request.id && (
+                  <div className="mt-3 pt-3 border-t space-y-2 text-sm">
+                    {request.request_type === 'buy' && (
+                      <>
+                        {/* 분할 매수 계획 */}
+                        {request.buy_orders?.length > 0 && (
+                          <div>
+                            <span className="text-gray-500">분할 매수: </span>
+                            {request.buy_orders.map((o, i) => (
+                              <span key={i} className="mr-2">
+                                {formatCurrency(o.price)} ({formatPercent(o.ratio)})
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 목표 비중 */}
+                        {request.target_ratio && (
+                          <div>
+                            <span className="text-gray-500">목표 비중: </span>
+                            {formatPercent(request.target_ratio)}
+                          </div>
+                        )}
+
+                        {/* 익절 타겟 */}
+                        {request.take_profit_targets?.length > 0 && (
+                          <div>
+                            <span className="text-gray-500">익절: </span>
+                            {request.take_profit_targets.map((t, i) => (
+                              <span key={i} className="text-red-600 mr-2">
+                                {formatCurrency(t.price)} ({formatPercent(t.ratio)})
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 손절 타겟 */}
+                        {request.stop_loss_targets?.length > 0 && (
+                          <div>
+                            <span className="text-gray-500">손절: </span>
+                            {request.stop_loss_targets.map((t, i) => (
+                              <span key={i} className="text-blue-600 mr-2">
+                                {formatCurrency(t.price)} ({formatPercent(t.ratio)})
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {request.request_type === 'sell' && request.sell_reason && (
+                      <div>
+                        <span className="text-gray-500">매도 사유: </span>
+                        <span>{request.sell_reason}</span>
+                      </div>
+                    )}
+
+                    {/* 메모 */}
+                    {request.memo && (
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <p className="text-gray-500 text-xs mb-1">메모</p>
+                        <p className="text-gray-700">{request.memo}</p>
+                      </div>
+                    )}
+
+                    {/* 시장 정보 */}
+                    <div className="text-gray-400 text-xs">
+                      시장: {request.target_market}
+                    </div>
                   </div>
                 )}
               </div>
@@ -265,7 +339,7 @@ export function Requests() {
       >
         <div className="space-y-4">
           <div className="bg-gray-50 p-3 rounded">
-            <p className="font-medium">{selectedRequest?.target_ticker}</p>
+            <p className="font-medium">{selectedRequest?.ticker_name || selectedRequest?.target_ticker}</p>
             <p className="text-sm text-gray-600">
               {getRequestTypeLabel(selectedRequest?.request_type)} 요청
             </p>

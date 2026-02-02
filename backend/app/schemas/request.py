@@ -77,6 +77,7 @@ class RequestResponse(BaseModel):
     executed_at: Optional[datetime]
     created_at: datetime
     position: Optional[PositionBrief] = None
+    discussion_id: Optional[int] = None  # 토론 ID (status가 discussion일 때)
 
     class Config:
         from_attributes = True

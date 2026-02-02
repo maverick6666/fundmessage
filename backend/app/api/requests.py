@@ -35,16 +35,32 @@ def request_to_response(request) -> RequestResponse:
             total_quantity=request.position.total_quantity
         )
 
+    # 토론중인 경우 가장 최근 discussion의 id를 가져옴
+    discussion_id = None
+    if request.discussions:
+        # 가장 최근 토론 (open 상태 우선)
+        open_discussions = [d for d in request.discussions if d.status == 'open']
+        if open_discussions:
+            discussion_id = open_discussions[-1].id
+        elif request.discussions:
+            discussion_id = request.discussions[-1].id
+
     return RequestResponse(
         id=request.id,
         position_id=request.position_id,
         request_type=request.request_type,
         target_ticker=request.target_ticker,
+        ticker_name=request.ticker_name,
         target_market=request.target_market,
+        order_type=request.order_type,
+        order_amount=request.order_amount,
+        order_quantity=request.order_quantity,
+        buy_price=request.buy_price,
         buy_orders=request.buy_orders,
         target_ratio=request.target_ratio,
         take_profit_targets=request.take_profit_targets,
         stop_loss_targets=request.stop_loss_targets,
+        memo=request.memo,
         sell_quantity=request.sell_quantity,
         sell_price=request.sell_price,
         sell_reason=request.sell_reason,
@@ -57,7 +73,8 @@ def request_to_response(request) -> RequestResponse:
         executed_quantity=request.executed_quantity,
         executed_at=request.executed_at,
         created_at=request.created_at,
-        position=position
+        position=position,
+        discussion_id=discussion_id
     )
 
 
