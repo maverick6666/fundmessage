@@ -89,6 +89,42 @@ class DiscussionService:
 
         return discussion
 
+    def reopen_discussion(self, discussion_id: int, reopened_by: int) -> Discussion:
+        discussion = self.get_discussion_by_id(discussion_id)
+        if not discussion:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Discussion not found"
+            )
+
+        if discussion.status == DiscussionStatus.OPEN.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Discussion is already open"
+            )
+
+        discussion.status = DiscussionStatus.OPEN.value
+        discussion.closed_by = None
+        discussion.closed_at = None
+
+        # Request status를 다시 discussion으로
+        if discussion.request:
+            discussion.request.status = RequestStatus.DISCUSSION.value
+
+        # Add system message
+        system_message = Message(
+            discussion_id=discussion.id,
+            user_id=reopened_by,
+            content="Discussion reopened",
+            message_type=MessageType.SYSTEM.value
+        )
+        self.db.add(system_message)
+
+        self.db.commit()
+        self.db.refresh(discussion)
+
+        return discussion
+
     def get_messages(
         self,
         discussion_id: int,

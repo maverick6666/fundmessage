@@ -21,6 +21,11 @@ export const discussionService = {
     return response.data.data;
   },
 
+  async reopenDiscussion(id) {
+    const response = await api.post(`/discussions/${id}/reopen`);
+    return response.data.data;
+  },
+
   async exportDiscussion(id) {
     const response = await api.get(`/discussions/${id}/export`);
     return response.data;

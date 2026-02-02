@@ -9,11 +9,33 @@ export function formatNumber(value, decimals = 0) {
   }).format(value);
 }
 
-export function formatCurrency(value, currency = 'KRW') {
+export function formatCurrency(value, market = 'KRX') {
   if (value == null) return '-';
+
+  // 시장별 통화 및 소수점 설정
+  const isUS = market === 'NASDAQ' || market === 'NYSE' || market === 'USD';
+  const isCrypto = market === 'CRYPTO' || market === 'USDT';
+
+  if (isUS) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 3,
+    }).format(value);
+  }
+
+  if (isCrypto) {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    }).format(value) + ' USDT';
+  }
+
+  // 한국 주식 (KRX, KOSPI, KOSDAQ)
   return new Intl.NumberFormat('ko-KR', {
     style: 'currency',
-    currency,
+    currency: 'KRW',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);

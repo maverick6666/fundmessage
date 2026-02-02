@@ -10,6 +10,7 @@ from app.schemas.position import (
 from app.schemas.user import UserBrief
 from app.schemas.common import APIResponse
 from app.services.position_service import PositionService
+from app.services.audit_service import AuditService
 from app.dependencies import get_current_user, get_manager_or_admin, get_manager
 from app.models.user import User
 from app.models.team_settings import TeamSettings
@@ -153,7 +154,7 @@ async def confirm_position_info(
 ):
     """포지션 정보 확인/수정 (팀장만)"""
     position_service = PositionService(db)
-    position = position_service.confirm_position_info(position_id, confirm_data)
+    position = position_service.confirm_position_info(position_id, confirm_data, current_user.id)
 
     return APIResponse(
         success=True,
@@ -183,13 +184,48 @@ async def toggle_plan_item(
         position_id,
         toggle_data.plan_type,
         toggle_data.index,
-        toggle_data.completed
+        toggle_data.completed,
+        current_user.id
     )
 
     return APIResponse(
         success=True,
         data=position_to_response(position),
         message="계획 상태가 업데이트되었습니다"
+    )
+
+
+@router.get("/{position_id}/audit-logs", response_model=APIResponse)
+async def get_position_audit_logs(
+    position_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """포지션 수정 이력 조회"""
+    audit_service = AuditService(db)
+    logs = audit_service.get_logs_for_entity('position', position_id)
+
+    return APIResponse(
+        success=True,
+        data={
+            'logs': [
+                {
+                    'id': log.id,
+                    'action': log.action,
+                    'field_name': log.field_name,
+                    'old_value': log.old_value,
+                    'new_value': log.new_value,
+                    'changes': log.changes,
+                    'user': {
+                        'id': log.user.id,
+                        'username': log.user.username,
+                        'full_name': log.user.full_name
+                    } if log.user else None,
+                    'created_at': log.created_at.isoformat() if log.created_at else None
+                }
+                for log in logs
+            ]
+        }
     )
 
 

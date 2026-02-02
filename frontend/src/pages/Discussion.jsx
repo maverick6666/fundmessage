@@ -102,6 +102,15 @@ export function Discussion() {
     }
   };
 
+  const handleReopen = async () => {
+    try {
+      await discussionService.reopenDiscussion(id);
+      fetchDiscussion();
+    } catch (error) {
+      alert(error.response?.data?.detail || '토론 재개에 실패했습니다.');
+    }
+  };
+
   const handleExport = async () => {
     try {
       const data = await discussionService.exportDiscussion(id);
@@ -149,9 +158,12 @@ export function Discussion() {
         </div>
 
         <div className="flex gap-2">
-          {isClosed && (
-            <Button variant="secondary" size="sm" onClick={handleExport}>
-              JSON 다운로드
+          <Button variant="secondary" size="sm" onClick={handleExport}>
+            JSON 다운로드
+          </Button>
+          {isClosed && isManagerOrAdmin() && (
+            <Button variant="primary" size="sm" onClick={handleReopen}>
+              토론 재개
             </Button>
           )}
           {!isClosed && isManagerOrAdmin() && (

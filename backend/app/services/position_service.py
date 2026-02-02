@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 
 from app.models.position import Position, PositionStatus
 from app.schemas.position import PositionCreate, PositionUpdate, PositionClose, PositionConfirmInfo
+from app.services.audit_service import AuditService
 
 
 class PositionService:
@@ -261,7 +262,8 @@ class PositionService:
         position_id: int,
         plan_type: str,  # 'buy', 'take_profit', 'stop_loss'
         index: int,
-        completed: bool
+        completed: bool,
+        user_id: int = None
     ) -> Position:
         """계획 항목의 완료 상태 토글"""
         position = self.get_position_by_id(position_id)
@@ -271,27 +273,53 @@ class PositionService:
                 detail="Position not found"
             )
 
+        old_value = None
+        new_value = None
+        field_name = None
+
         if plan_type == 'buy':
             if position.buy_plan and index < len(position.buy_plan):
+                old_value = position.buy_plan[index].get('completed', False)
                 position.buy_plan[index]['completed'] = completed
+                new_value = completed
+                field_name = f"buy_plan[{index}].completed"
                 # SQLAlchemy JSON 변경 감지를 위해 새 리스트로
                 position.buy_plan = list(position.buy_plan)
         elif plan_type == 'take_profit':
             if position.take_profit_targets and index < len(position.take_profit_targets):
+                old_value = position.take_profit_targets[index].get('completed', False)
                 position.take_profit_targets[index]['completed'] = completed
+                new_value = completed
+                field_name = f"take_profit_targets[{index}].completed"
                 position.take_profit_targets = list(position.take_profit_targets)
         elif plan_type == 'stop_loss':
             if position.stop_loss_targets and index < len(position.stop_loss_targets):
+                old_value = position.stop_loss_targets[index].get('completed', False)
                 position.stop_loss_targets[index]['completed'] = completed
+                new_value = completed
+                field_name = f"stop_loss_targets[{index}].completed"
                 position.stop_loss_targets = list(position.stop_loss_targets)
 
         self.db.commit()
         self.db.refresh(position)
 
+        # Audit log
+        if user_id and field_name:
+            audit_service = AuditService(self.db)
+            audit_service.log_change(
+                entity_type='position',
+                entity_id=position_id,
+                action='toggle',
+                user_id=user_id,
+                field_name=field_name,
+                old_value=old_value,
+                new_value=new_value
+            )
+
         return position
 
-    def confirm_position_info(self, position_id: int, confirm_data: PositionConfirmInfo) -> Position:
-        """팀장이 포지션 정보를 확인/수정하고 확정"""
+    def confirm_position_info(self, position_id: int, confirm_data: PositionConfirmInfo, user_id: int = None) -> Position:
+        """팀장이 포지션 정보를 확인/수정하고 확정 (종료된 포지션도 수정 가능 - 기록 목적)"""
         position = self.get_position_by_id(position_id)
         if not position:
             raise HTTPException(
@@ -299,30 +327,58 @@ class PositionService:
                 detail="Position not found"
             )
 
-        if position.status == PositionStatus.CLOSED.value:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="종료된 포지션은 수정할 수 없습니다"
-            )
+        # 변경 이력을 위한 이전 값 저장
+        changes = {}
+
+        if position.average_buy_price != confirm_data.average_buy_price:
+            changes['average_buy_price'] = {
+                'old': position.average_buy_price,
+                'new': confirm_data.average_buy_price
+            }
+        if position.total_quantity != confirm_data.total_quantity:
+            changes['total_quantity'] = {
+                'old': position.total_quantity,
+                'new': confirm_data.total_quantity
+            }
+        if confirm_data.ticker_name and position.ticker_name != confirm_data.ticker_name:
+            changes['ticker_name'] = {
+                'old': position.ticker_name,
+                'new': confirm_data.ticker_name
+            }
 
         # 정보 업데이트
         position.average_buy_price = confirm_data.average_buy_price
         position.total_quantity = confirm_data.total_quantity
 
         # 진입 금액 계산 (제공되지 않으면 자동 계산)
-        if confirm_data.total_buy_amount:
-            position.total_buy_amount = confirm_data.total_buy_amount
-        else:
-            position.total_buy_amount = confirm_data.average_buy_price * confirm_data.total_quantity
+        new_buy_amount = confirm_data.total_buy_amount or (confirm_data.average_buy_price * confirm_data.total_quantity)
+        if position.total_buy_amount != new_buy_amount:
+            changes['total_buy_amount'] = {
+                'old': position.total_buy_amount,
+                'new': new_buy_amount
+            }
+        position.total_buy_amount = new_buy_amount
 
         # 종목명 업데이트
         if confirm_data.ticker_name:
             position.ticker_name = confirm_data.ticker_name
 
         # 정보 확인 완료 표시
+        if not position.is_info_confirmed:
+            changes['is_info_confirmed'] = {'old': False, 'new': True}
         position.is_info_confirmed = True
 
         self.db.commit()
         self.db.refresh(position)
+
+        # Audit log
+        if user_id and changes:
+            audit_service = AuditService(self.db)
+            audit_service.log_multiple_changes(
+                entity_type='position',
+                entity_id=position_id,
+                user_id=user_id,
+                changes=changes
+            )
 
         return position

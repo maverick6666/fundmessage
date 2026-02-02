@@ -129,6 +129,24 @@ async def close_discussion(
     )
 
 
+@router.post("/{discussion_id}/reopen", response_model=APIResponse)
+async def reopen_discussion(
+    discussion_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager_or_admin)
+):
+    """Reopen a closed discussion (manager/admin only)"""
+    discussion_service = DiscussionService(db)
+    discussion = discussion_service.reopen_discussion(discussion_id, current_user.id)
+    message_count = discussion_service.get_message_count(discussion_id)
+
+    return APIResponse(
+        success=True,
+        data=discussion_to_response(discussion, message_count),
+        message="Discussion reopened successfully"
+    )
+
+
 @router.get("/{discussion_id}/export")
 async def export_discussion(
     discussion_id: int,

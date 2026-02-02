@@ -156,7 +156,7 @@ export function Requests() {
                         {request.buy_price && (
                           <span>
                             <span className="text-gray-500">희망 매수가: </span>
-                            <span className="font-medium">{formatCurrency(request.buy_price)}</span>
+                            <span className="font-medium">{formatCurrency(request.buy_price, request.target_market)}</span>
                           </span>
                         )}
                         {request.order_quantity && (
@@ -178,7 +178,7 @@ export function Requests() {
                         {request.sell_price && (
                           <span>
                             <span className="text-gray-500">매도가: </span>
-                            <span className="font-medium">{formatCurrency(request.sell_price)}</span>
+                            <span className="font-medium">{formatCurrency(request.sell_price, request.target_market)}</span>
                           </span>
                         )}
                       </div>
@@ -256,7 +256,7 @@ export function Requests() {
                             <span className="text-gray-500">분할 매수: </span>
                             {request.buy_orders.map((o, i) => (
                               <span key={i} className="mr-2">
-                                {formatCurrency(o.price)} ({formatPercent(o.ratio)})
+                                {formatCurrency(o.price, request.target_market)} ({formatPercent(o.ratio)})
                               </span>
                             ))}
                           </div>
@@ -276,7 +276,7 @@ export function Requests() {
                             <span className="text-gray-500">익절: </span>
                             {request.take_profit_targets.map((t, i) => (
                               <span key={i} className="text-red-600 mr-2">
-                                {formatCurrency(t.price)} x {t.quantity ?? formatPercent(t.ratio)}
+                                {formatCurrency(t.price, request.target_market)} x {t.quantity ?? formatPercent(t.ratio)}
                               </span>
                             ))}
                           </div>
@@ -288,7 +288,7 @@ export function Requests() {
                             <span className="text-gray-500">손절: </span>
                             {request.stop_loss_targets.map((t, i) => (
                               <span key={i} className="text-blue-600 mr-2">
-                                {formatCurrency(t.price)} x {t.quantity ?? formatPercent(t.ratio)}
+                                {formatCurrency(t.price, request.target_market)} x {t.quantity ?? formatPercent(t.ratio)}
                               </span>
                             ))}
                           </div>

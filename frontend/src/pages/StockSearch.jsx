@@ -183,7 +183,7 @@ export default function StockSearch() {
                 <p className="mt-1 text-2xl font-bold text-primary-600">
                   {formatPrice(stockInfo.price)}
                   <span className="text-sm font-normal text-gray-500 ml-1">
-                    {market === 'CRYPTO' ? 'USDT' : '원'}
+                    {market === 'CRYPTO' ? 'USDT' : (market === 'NASDAQ' || market === 'NYSE') ? 'USD' : '원'}
                   </span>
                 </p>
               )}
@@ -261,7 +261,8 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     order_quantity: '',
-    buy_price: currentPrice ? String(currentPrice) : '',
+    buy_price: currentPrice ? String(Math.round(currentPrice * 1000) / 1000) : '',
+    buy_orders: [{ price: currentPrice ? String(Math.round(currentPrice * 1000) / 1000) : '', quantity: '' }],
     take_profit_targets: [{ price: '', quantity: '' }],
     stop_loss_targets: [{ price: '', quantity: '' }],
     memo: '',
@@ -317,6 +318,31 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
     setFormData({ ...formData, stop_loss_targets: newTargets });
   };
 
+  // 분할 매수 추가
+  const addBuyOrder = () => {
+    if (formData.buy_orders.length < 4) {
+      setFormData({
+        ...formData,
+        buy_orders: [...formData.buy_orders, { price: '', quantity: '' }]
+      });
+    }
+  };
+
+  // 분할 매수 삭제
+  const removeBuyOrder = (index) => {
+    if (formData.buy_orders.length > 1) {
+      const newOrders = formData.buy_orders.filter((_, i) => i !== index);
+      setFormData({ ...formData, buy_orders: newOrders });
+    }
+  };
+
+  // 분할 매수 업데이트
+  const updateBuyOrder = (index, field, value) => {
+    const newOrders = [...formData.buy_orders];
+    newOrders[index] = { ...newOrders[index], [field]: value };
+    setFormData({ ...formData, buy_orders: newOrders });
+  };
+
   // 거래대금 계산
   const totalAmount = formData.order_quantity && formData.buy_price
     ? parseFloat(formData.order_quantity) * parseFloat(formData.buy_price)
@@ -342,6 +368,9 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
         order_type: 'quantity',
         order_quantity: parseFloat(formData.order_quantity),
         buy_price: parseFloat(formData.buy_price),
+        buy_orders: formData.buy_orders
+          .filter(o => o.price && o.quantity)
+          .map(o => ({ price: parseFloat(o.price), quantity: parseFloat(o.quantity) })),
         take_profit_targets: formData.take_profit_targets
           .filter(t => t.price && t.quantity)
           .map(t => ({ price: parseFloat(t.price), quantity: parseFloat(t.quantity) })),
@@ -351,6 +380,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
         memo: formData.memo || null,
       };
 
+      if (data.buy_orders.length === 0) data.buy_orders = null;
       if (data.take_profit_targets.length === 0) data.take_profit_targets = null;
       if (data.stop_loss_targets.length === 0) data.stop_loss_targets = null;
 
@@ -409,9 +439,59 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
       {totalAmount !== null && (
         <div className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
           <span className="text-sm text-gray-600">예상 거래대금</span>
-          <span className="text-lg font-bold text-gray-900">{formatNumber(totalAmount)}원</span>
+          <span className="text-lg font-bold text-gray-900">{formatNumber(totalAmount)}{market === 'NASDAQ' || market === 'NYSE' ? ' USD' : market === 'CRYPTO' ? ' USDT' : '원'}</span>
         </div>
       )}
+
+      {/* 분할 매수 */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium text-gray-700">분할 매수</label>
+          {formData.buy_orders.length < 4 && (
+            <button
+              type="button"
+              onClick={addBuyOrder}
+              className="text-xs text-primary-600 hover:text-primary-700"
+            >
+              + 분할 추가
+            </button>
+          )}
+        </div>
+        <div className="space-y-2">
+          {formData.buy_orders.map((order, index) => (
+            <div key={index} className="flex gap-2 items-center">
+              <input
+                type="number"
+                step="any"
+                placeholder="매수가"
+                value={order.price}
+                onChange={(e) => updateBuyOrder(index, 'price', e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+              />
+              <input
+                type="number"
+                step="any"
+                min="0"
+                placeholder="수량"
+                value={order.quantity}
+                onChange={(e) => updateBuyOrder(index, 'quantity', e.target.value)}
+                className="w-24 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+              />
+              {formData.buy_orders.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeBuyOrder(index)}
+                  className="p-1 text-gray-400 hover:text-red-500"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* 분할 익절 */}
       <div>

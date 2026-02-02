@@ -53,5 +53,11 @@ export const positionService = {
   async updateTeamSettings(data) {
     const response = await api.put('/positions/settings/team', data);
     return response.data.data;
+  },
+
+  // 수정 이력 조회
+  async getAuditLogs(id) {
+    const response = await api.get(`/positions/${id}/audit-logs`);
+    return response.data.data;
   }
 };

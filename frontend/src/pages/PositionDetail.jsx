@@ -26,6 +26,8 @@ export function PositionDetail() {
   const [showSellModal, setShowSellModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [closeData, setCloseData] = useState({
     ticker_name: '',
     average_buy_price: '',
@@ -125,9 +127,53 @@ export function PositionDetail() {
     try {
       const updatedPosition = await positionService.togglePlanItem(id, planType, index, completed);
       setPosition(updatedPosition);
+      // 이력 새로고침
+      if (showAuditLogs) {
+        fetchAuditLogs();
+      }
     } catch (error) {
       alert(error.response?.data?.detail || '상태 변경에 실패했습니다.');
     }
+  };
+
+  const fetchAuditLogs = async () => {
+    try {
+      const data = await positionService.getAuditLogs(id);
+      setAuditLogs(data.logs || []);
+    } catch (error) {
+      console.error('Failed to fetch audit logs:', error);
+    }
+  };
+
+  const toggleAuditLogs = () => {
+    if (!showAuditLogs && auditLogs.length === 0) {
+      fetchAuditLogs();
+    }
+    setShowAuditLogs(!showAuditLogs);
+  };
+
+  const formatFieldName = (field) => {
+    const names = {
+      'average_buy_price': '평균 매입가',
+      'total_quantity': '수량',
+      'total_buy_amount': '진입 금액',
+      'ticker_name': '종목명',
+      'is_info_confirmed': '정보 확인',
+    };
+    // buy_plan[0].completed 같은 형식 처리
+    if (field?.includes('buy_plan')) {
+      const match = field.match(/buy_plan\[(\d+)\]/);
+      return match ? `분할매수 ${parseInt(match[1]) + 1}번` : field;
+    }
+    if (field?.includes('take_profit')) {
+      const match = field.match(/take_profit_targets\[(\d+)\]/);
+      return match ? `익절 ${parseInt(match[1]) + 1}번` : field;
+    }
+    if (field?.includes('stop_loss')) {
+      const match = field.match(/stop_loss_targets\[(\d+)\]/);
+      return match ? `손절 ${parseInt(match[1]) + 1}번` : field;
+    }
+    return names[field] || field;
   };
 
   if (loading) {
@@ -177,7 +223,7 @@ export function PositionDetail() {
               </Button>
             )}
             <Button variant="secondary" onClick={() => setShowSellModal(true)}>
-              정리 요청
+              매도 요청
             </Button>
             {isManagerOrAdmin() && (
               <Button variant="danger" onClick={() => setShowCloseModal(true)}>
@@ -223,7 +269,7 @@ export function PositionDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-500">평균 매입가</p>
-                <p className="text-lg font-medium">{formatCurrency(position.average_buy_price)}</p>
+                <p className="text-lg font-medium">{formatCurrency(position.average_buy_price, position.market)}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">보유 수량</p>
@@ -231,7 +277,7 @@ export function PositionDetail() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">진입 금액</p>
-                <p className="text-lg font-medium">{formatCurrency(position.total_buy_amount)}</p>
+                <p className="text-lg font-medium">{formatCurrency(position.total_buy_amount, position.market)}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">보유 기간</p>
@@ -244,16 +290,16 @@ export function PositionDetail() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">청산 금액</p>
-                    <p className="text-lg font-medium">{formatCurrency(position.total_sell_amount)}</p>
+                    <p className="text-lg font-medium">{formatCurrency(position.total_sell_amount, position.market)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">평균 매도가</p>
-                    <p className="text-lg font-medium">{formatCurrency(position.average_sell_price)}</p>
+                    <p className="text-lg font-medium">{formatCurrency(position.average_sell_price, position.market)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">수익금</p>
                     <p className={`text-lg font-medium ${getProfitLossClass(position.profit_loss)}`}>
-                      {formatCurrency(position.profit_loss)}
+                      {formatCurrency(position.profit_loss, position.market)}
                     </p>
                   </div>
                   <div>
@@ -280,28 +326,35 @@ export function PositionDetail() {
               <div>
                 <p className="text-sm font-medium text-gray-700 mb-2">분할 매수</p>
                 <div className="space-y-1">
-                  {position.buy_plan.map((item, i) => (
-                    <div key={i} className={`flex items-center justify-between text-sm p-2 rounded ${item.completed ? 'bg-gray-100' : 'bg-blue-50'}`}>
-                      <div className="flex items-center gap-2">
-                        {isManager() && position.status === 'open' && (
-                          <input
-                            type="checkbox"
-                            checked={item.completed}
-                            onChange={(e) => handleTogglePlan('buy', i, e.target.checked)}
-                            className="w-4 h-4 text-primary-600 rounded"
-                          />
-                        )}
-                        <span className={item.completed ? 'text-gray-500 line-through' : 'text-blue-700'}>
-                          {formatCurrency(item.price)}
-                          {item.quantity && ` x ${item.quantity}`}
-                          {item.ratio && ` (${formatPercent(item.ratio)})`}
+                  {position.buy_plan.map((item, i) => {
+                    const isCancelled = position.status === 'closed' && !item.completed;
+                    return (
+                      <div key={i} className={`flex items-center justify-between text-sm p-2 rounded ${item.completed ? 'bg-gray-100' : isCancelled ? 'bg-gray-50' : 'bg-blue-50'}`}>
+                        <div className="flex items-center gap-2">
+                          {isManager() && (
+                            <input
+                              type="checkbox"
+                              checked={item.completed}
+                              onChange={(e) => handleTogglePlan('buy', i, e.target.checked)}
+                              className="w-4 h-4 text-primary-600 rounded"
+                            />
+                          )}
+                          <span className={item.completed ? 'text-gray-500 line-through' : isCancelled ? 'text-gray-400 line-through' : 'text-blue-700'}>
+                            {formatCurrency(item.price, position.market)}
+                            {item.quantity && ` x ${item.quantity}`}
+                            {item.ratio && ` (${formatPercent(item.ratio)})`}
+                          </span>
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          item.completed ? 'bg-green-100 text-green-700' :
+                          isCancelled ? 'bg-gray-200 text-gray-500' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {item.completed ? '완료' : isCancelled ? '취소됨' : '대기'}
                         </span>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded ${item.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {item.completed ? '완료' : '대기'}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -311,29 +364,36 @@ export function PositionDetail() {
               <p className="text-sm font-medium text-gray-700 mb-2">익절가</p>
               {position.take_profit_targets?.length > 0 ? (
                 <div className="space-y-1">
-                  {position.take_profit_targets.map((target, i) => (
-                    <div key={i} className={`flex items-center justify-between text-sm p-2 rounded ${target.completed ? 'bg-gray-100' : 'bg-red-50'}`}>
-                      <div className="flex items-center gap-2">
-                        {isManager() && position.status === 'open' && (
-                          <input
-                            type="checkbox"
-                            checked={target.completed}
-                            onChange={(e) => handleTogglePlan('take_profit', i, e.target.checked)}
-                            className="w-4 h-4 text-primary-600 rounded"
-                          />
-                        )}
-                        <span className={target.completed ? 'text-gray-500 line-through' : 'text-red-700'}>
-                          {formatCurrency(target.price)}
-                        </span>
+                  {position.take_profit_targets.map((target, i) => {
+                    const isCancelled = position.status === 'closed' && !target.completed;
+                    return (
+                      <div key={i} className={`flex items-center justify-between text-sm p-2 rounded ${target.completed ? 'bg-gray-100' : isCancelled ? 'bg-gray-50' : 'bg-red-50'}`}>
+                        <div className="flex items-center gap-2">
+                          {isManager() && (
+                            <input
+                              type="checkbox"
+                              checked={target.completed}
+                              onChange={(e) => handleTogglePlan('take_profit', i, e.target.checked)}
+                              className="w-4 h-4 text-primary-600 rounded"
+                            />
+                          )}
+                          <span className={target.completed ? 'text-gray-500 line-through' : isCancelled ? 'text-gray-400 line-through' : 'text-red-700'}>
+                            {formatCurrency(target.price, position.market)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={target.completed ? 'text-gray-500' : isCancelled ? 'text-gray-400' : 'text-red-600'}>x {target.quantity ?? formatPercent(target.ratio)}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            target.completed ? 'bg-green-100 text-green-700' :
+                            isCancelled ? 'bg-gray-200 text-gray-500' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {target.completed ? '완료' : isCancelled ? '취소됨' : '대기'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={target.completed ? 'text-gray-500' : 'text-red-600'}>x {target.quantity ?? formatPercent(target.ratio)}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded ${target.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                          {target.completed ? '완료' : '대기'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-gray-500">설정 안됨</p>
@@ -345,29 +405,36 @@ export function PositionDetail() {
               <p className="text-sm font-medium text-gray-700 mb-2">손절가</p>
               {position.stop_loss_targets?.length > 0 ? (
                 <div className="space-y-1">
-                  {position.stop_loss_targets.map((target, i) => (
-                    <div key={i} className={`flex items-center justify-between text-sm p-2 rounded ${target.completed ? 'bg-gray-100' : 'bg-blue-50'}`}>
-                      <div className="flex items-center gap-2">
-                        {isManager() && position.status === 'open' && (
-                          <input
-                            type="checkbox"
-                            checked={target.completed}
-                            onChange={(e) => handleTogglePlan('stop_loss', i, e.target.checked)}
-                            className="w-4 h-4 text-primary-600 rounded"
-                          />
-                        )}
-                        <span className={target.completed ? 'text-gray-500 line-through' : 'text-blue-700'}>
-                          {formatCurrency(target.price)}
-                        </span>
+                  {position.stop_loss_targets.map((target, i) => {
+                    const isCancelled = position.status === 'closed' && !target.completed;
+                    return (
+                      <div key={i} className={`flex items-center justify-between text-sm p-2 rounded ${target.completed ? 'bg-gray-100' : isCancelled ? 'bg-gray-50' : 'bg-blue-50'}`}>
+                        <div className="flex items-center gap-2">
+                          {isManager() && (
+                            <input
+                              type="checkbox"
+                              checked={target.completed}
+                              onChange={(e) => handleTogglePlan('stop_loss', i, e.target.checked)}
+                              className="w-4 h-4 text-primary-600 rounded"
+                            />
+                          )}
+                          <span className={target.completed ? 'text-gray-500 line-through' : isCancelled ? 'text-gray-400 line-through' : 'text-blue-700'}>
+                            {formatCurrency(target.price, position.market)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={target.completed ? 'text-gray-500' : isCancelled ? 'text-gray-400' : 'text-blue-600'}>x {target.quantity ?? formatPercent(target.ratio)}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            target.completed ? 'bg-green-100 text-green-700' :
+                            isCancelled ? 'bg-gray-200 text-gray-500' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {target.completed ? '완료' : isCancelled ? '취소됨' : '대기'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={target.completed ? 'text-gray-500' : 'text-blue-600'}>x {target.quantity ?? formatPercent(target.ratio)}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded ${target.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                          {target.completed ? '완료' : '대기'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-gray-500">설정 안됨</p>
@@ -414,6 +481,58 @@ export function PositionDetail() {
               </>
             )}
           </div>
+
+          {/* 수정 이력 토글 */}
+          <button
+            onClick={toggleAuditLogs}
+            className="mt-4 pt-4 border-t w-full flex items-center justify-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          >
+            <span>{showAuditLogs ? '수정 이력 접기' : '수정 이력 보기'}</span>
+            <svg className={`w-4 h-4 transition-transform ${showAuditLogs ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* 수정 이력 목록 */}
+          {showAuditLogs && (
+            <div className="mt-4 space-y-2">
+              {auditLogs.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">수정 이력이 없습니다</p>
+              ) : (
+                auditLogs.map(log => (
+                  <div key={log.id} className="p-3 bg-gray-50 rounded-lg text-sm">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-gray-700">{log.user?.full_name || '알 수 없음'}</span>
+                      <span className="text-xs text-gray-400">{formatDate(log.created_at)}</span>
+                    </div>
+                    {log.field_name ? (
+                      <p className="text-gray-600">
+                        <span className="font-medium">{formatFieldName(log.field_name)}</span>
+                        {': '}
+                        <span className="text-red-500 line-through">{log.old_value ?? '-'}</span>
+                        {' → '}
+                        <span className="text-green-600">{log.new_value ?? '-'}</span>
+                      </p>
+                    ) : log.changes ? (
+                      <div className="space-y-1">
+                        {Object.entries(log.changes).map(([field, vals]) => (
+                          <p key={field} className="text-gray-600">
+                            <span className="font-medium">{formatFieldName(field)}</span>
+                            {': '}
+                            <span className="text-red-500 line-through">{vals.old ?? '-'}</span>
+                            {' → '}
+                            <span className="text-green-600">{vals.new ?? '-'}</span>
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-600">{log.action}</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </Card>
       </div>
 
@@ -421,7 +540,7 @@ export function PositionDetail() {
       <Modal
         isOpen={showSellModal}
         onClose={() => setShowSellModal(false)}
-        title="정리 요청"
+        title="매도 요청"
       >
         <SellRequestForm
           position={position}
@@ -471,7 +590,7 @@ export function PositionDetail() {
             </div>
             {closeData.average_buy_price && closeData.total_quantity && (
               <div className="mt-2 text-sm text-gray-600">
-                진입 금액: <span className="font-medium">{formatCurrency(parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity))}</span>
+                진입 금액: <span className="font-medium">{formatCurrency(parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity), position.market)}</span>
               </div>
             )}
           </div>
@@ -493,7 +612,7 @@ export function PositionDetail() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">예상 수익금</span>
                 <span className={getProfitLossClass(parseFloat(closeData.total_sell_amount) - (parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity)))}>
-                  {formatCurrency(parseFloat(closeData.total_sell_amount) - (parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity)))}
+                  {formatCurrency(parseFloat(closeData.total_sell_amount) - (parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity)), position.market)}
                 </span>
               </div>
               <div className="flex justify-between text-sm mt-1">
@@ -554,7 +673,7 @@ export function PositionDetail() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">진입 금액</span>
                 <span className="font-medium">
-                  {formatCurrency(parseFloat(confirmData.average_buy_price) * parseFloat(confirmData.total_quantity))}
+                  {formatCurrency(parseFloat(confirmData.average_buy_price) * parseFloat(confirmData.total_quantity), position.market)}
                 </span>
               </div>
             </div>

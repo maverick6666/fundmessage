@@ -142,12 +142,12 @@ export function Positions() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {formatCurrency(position.average_buy_price)}
+                      {formatCurrency(position.average_buy_price, position.market)}
                     </td>
                     {statusFilter === 'open' && (
                       <td className="px-4 py-3 text-right">
                         {priceData[position.id]?.current_price
-                          ? formatCurrency(priceData[position.id].current_price)
+                          ? formatCurrency(priceData[position.id].current_price, position.market)
                           : priceLoading ? '...' : '-'}
                       </td>
                     )}
@@ -155,18 +155,18 @@ export function Positions() {
                       {position.total_quantity}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {formatCurrency(position.total_buy_amount)}
+                      {formatCurrency(position.total_buy_amount, position.market)}
                     </td>
                     {statusFilter === 'open' && (
                       <>
                         <td className="px-4 py-3 text-right">
                           {priceData[position.id]?.evaluation_amount
-                            ? formatCurrency(priceData[position.id].evaluation_amount)
+                            ? formatCurrency(priceData[position.id].evaluation_amount, position.market)
                             : '-'}
                         </td>
                         <td className={`px-4 py-3 text-right ${getProfitLossClass(priceData[position.id]?.profit_loss)}`}>
                           {priceData[position.id]?.profit_loss != null
-                            ? formatCurrency(priceData[position.id].profit_loss)
+                            ? formatCurrency(priceData[position.id].profit_loss, position.market)
                             : '-'}
                         </td>
                         <td className={`px-4 py-3 text-right ${getProfitLossClass(priceData[position.id]?.profit_rate)}`}>
@@ -179,7 +179,7 @@ export function Positions() {
                     {statusFilter === 'closed' && (
                       <>
                         <td className={`px-4 py-3 text-right ${getProfitLossClass(position.profit_loss)}`}>
-                          {formatCurrency(position.profit_loss)}
+                          {formatCurrency(position.profit_loss, position.market)}
                         </td>
                         <td className={`px-4 py-3 text-right ${getProfitLossClass(position.profit_rate)}`}>
                           {formatPercent(position.profit_rate)}
@@ -238,14 +238,14 @@ export function Positions() {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <p className="text-gray-500">평균매수가</p>
-                      <p className="font-medium">{formatCurrency(position.average_buy_price)}</p>
+                      <p className="font-medium">{formatCurrency(position.average_buy_price, position.market)}</p>
                     </div>
                     {position.status === 'open' && (
                       <div>
                         <p className="text-gray-500">현재가</p>
                         <p className="font-medium">
                           {priceData[position.id]?.current_price
-                            ? formatCurrency(priceData[position.id].current_price)
+                            ? formatCurrency(priceData[position.id].current_price, position.market)
                             : priceLoading ? '...' : '-'}
                         </p>
                       </div>
@@ -256,7 +256,7 @@ export function Positions() {
                     </div>
                     <div>
                       <p className="text-gray-500">매수금액</p>
-                      <p className="font-medium">{formatCurrency(position.total_buy_amount)}</p>
+                      <p className="font-medium">{formatCurrency(position.total_buy_amount, position.market)}</p>
                     </div>
                     {position.status === 'open' && priceData[position.id]?.profit_rate != null && (
                       <div>
