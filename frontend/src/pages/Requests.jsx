@@ -276,7 +276,7 @@ export function Requests() {
                             <span className="text-gray-500">익절: </span>
                             {request.take_profit_targets.map((t, i) => (
                               <span key={i} className="text-red-600 mr-2">
-                                {formatCurrency(t.price)} ({formatPercent(t.ratio)})
+                                {formatCurrency(t.price)} x {t.quantity ?? formatPercent(t.ratio)}
                               </span>
                             ))}
                           </div>
@@ -288,7 +288,7 @@ export function Requests() {
                             <span className="text-gray-500">손절: </span>
                             {request.stop_loss_targets.map((t, i) => (
                               <span key={i} className="text-blue-600 mr-2">
-                                {formatCurrency(t.price)} ({formatPercent(t.ratio)})
+                                {formatCurrency(t.price)} x {t.quantity ?? formatPercent(t.ratio)}
                               </span>
                             ))}
                           </div>

@@ -327,7 +327,7 @@ export function PositionDetail() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={target.completed ? 'text-gray-500' : 'text-red-600'}>{formatPercent(target.ratio)}</span>
+                        <span className={target.completed ? 'text-gray-500' : 'text-red-600'}>x {target.quantity ?? formatPercent(target.ratio)}</span>
                         <span className={`text-xs px-2 py-0.5 rounded ${target.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                           {target.completed ? '완료' : '대기'}
                         </span>
@@ -361,7 +361,7 @@ export function PositionDetail() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={target.completed ? 'text-gray-500' : 'text-blue-600'}>{formatPercent(target.ratio)}</span>
+                        <span className={target.completed ? 'text-gray-500' : 'text-blue-600'}>x {target.quantity ?? formatPercent(target.ratio)}</span>
                         <span className={`text-xs px-2 py-0.5 rounded ${target.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                           {target.completed ? '완료' : '대기'}
                         </span>

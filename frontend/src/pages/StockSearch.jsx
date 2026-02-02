@@ -262,8 +262,8 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
   const [formData, setFormData] = useState({
     order_quantity: '',
     buy_price: currentPrice ? String(currentPrice) : '',
-    take_profit_targets: [{ price: '', ratio: '0.5' }],
-    stop_loss_targets: [{ price: '', ratio: '1' }],
+    take_profit_targets: [{ price: '', quantity: '' }],
+    stop_loss_targets: [{ price: '', quantity: '' }],
     memo: '',
   });
 
@@ -272,7 +272,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
     if (formData.take_profit_targets.length < 4) {
       setFormData({
         ...formData,
-        take_profit_targets: [...formData.take_profit_targets, { price: '', ratio: '0.25' }]
+        take_profit_targets: [...formData.take_profit_targets, { price: '', quantity: '' }]
       });
     }
   };
@@ -290,7 +290,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
     if (formData.stop_loss_targets.length < 4) {
       setFormData({
         ...formData,
-        stop_loss_targets: [...formData.stop_loss_targets, { price: '', ratio: '0.5' }]
+        stop_loss_targets: [...formData.stop_loss_targets, { price: '', quantity: '' }]
       });
     }
   };
@@ -343,11 +343,11 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
         order_quantity: parseFloat(formData.order_quantity),
         buy_price: parseFloat(formData.buy_price),
         take_profit_targets: formData.take_profit_targets
-          .filter(t => t.price)
-          .map(t => ({ price: parseFloat(t.price), ratio: parseFloat(t.ratio) })),
+          .filter(t => t.price && t.quantity)
+          .map(t => ({ price: parseFloat(t.price), quantity: parseFloat(t.quantity) })),
         stop_loss_targets: formData.stop_loss_targets
-          .filter(t => t.price)
-          .map(t => ({ price: parseFloat(t.price), ratio: parseFloat(t.ratio) })),
+          .filter(t => t.price && t.quantity)
+          .map(t => ({ price: parseFloat(t.price), quantity: parseFloat(t.quantity) })),
         memo: formData.memo || null,
       };
 
@@ -440,13 +440,12 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
               />
               <input
                 type="number"
-                step="0.1"
+                step="any"
                 min="0"
-                max="1"
-                placeholder="비율"
-                value={target.ratio}
-                onChange={(e) => updateTakeProfitTarget(index, 'ratio', e.target.value)}
-                className="w-20 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                placeholder="수량"
+                value={target.quantity}
+                onChange={(e) => updateTakeProfitTarget(index, 'quantity', e.target.value)}
+                className="w-24 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
               />
               {formData.take_profit_targets.length > 1 && (
                 <button
@@ -491,13 +490,12 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, on
               />
               <input
                 type="number"
-                step="0.1"
+                step="any"
                 min="0"
-                max="1"
-                placeholder="비율"
-                value={target.ratio}
-                onChange={(e) => updateStopLossTarget(index, 'ratio', e.target.value)}
-                className="w-20 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                placeholder="수량"
+                value={target.quantity}
+                onChange={(e) => updateStopLossTarget(index, 'quantity', e.target.value)}
+                className="w-24 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
               />
               {formData.stop_loss_targets.length > 1 && (
                 <button

@@ -8,7 +8,8 @@ from app.schemas.user import UserBrief
 
 class PriceTarget(BaseModel):
     price: Decimal
-    ratio: Decimal = Field(..., ge=0, le=1)
+    quantity: Optional[Decimal] = None  # 매도 수량
+    ratio: Optional[Decimal] = None  # 비중 (legacy, 하위 호환)
     completed: bool = False  # 실행 완료 여부
 
 
