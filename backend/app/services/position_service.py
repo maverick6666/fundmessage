@@ -4,6 +4,8 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from app.models.position import Position, PositionStatus
 from app.schemas.position import PositionCreate, PositionUpdate, PositionClose, PositionConfirmInfo
 from app.services.audit_service import AuditService
@@ -283,22 +285,21 @@ class PositionService:
                 position.buy_plan[index]['completed'] = completed
                 new_value = completed
                 field_name = f"buy_plan[{index}].completed"
-                # SQLAlchemy JSON 변경 감지를 위해 새 리스트로
-                position.buy_plan = list(position.buy_plan)
+                flag_modified(position, 'buy_plan')
         elif plan_type == 'take_profit':
             if position.take_profit_targets and index < len(position.take_profit_targets):
                 old_value = position.take_profit_targets[index].get('completed', False)
                 position.take_profit_targets[index]['completed'] = completed
                 new_value = completed
                 field_name = f"take_profit_targets[{index}].completed"
-                position.take_profit_targets = list(position.take_profit_targets)
+                flag_modified(position, 'take_profit_targets')
         elif plan_type == 'stop_loss':
             if position.stop_loss_targets and index < len(position.stop_loss_targets):
                 old_value = position.stop_loss_targets[index].get('completed', False)
                 position.stop_loss_targets[index]['completed'] = completed
                 new_value = completed
                 field_name = f"stop_loss_targets[{index}].completed"
-                position.stop_loss_targets = list(position.stop_loss_targets)
+                flag_modified(position, 'stop_loss_targets')
 
         self.db.commit()
         self.db.refresh(position)
@@ -314,6 +315,63 @@ class PositionService:
                 field_name=field_name,
                 old_value=old_value,
                 new_value=new_value
+            )
+
+        return position
+
+    def update_plans(
+        self,
+        position_id: int,
+        buy_plan: Optional[list] = None,
+        take_profit_targets: Optional[list] = None,
+        stop_loss_targets: Optional[list] = None,
+        user_id: int = None
+    ) -> Position:
+        """매매 계획 수정 (분할매수, 익절, 손절)"""
+        position = self.get_position_by_id(position_id)
+        if not position:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Position not found"
+            )
+
+        changes = {}
+
+        if buy_plan is not None:
+            changes['buy_plan'] = {
+                'old': position.buy_plan,
+                'new': buy_plan
+            }
+            position.buy_plan = self._convert_targets(buy_plan) if buy_plan else None
+            flag_modified(position, 'buy_plan')
+
+        if take_profit_targets is not None:
+            changes['take_profit_targets'] = {
+                'old': position.take_profit_targets,
+                'new': take_profit_targets
+            }
+            position.take_profit_targets = self._convert_targets(take_profit_targets) if take_profit_targets else None
+            flag_modified(position, 'take_profit_targets')
+
+        if stop_loss_targets is not None:
+            changes['stop_loss_targets'] = {
+                'old': position.stop_loss_targets,
+                'new': stop_loss_targets
+            }
+            position.stop_loss_targets = self._convert_targets(stop_loss_targets) if stop_loss_targets else None
+            flag_modified(position, 'stop_loss_targets')
+
+        self.db.commit()
+        self.db.refresh(position)
+
+        # Audit log
+        if user_id and changes:
+            audit_service = AuditService(self.db)
+            audit_service.log_multiple_changes(
+                entity_type='position',
+                entity_id=position_id,
+                user_id=user_id,
+                changes=changes
             )
 
         return position

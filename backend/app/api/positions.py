@@ -171,6 +171,12 @@ class TogglePlanItem(BaseModel):
     completed: bool
 
 
+class UpdatePlans(BaseModel):
+    buy_plan: Optional[list] = None
+    take_profit_targets: Optional[list] = None
+    stop_loss_targets: Optional[list] = None
+
+
 @router.post("/{position_id}/toggle-plan", response_model=APIResponse)
 async def toggle_plan_item(
     position_id: int,
@@ -192,6 +198,30 @@ async def toggle_plan_item(
         success=True,
         data=position_to_response(position),
         message="계획 상태가 업데이트되었습니다"
+    )
+
+
+@router.patch("/{position_id}/plans", response_model=APIResponse)
+async def update_plans(
+    position_id: int,
+    plans_data: UpdatePlans,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager)
+):
+    """매매 계획 수정 (분할매수, 익절, 손절) - 팀장만"""
+    position_service = PositionService(db)
+    position = position_service.update_plans(
+        position_id,
+        buy_plan=plans_data.buy_plan,
+        take_profit_targets=plans_data.take_profit_targets,
+        stop_loss_targets=plans_data.stop_loss_targets,
+        user_id=current_user.id
+    )
+
+    return APIResponse(
+        success=True,
+        data=position_to_response(position),
+        message="매매 계획이 수정되었습니다"
     )
 
 

@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
-import { Input } from '../components/common/Input';
+import { Input, Textarea } from '../components/common/Input';
 import { SellRequestForm } from '../components/forms/SellRequestForm';
 import { positionService } from '../services/positionService';
+import { requestService } from '../services/requestService';
 import { useAuth } from '../hooks/useAuth';
 import {
   formatCurrency,
@@ -28,6 +29,21 @@ export function PositionDetail() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [auditLogs, setAuditLogs] = useState([]);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
+  const [showEditPlansModal, setShowEditPlansModal] = useState(false);
+  const [showAddBuyModal, setShowAddBuyModal] = useState(false);
+  const [editPlansData, setEditPlansData] = useState({
+    buy_plan: [],
+    take_profit_targets: [],
+    stop_loss_targets: []
+  });
+  const [addBuyData, setAddBuyData] = useState({
+    buy_price: '',
+    order_quantity: '',
+    buy_orders: [{ price: '', quantity: '' }],
+    take_profit_targets: [{ price: '', quantity: '' }],
+    stop_loss_targets: [{ price: '', quantity: '' }],
+    memo: ''
+  });
   const [closeData, setCloseData] = useState({
     ticker_name: '',
     average_buy_price: '',
@@ -152,6 +168,111 @@ export function PositionDetail() {
     setShowAuditLogs(!showAuditLogs);
   };
 
+  // 계획 수정 모달 열기
+  const openEditPlansModal = () => {
+    setEditPlansData({
+      buy_plan: position.buy_plan?.map(p => ({ ...p })) || [],
+      take_profit_targets: position.take_profit_targets?.map(t => ({ ...t })) || [],
+      stop_loss_targets: position.stop_loss_targets?.map(t => ({ ...t })) || []
+    });
+    setShowEditPlansModal(true);
+  };
+
+  // 계획 저장
+  const handleSavePlans = async () => {
+    setActionLoading(true);
+    try {
+      const updatedPosition = await positionService.updatePlans(id, {
+        buyPlan: editPlansData.buy_plan.length > 0 ? editPlansData.buy_plan : null,
+        takeProfitTargets: editPlansData.take_profit_targets.length > 0 ? editPlansData.take_profit_targets : null,
+        stopLossTargets: editPlansData.stop_loss_targets.length > 0 ? editPlansData.stop_loss_targets : null
+      });
+      setPosition(updatedPosition);
+      setShowEditPlansModal(false);
+      if (showAuditLogs) fetchAuditLogs();
+    } catch (error) {
+      alert(error.response?.data?.detail || '계획 수정에 실패했습니다.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 추가매수 요청
+  const handleAddBuyRequest = async () => {
+    if (!addBuyData.buy_price || !addBuyData.order_quantity) {
+      alert('매수가와 수량을 입력해주세요.');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const data = {
+        target_ticker: position.ticker,
+        ticker_name: position.ticker_name,
+        target_market: position.market,
+        position_id: position.id,
+        order_type: 'quantity',
+        order_quantity: parseFloat(addBuyData.order_quantity),
+        buy_price: parseFloat(addBuyData.buy_price),
+        buy_orders: addBuyData.buy_orders
+          .filter(o => o.price && o.quantity)
+          .map(o => ({ price: parseFloat(o.price), quantity: parseFloat(o.quantity) })),
+        take_profit_targets: addBuyData.take_profit_targets
+          .filter(t => t.price && t.quantity)
+          .map(t => ({ price: parseFloat(t.price), quantity: parseFloat(t.quantity) })),
+        stop_loss_targets: addBuyData.stop_loss_targets
+          .filter(t => t.price && t.quantity)
+          .map(t => ({ price: parseFloat(t.price), quantity: parseFloat(t.quantity) })),
+        memo: addBuyData.memo || null
+      };
+      if (data.buy_orders.length === 0) data.buy_orders = null;
+      if (data.take_profit_targets.length === 0) data.take_profit_targets = null;
+      if (data.stop_loss_targets.length === 0) data.stop_loss_targets = null;
+
+      await requestService.createBuyRequest(data);
+      setShowAddBuyModal(false);
+      setAddBuyData({
+        buy_price: '',
+        order_quantity: '',
+        buy_orders: [{ price: '', quantity: '' }],
+        take_profit_targets: [{ price: '', quantity: '' }],
+        stop_loss_targets: [{ price: '', quantity: '' }],
+        memo: ''
+      });
+      alert('추가매수 요청이 생성되었습니다.');
+    } catch (error) {
+      alert(error.response?.data?.detail || '추가매수 요청에 실패했습니다.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 잔량과 계획 수량 비교
+  const quantityWarning = useMemo(() => {
+    if (!position || position.status === 'closed') return null;
+
+    const totalQty = parseFloat(position.total_quantity) || 0;
+
+    // 익절 계획 수량 합계 (미완료만)
+    const tpQty = (position.take_profit_targets || [])
+      .filter(t => !t.completed)
+      .reduce((sum, t) => sum + (parseFloat(t.quantity) || 0), 0);
+
+    // 손절 계획 수량 합계 (미완료만)
+    const slQty = (position.stop_loss_targets || [])
+      .filter(t => !t.completed)
+      .reduce((sum, t) => sum + (parseFloat(t.quantity) || 0), 0);
+
+    const warnings = [];
+    if (tpQty > 0 && tpQty !== totalQty) {
+      warnings.push(`익절 계획 수량(${tpQty})이 보유 수량(${totalQty})과 다릅니다`);
+    }
+    if (slQty > 0 && slQty !== totalQty) {
+      warnings.push(`손절 계획 수량(${slQty})이 보유 수량(${totalQty})과 다릅니다`);
+    }
+
+    return warnings.length > 0 ? warnings : null;
+  }, [position]);
+
   const formatFieldName = (field) => {
     const names = {
       'average_buy_price': '평균 매입가',
@@ -216,12 +337,20 @@ export function PositionDetail() {
         </div>
 
         {position.status === 'open' && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {isManager() && needsConfirmation && (
               <Button onClick={() => setShowConfirmModal(true)}>
                 정보 확인
               </Button>
             )}
+            {isManager() && (
+              <Button variant="secondary" onClick={openEditPlansModal}>
+                계획 수정
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => setShowAddBuyModal(true)}>
+              추가매수 요청
+            </Button>
             <Button variant="secondary" onClick={() => setShowSellModal(true)}>
               매도 요청
             </Button>
@@ -233,6 +362,23 @@ export function PositionDetail() {
           </div>
         )}
       </div>
+
+      {/* 잔량 경고 */}
+      {quantityWarning && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <h3 className="font-medium text-yellow-800">계획 수량 확인 필요</h3>
+              {quantityWarning.map((w, i) => (
+                <p key={i} className="text-sm text-yellow-700 mt-1">{w}</p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 정보 미확인 알림 */}
       {needsConfirmation && isManager() && (
@@ -684,6 +830,485 @@ export function PositionDetail() {
             </Button>
             <Button onClick={handleConfirm} loading={actionLoading}>
               확인 완료
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit Plans Modal */}
+      <Modal
+        isOpen={showEditPlansModal}
+        onClose={() => setShowEditPlansModal(false)}
+        title="매매 계획 수정"
+        size="lg"
+      >
+        <div className="space-y-6 max-h-[70vh] overflow-y-auto">
+          {/* 분할 매수 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">분할 매수</label>
+              <button
+                type="button"
+                onClick={() => setEditPlansData({
+                  ...editPlansData,
+                  buy_plan: [...editPlansData.buy_plan, { price: '', quantity: '', completed: false }]
+                })}
+                className="text-xs text-primary-600 hover:text-primary-700"
+              >
+                + 추가
+              </button>
+            </div>
+            <div className="space-y-2">
+              {editPlansData.buy_plan.map((item, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="매수가"
+                    value={item.price}
+                    onChange={(e) => {
+                      const newPlan = [...editPlansData.buy_plan];
+                      newPlan[i] = { ...newPlan[i], price: e.target.value };
+                      setEditPlansData({ ...editPlansData, buy_plan: newPlan });
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="수량"
+                    value={item.quantity}
+                    onChange={(e) => {
+                      const newPlan = [...editPlansData.buy_plan];
+                      newPlan[i] = { ...newPlan[i], quantity: e.target.value };
+                      setEditPlansData({ ...editPlansData, buy_plan: newPlan });
+                    }}
+                    className="w-24 px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <label className="flex items-center gap-1 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={item.completed}
+                      onChange={(e) => {
+                        const newPlan = [...editPlansData.buy_plan];
+                        newPlan[i] = { ...newPlan[i], completed: e.target.checked };
+                        setEditPlansData({ ...editPlansData, buy_plan: newPlan });
+                      }}
+                      className="w-4 h-4"
+                    />
+                    완료
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newPlan = editPlansData.buy_plan.filter((_, idx) => idx !== i);
+                      setEditPlansData({ ...editPlansData, buy_plan: newPlan });
+                    }}
+                    className="p-1 text-gray-400 hover:text-red-500"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 익절 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">익절</label>
+              <button
+                type="button"
+                onClick={() => setEditPlansData({
+                  ...editPlansData,
+                  take_profit_targets: [...editPlansData.take_profit_targets, { price: '', quantity: '', completed: false }]
+                })}
+                className="text-xs text-primary-600 hover:text-primary-700"
+              >
+                + 추가
+              </button>
+            </div>
+            <div className="space-y-2">
+              {editPlansData.take_profit_targets.map((item, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="익절가"
+                    value={item.price}
+                    onChange={(e) => {
+                      const newTargets = [...editPlansData.take_profit_targets];
+                      newTargets[i] = { ...newTargets[i], price: e.target.value };
+                      setEditPlansData({ ...editPlansData, take_profit_targets: newTargets });
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="수량"
+                    value={item.quantity}
+                    onChange={(e) => {
+                      const newTargets = [...editPlansData.take_profit_targets];
+                      newTargets[i] = { ...newTargets[i], quantity: e.target.value };
+                      setEditPlansData({ ...editPlansData, take_profit_targets: newTargets });
+                    }}
+                    className="w-24 px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <label className="flex items-center gap-1 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={item.completed}
+                      onChange={(e) => {
+                        const newTargets = [...editPlansData.take_profit_targets];
+                        newTargets[i] = { ...newTargets[i], completed: e.target.checked };
+                        setEditPlansData({ ...editPlansData, take_profit_targets: newTargets });
+                      }}
+                      className="w-4 h-4"
+                    />
+                    완료
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newTargets = editPlansData.take_profit_targets.filter((_, idx) => idx !== i);
+                      setEditPlansData({ ...editPlansData, take_profit_targets: newTargets });
+                    }}
+                    className="p-1 text-gray-400 hover:text-red-500"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 손절 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">손절</label>
+              <button
+                type="button"
+                onClick={() => setEditPlansData({
+                  ...editPlansData,
+                  stop_loss_targets: [...editPlansData.stop_loss_targets, { price: '', quantity: '', completed: false }]
+                })}
+                className="text-xs text-primary-600 hover:text-primary-700"
+              >
+                + 추가
+              </button>
+            </div>
+            <div className="space-y-2">
+              {editPlansData.stop_loss_targets.map((item, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="손절가"
+                    value={item.price}
+                    onChange={(e) => {
+                      const newTargets = [...editPlansData.stop_loss_targets];
+                      newTargets[i] = { ...newTargets[i], price: e.target.value };
+                      setEditPlansData({ ...editPlansData, stop_loss_targets: newTargets });
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="수량"
+                    value={item.quantity}
+                    onChange={(e) => {
+                      const newTargets = [...editPlansData.stop_loss_targets];
+                      newTargets[i] = { ...newTargets[i], quantity: e.target.value };
+                      setEditPlansData({ ...editPlansData, stop_loss_targets: newTargets });
+                    }}
+                    className="w-24 px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <label className="flex items-center gap-1 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={item.completed}
+                      onChange={(e) => {
+                        const newTargets = [...editPlansData.stop_loss_targets];
+                        newTargets[i] = { ...newTargets[i], completed: e.target.checked };
+                        setEditPlansData({ ...editPlansData, stop_loss_targets: newTargets });
+                      }}
+                      className="w-4 h-4"
+                    />
+                    완료
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newTargets = editPlansData.stop_loss_targets.filter((_, idx) => idx !== i);
+                      setEditPlansData({ ...editPlansData, stop_loss_targets: newTargets });
+                    }}
+                    className="p-1 text-gray-400 hover:text-red-500"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button variant="secondary" onClick={() => setShowEditPlansModal(false)}>
+              취소
+            </Button>
+            <Button onClick={handleSavePlans} loading={actionLoading}>
+              저장
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Additional Buy Request Modal */}
+      <Modal
+        isOpen={showAddBuyModal}
+        onClose={() => setShowAddBuyModal(false)}
+        title="추가매수 요청"
+        size="lg"
+      >
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="p-3 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-700">
+              <strong>{position.ticker_name || position.ticker}</strong>에 추가매수 요청을 작성합니다.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="매수가"
+              type="number"
+              step="any"
+              value={addBuyData.buy_price}
+              onChange={(e) => setAddBuyData({ ...addBuyData, buy_price: e.target.value })}
+              placeholder="희망 매수가"
+              required
+            />
+            <Input
+              label="수량"
+              type="number"
+              step="any"
+              value={addBuyData.order_quantity}
+              onChange={(e) => setAddBuyData({ ...addBuyData, order_quantity: e.target.value })}
+              placeholder="매수 수량"
+              required
+            />
+          </div>
+
+          {/* 분할 매수 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">분할 매수 (선택)</label>
+              {addBuyData.buy_orders.length < 4 && (
+                <button
+                  type="button"
+                  onClick={() => setAddBuyData({
+                    ...addBuyData,
+                    buy_orders: [...addBuyData.buy_orders, { price: '', quantity: '' }]
+                  })}
+                  className="text-xs text-primary-600 hover:text-primary-700"
+                >
+                  + 추가
+                </button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {addBuyData.buy_orders.map((order, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="매수가"
+                    value={order.price}
+                    onChange={(e) => {
+                      const newOrders = [...addBuyData.buy_orders];
+                      newOrders[i] = { ...newOrders[i], price: e.target.value };
+                      setAddBuyData({ ...addBuyData, buy_orders: newOrders });
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="수량"
+                    value={order.quantity}
+                    onChange={(e) => {
+                      const newOrders = [...addBuyData.buy_orders];
+                      newOrders[i] = { ...newOrders[i], quantity: e.target.value };
+                      setAddBuyData({ ...addBuyData, buy_orders: newOrders });
+                    }}
+                    className="w-24 px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  {addBuyData.buy_orders.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newOrders = addBuyData.buy_orders.filter((_, idx) => idx !== i);
+                        setAddBuyData({ ...addBuyData, buy_orders: newOrders });
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-500"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 익절 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">익절 (선택)</label>
+              {addBuyData.take_profit_targets.length < 4 && (
+                <button
+                  type="button"
+                  onClick={() => setAddBuyData({
+                    ...addBuyData,
+                    take_profit_targets: [...addBuyData.take_profit_targets, { price: '', quantity: '' }]
+                  })}
+                  className="text-xs text-primary-600 hover:text-primary-700"
+                >
+                  + 추가
+                </button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {addBuyData.take_profit_targets.map((target, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="익절가"
+                    value={target.price}
+                    onChange={(e) => {
+                      const newTargets = [...addBuyData.take_profit_targets];
+                      newTargets[i] = { ...newTargets[i], price: e.target.value };
+                      setAddBuyData({ ...addBuyData, take_profit_targets: newTargets });
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="수량"
+                    value={target.quantity}
+                    onChange={(e) => {
+                      const newTargets = [...addBuyData.take_profit_targets];
+                      newTargets[i] = { ...newTargets[i], quantity: e.target.value };
+                      setAddBuyData({ ...addBuyData, take_profit_targets: newTargets });
+                    }}
+                    className="w-24 px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  {addBuyData.take_profit_targets.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newTargets = addBuyData.take_profit_targets.filter((_, idx) => idx !== i);
+                        setAddBuyData({ ...addBuyData, take_profit_targets: newTargets });
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-500"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 손절 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">손절 (선택)</label>
+              {addBuyData.stop_loss_targets.length < 4 && (
+                <button
+                  type="button"
+                  onClick={() => setAddBuyData({
+                    ...addBuyData,
+                    stop_loss_targets: [...addBuyData.stop_loss_targets, { price: '', quantity: '' }]
+                  })}
+                  className="text-xs text-primary-600 hover:text-primary-700"
+                >
+                  + 추가
+                </button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {addBuyData.stop_loss_targets.map((target, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="손절가"
+                    value={target.price}
+                    onChange={(e) => {
+                      const newTargets = [...addBuyData.stop_loss_targets];
+                      newTargets[i] = { ...newTargets[i], price: e.target.value };
+                      setAddBuyData({ ...addBuyData, stop_loss_targets: newTargets });
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="수량"
+                    value={target.quantity}
+                    onChange={(e) => {
+                      const newTargets = [...addBuyData.stop_loss_targets];
+                      newTargets[i] = { ...newTargets[i], quantity: e.target.value };
+                      setAddBuyData({ ...addBuyData, stop_loss_targets: newTargets });
+                    }}
+                    className="w-24 px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  {addBuyData.stop_loss_targets.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newTargets = addBuyData.stop_loss_targets.filter((_, idx) => idx !== i);
+                        setAddBuyData({ ...addBuyData, stop_loss_targets: newTargets });
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-500"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 메모 */}
+          <Textarea
+            label="메모 (선택)"
+            rows={2}
+            placeholder="추가매수 사유..."
+            value={addBuyData.memo}
+            onChange={(e) => setAddBuyData({ ...addBuyData, memo: e.target.value })}
+          />
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button variant="secondary" onClick={() => setShowAddBuyModal(false)}>
+              취소
+            </Button>
+            <Button onClick={handleAddBuyRequest} loading={actionLoading}>
+              추가매수 요청
             </Button>
           </div>
         </div>

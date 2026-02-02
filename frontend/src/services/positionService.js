@@ -59,5 +59,15 @@ export const positionService = {
   async getAuditLogs(id) {
     const response = await api.get(`/positions/${id}/audit-logs`);
     return response.data.data;
+  },
+
+  // 매매 계획 수정
+  async updatePlans(id, { buyPlan, takeProfitTargets, stopLossTargets }) {
+    const response = await api.patch(`/positions/${id}/plans`, {
+      buy_plan: buyPlan,
+      take_profit_targets: takeProfitTargets,
+      stop_loss_targets: stopLossTargets
+    });
+    return response.data.data;
   }
 };
