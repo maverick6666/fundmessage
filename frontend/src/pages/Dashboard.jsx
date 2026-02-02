@@ -4,7 +4,6 @@ import { Card, CardHeader, CardTitle } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
-import { BuyRequestForm } from '../components/forms/BuyRequestForm';
 import { positionService } from '../services/positionService';
 import { requestService } from '../services/requestService';
 import { useAuth } from '../hooks/useAuth';
@@ -24,7 +23,6 @@ export function Dashboard() {
   const [requests, setRequests] = useState([]);
   const [teamSettings, setTeamSettings] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showBuyModal, setShowBuyModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsData, setSettingsData] = useState({ initial_capital: '' });
   const [actionLoading, setActionLoading] = useState(false);
@@ -82,16 +80,11 @@ export function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">대시보드</h1>
-        <div className="flex gap-2">
-          {isManager() && (
-            <Button variant="secondary" onClick={() => setShowSettingsModal(true)}>
-              팀 설정
-            </Button>
-          )}
-          <Button onClick={() => setShowBuyModal(true)}>
-            + 매수 요청
+        {isManager() && (
+          <Button variant="secondary" onClick={() => setShowSettingsModal(true)}>
+            팀 설정
           </Button>
-        </div>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -244,22 +237,6 @@ export function Dashboard() {
           )}
         </Card>
       </div>
-
-      {/* Buy Request Modal */}
-      <Modal
-        isOpen={showBuyModal}
-        onClose={() => setShowBuyModal(false)}
-        title="매수 요청"
-        size="lg"
-      >
-        <BuyRequestForm
-          onSuccess={() => {
-            setShowBuyModal(false);
-            fetchData();
-          }}
-          onCancel={() => setShowBuyModal(false)}
-        />
-      </Modal>
 
       {/* Team Settings Modal */}
       <Modal

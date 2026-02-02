@@ -18,7 +18,7 @@ export function Requests() {
   const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('pending');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -113,7 +113,7 @@ export function Requests() {
 
       {/* Filters */}
       <div className="flex gap-2 flex-wrap">
-        {['pending', 'discussion', 'approved', 'rejected', 'all'].map(status => (
+        {['all', 'pending', 'discussion', 'approved', 'rejected'].map(status => (
           <button
             key={status}
             onClick={() => setStatusFilter(status)}
