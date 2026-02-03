@@ -6,6 +6,7 @@ import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
 import { positionService } from '../services/positionService';
 import { requestService } from '../services/requestService';
+import { priceService } from '../services/priceService';
 import { useAuth } from '../hooks/useAuth';
 import {
   formatCurrency,
@@ -44,11 +45,11 @@ export function Dashboard() {
   const fetchData = async () => {
     try {
       const [positionData, requestData, settings] = await Promise.all([
-        positionService.getPositions({ status: 'open', limit: 10 }),
-        requestService.getRequests({ limit: 5 }),
+        priceService.getPositionsWithPrices().catch(() => ({ positions: [] })),
+        requestService.getRequests({ limit: 3 }),
         positionService.getTeamSettings().catch(() => null)
       ]);
-      setPositions(positionData.positions);
+      setPositions(positionData.positions || []);
       setRequests(requestData.requests);
       if (settings) {
         setTeamSettings(settings);
@@ -289,19 +290,17 @@ export function Dashboard() {
           ) : positions.length === 0 ? (
             <div className="text-center py-8 text-gray-500">열린 포지션이 없습니다</div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {positions.map(position => (
                 <Link
                   key={position.id}
                   to={`/positions/${position.id}`}
                   className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                      <div>
-                        <p className="font-medium">{position.ticker_name || position.ticker}</p>
-                        <p className="text-sm text-gray-500">{position.ticker}</p>
-                      </div>
+                      <span className="font-medium">{position.ticker_name || position.ticker}</span>
+                      <span className="text-xs text-gray-400">{position.ticker}</span>
                       {!position.is_info_confirmed && (
                         <span className="text-yellow-500" title="정보 확인 필요">
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -310,11 +309,30 @@ export function Dashboard() {
                         </span>
                       )}
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">{formatCurrency(position.average_buy_price, position.market)}</p>
-                      <p className="text-sm text-gray-500">
-                        {position.total_quantity}주
-                      </p>
+                    {position.profit_rate != null && (
+                      <span className={`text-sm font-medium ${getProfitLossClass(position.profit_rate)}`}>
+                        {position.profit_rate >= 0 ? '+' : ''}{formatPercent(position.profit_rate)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 text-sm">
+                    <div className="flex justify-between text-gray-500">
+                      <span>평단</span>
+                      <span className="text-gray-700">{formatCurrency(position.average_buy_price, position.market)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-500">
+                      <span>현재가</span>
+                      <span className="text-gray-700">{position.current_price ? formatCurrency(position.current_price, position.market) : '-'}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-500">
+                      <span>수량</span>
+                      <span className="text-gray-700">{formatNumber(position.quantity)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-500">
+                      <span>평가금액</span>
+                      <span className={position.profit_loss != null ? getProfitLossClass(position.profit_loss) : 'text-gray-700'}>
+                        {position.evaluation_amount ? formatCurrency(position.evaluation_amount, position.market) : '-'}
+                      </span>
                     </div>
                   </div>
                 </Link>

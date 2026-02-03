@@ -78,30 +78,44 @@ class StatsService:
         }
 
     def get_team_stats(self, start_date: Optional[date] = None, end_date: Optional[date] = None) -> dict:
-        query = self.db.query(Position).filter(Position.status == PositionStatus.CLOSED.value)
+        # 열린 포지션
+        open_positions = self.db.query(Position).filter(
+            Position.status == PositionStatus.OPEN.value
+        ).all()
 
+        # 종료된 포지션
+        closed_query = self.db.query(Position).filter(Position.status == PositionStatus.CLOSED.value)
         if start_date:
-            query = query.filter(Position.closed_at >= datetime.combine(start_date, datetime.min.time()))
+            closed_query = closed_query.filter(Position.closed_at >= datetime.combine(start_date, datetime.min.time()))
         if end_date:
-            query = query.filter(Position.closed_at <= datetime.combine(end_date, datetime.max.time()))
+            closed_query = closed_query.filter(Position.closed_at <= datetime.combine(end_date, datetime.max.time()))
+        closed_positions = closed_query.all()
 
-        closed_positions = query.all()
+        # 열린 포지션 통계
+        open_count = len(open_positions)
+        open_invested = sum([p.total_buy_amount or Decimal(0) for p in open_positions])
 
-        total_trades = len(closed_positions)
-        total_profit_loss = sum([p.profit_loss or Decimal(0) for p in closed_positions])
+        # 종료된 포지션 통계
+        closed_count = len(closed_positions)
+        realized_profit_loss = sum([p.profit_loss or Decimal(0) for p in closed_positions])
         total_volume = sum([p.total_buy_amount or Decimal(0) for p in closed_positions])
-
         winning_trades = len([p for p in closed_positions if p.profit_loss and p.profit_loss > 0])
-        avg_win_rate = winning_trades / total_trades if total_trades > 0 else 0
+        losing_trades = len([p for p in closed_positions if p.profit_loss and p.profit_loss < 0])
+        win_rate = winning_trades / closed_count if closed_count > 0 else 0
 
-        # Leaderboard by user
+        # 수익 팩터
+        total_gains = sum([p.profit_loss for p in closed_positions if p.profit_loss and p.profit_loss > 0])
+        total_losses = abs(sum([p.profit_loss for p in closed_positions if p.profit_loss and p.profit_loss < 0]))
+        profit_factor = float(total_gains / total_losses) if total_losses > 0 else 0
+
+        # Leaderboard by user (종료된 포지션 기준)
         user_stats = {}
         for position in closed_positions:
             user_id = position.opened_by
             if user_id not in user_stats:
                 user = self.db.query(User).filter(User.id == user_id).first()
                 user_stats[user_id] = {
-                    "user": {"id": user.id, "username": user.username} if user else {"id": user_id, "username": "Unknown"},
+                    "user": {"id": user.id, "username": user.username, "full_name": user.full_name} if user else {"id": user_id, "username": "Unknown", "full_name": "Unknown"},
                     "total_profit_loss": Decimal(0),
                     "win_count": 0,
                     "trades": 0
@@ -126,38 +140,49 @@ class StatsService:
             reverse=True
         )
 
-        # Add rank
         for i, entry in enumerate(leaderboard):
             entry["rank"] = i + 1
 
-        # Stats by ticker
+        # 모든 포지션 (open + closed) 종목별 통계
+        all_positions = open_positions + closed_positions
         ticker_stats = {}
-        for position in closed_positions:
+        for position in all_positions:
             ticker = position.ticker
             if ticker not in ticker_stats:
                 ticker_stats[ticker] = {
                     "ticker": ticker,
                     "ticker_name": position.ticker_name,
-                    "trades": 0,
+                    "market": position.market,
+                    "open_count": 0,
+                    "closed_count": 0,
+                    "invested": Decimal(0),
                     "profit_loss": Decimal(0),
                     "total_holding_hours": 0
                 }
-            ticker_stats[ticker]["trades"] += 1
-            ticker_stats[ticker]["profit_loss"] += position.profit_loss or Decimal(0)
-            ticker_stats[ticker]["total_holding_hours"] += position.holding_period_hours or 0
+
+            if position.status == PositionStatus.OPEN.value:
+                ticker_stats[ticker]["open_count"] += 1
+                ticker_stats[ticker]["invested"] += position.total_buy_amount or Decimal(0)
+            else:
+                ticker_stats[ticker]["closed_count"] += 1
+                ticker_stats[ticker]["profit_loss"] += position.profit_loss or Decimal(0)
+                ticker_stats[ticker]["total_holding_hours"] += position.holding_period_hours or 0
 
         by_ticker = sorted(
             [
                 {
                     "ticker": s["ticker"],
                     "ticker_name": s["ticker_name"],
-                    "trades": s["trades"],
+                    "market": s["market"],
+                    "open_count": s["open_count"],
+                    "closed_count": s["closed_count"],
+                    "invested": float(s["invested"]),
                     "profit_loss": float(s["profit_loss"]),
-                    "avg_holding_hours": s["total_holding_hours"] // s["trades"] if s["trades"] > 0 else 0
+                    "avg_holding_hours": s["total_holding_hours"] // s["closed_count"] if s["closed_count"] > 0 else 0
                 }
                 for s in ticker_stats.values()
             ],
-            key=lambda x: x["profit_loss"],
+            key=lambda x: (x["open_count"], x["profit_loss"]),
             reverse=True
         )
 
@@ -166,10 +191,24 @@ class StatsService:
                 "start": start_date.isoformat() if start_date else None,
                 "end": end_date.isoformat() if end_date else None
             },
+            "open_positions": {
+                "count": open_count,
+                "total_invested": float(open_invested)
+            },
+            "closed_positions": {
+                "count": closed_count,
+                "winning_trades": winning_trades,
+                "losing_trades": losing_trades,
+                "win_rate": win_rate,
+                "realized_profit_loss": float(realized_profit_loss),
+                "total_volume": float(total_volume),
+                "profit_factor": profit_factor
+            },
             "overall": {
-                "total_trades": total_trades,
-                "total_profit_loss": float(total_profit_loss),
-                "avg_win_rate": avg_win_rate,
+                "total_positions": open_count + closed_count,
+                "total_invested": float(open_invested),
+                "realized_profit_loss": float(realized_profit_loss),
+                "win_rate": win_rate,
                 "total_volume": float(total_volume)
             },
             "leaderboard": leaderboard,

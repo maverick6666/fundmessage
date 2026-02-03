@@ -141,50 +141,85 @@ export function Stats() {
       {/* Team Stats */}
       {activeTab === 'team' && teamStats && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <p className="text-sm text-gray-500">총 거래</p>
-              <p className="text-2xl font-bold">{teamStats.overall.total_trades}</p>
-            </Card>
-            <Card>
-              <p className="text-sm text-gray-500">평균 승률</p>
-              <p className="text-2xl font-bold">{formatPercent(teamStats.overall.avg_win_rate)}</p>
-            </Card>
-            <Card>
-              <p className="text-sm text-gray-500">총 손익</p>
-              <p className={`text-2xl font-bold ${getProfitLossClass(teamStats.overall.total_profit_loss)}`}>
-                {formatCurrency(teamStats.overall.total_profit_loss)}
-              </p>
-            </Card>
-            <Card>
-              <p className="text-sm text-gray-500">총 거래량</p>
-              <p className="text-2xl font-bold">{formatCurrency(teamStats.overall.total_volume)}</p>
-            </Card>
+          {/* 진행중 포지션 */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-3">진행중</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Card>
+                <p className="text-sm text-gray-500">열린 포지션</p>
+                <p className="text-2xl font-bold">{teamStats.open_positions?.count || 0}</p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">투자 금액</p>
+                <p className="text-2xl font-bold">{formatCurrency(teamStats.open_positions?.total_invested || 0)}</p>
+              </Card>
+            </div>
           </div>
 
+          {/* 종료된 포지션 */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-3">실현 성과</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card>
+                <p className="text-sm text-gray-500">종료 거래</p>
+                <p className="text-2xl font-bold">{teamStats.closed_positions?.count || 0}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {teamStats.closed_positions?.winning_trades || 0}승 / {teamStats.closed_positions?.losing_trades || 0}패
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">승률</p>
+                <p className="text-2xl font-bold">{formatPercent(teamStats.closed_positions?.win_rate || 0)}</p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">실현 손익</p>
+                <p className={`text-2xl font-bold ${getProfitLossClass(teamStats.closed_positions?.realized_profit_loss)}`}>
+                  {formatCurrency(teamStats.closed_positions?.realized_profit_loss || 0)}
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm text-gray-500">수익 팩터</p>
+                <p className="text-2xl font-bold">{(teamStats.closed_positions?.profit_factor || 0).toFixed(2)}</p>
+              </Card>
+            </div>
+          </div>
+
+          {/* 종목별 현황 */}
           <Card>
             <CardHeader>
-              <CardTitle>종목별 성과</CardTitle>
+              <CardTitle>종목별 현황</CardTitle>
             </CardHeader>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
                     <th className="py-2 text-left">종목</th>
-                    <th className="py-2 text-right">거래 수</th>
-                    <th className="py-2 text-right">손익</th>
-                    <th className="py-2 text-right">평균 보유</th>
+                    <th className="py-2 text-right">진행</th>
+                    <th className="py-2 text-right">종료</th>
+                    <th className="py-2 text-right">투자금</th>
+                    <th className="py-2 text-right">실현 손익</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {teamStats.by_ticker.map((ticker, i) => (
+                  {teamStats.by_ticker?.map((ticker, i) => (
                     <tr key={i} className="border-b">
-                      <td className="py-2">{ticker.ticker_name || ticker.ticker}</td>
-                      <td className="py-2 text-right">{ticker.trades}</td>
-                      <td className={`py-2 text-right ${getProfitLossClass(ticker.profit_loss)}`}>
-                        {formatCurrency(ticker.profit_loss)}
+                      <td className="py-2">
+                        <div>{ticker.ticker_name || ticker.ticker}</div>
+                        <div className="text-xs text-gray-400">{ticker.ticker}</div>
                       </td>
-                      <td className="py-2 text-right">{formatHours(ticker.avg_holding_hours)}</td>
+                      <td className="py-2 text-right">
+                        {ticker.open_count > 0 && (
+                          <span className="text-green-600">{ticker.open_count}</span>
+                        )}
+                        {ticker.open_count === 0 && '-'}
+                      </td>
+                      <td className="py-2 text-right">{ticker.closed_count || '-'}</td>
+                      <td className="py-2 text-right">
+                        {ticker.invested > 0 ? formatCurrency(ticker.invested, ticker.market) : '-'}
+                      </td>
+                      <td className={`py-2 text-right ${getProfitLossClass(ticker.profit_loss)}`}>
+                        {ticker.closed_count > 0 ? formatCurrency(ticker.profit_loss, ticker.market) : '-'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
