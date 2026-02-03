@@ -12,6 +12,7 @@ from app.schemas.user import UserBrief
 from app.schemas.common import APIResponse
 from app.services.position_service import PositionService
 from app.services.audit_service import AuditService
+from app.services.notification_service import NotificationService
 from app.dependencies import get_current_user, get_manager_or_admin, get_manager
 from app.models.user import User
 from app.models.team_settings import TeamSettings
@@ -389,4 +390,44 @@ async def get_position_audit_logs(
                 for log in logs
             ]
         }
+    )
+
+
+@router.post("/{position_id}/request-discussion", response_model=APIResponse)
+async def request_discussion(
+    position_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """포지션에 대한 토론 요청 (팀원이 매니저에게 요청)"""
+    position_service = PositionService(db)
+    position = position_service.get_position_by_id(position_id)
+
+    if not position:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Position not found"
+        )
+
+    if position.status != 'open':
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="종료된 포지션입니다"
+        )
+
+    # 매니저들에게 알림 전송
+    notification_service = NotificationService(db)
+    notification_service.create_notification_for_managers(
+        notification_type="discussion_requested",
+        title=f"{current_user.full_name}님이 {position.ticker_name or position.ticker} 토론을 요청했습니다",
+        related_type="position",
+        related_id=position_id,
+        exclude_user_id=current_user.id
+    )
+
+    return APIResponse(
+        success=True,
+        message="토론 요청이 매니저에게 전송되었습니다"
     )

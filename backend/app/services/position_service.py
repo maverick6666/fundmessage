@@ -319,6 +319,43 @@ class PositionService:
 
         return position
 
+    def _normalize_plan_item(self, item: dict) -> dict:
+        """계획 항목을 정규화 (비교용)"""
+        return {
+            'price': float(item.get('price') or 0),
+            'quantity': float(item.get('quantity') or 0),
+            'completed': bool(item.get('completed', False))
+        }
+
+    def _is_valid_plan_item(self, item: dict) -> bool:
+        """유효한 계획 항목인지 확인 (가격과 수량이 있는지)"""
+        return bool(item.get('price')) and bool(item.get('quantity'))
+
+    def _compare_plans(self, old_list: list, new_list: list, plan_name: str) -> list:
+        """두 계획 리스트를 비교하여 변경사항 설명 반환"""
+        changes = []
+        old_list = old_list or []
+        new_list = new_list or []
+
+        # 유효한 항목만 비교 (빈 항목 제외)
+        old_valid = [self._normalize_plan_item(i) for i in old_list if self._is_valid_plan_item(i)]
+        new_valid = [self._normalize_plan_item(i) for i in new_list if self._is_valid_plan_item(i)]
+
+        # 개수 변화
+        if len(new_valid) > len(old_valid):
+            added_count = len(new_valid) - len(old_valid)
+            changes.append(f"{plan_name} {added_count}건 추가")
+        elif len(new_valid) < len(old_valid):
+            removed_count = len(old_valid) - len(new_valid)
+            changes.append(f"{plan_name} {removed_count}건 삭제")
+
+        # 기존 항목 수정 확인
+        for i, (old_item, new_item) in enumerate(zip(old_valid, new_valid)):
+            if old_item['price'] != new_item['price'] or old_item['quantity'] != new_item['quantity']:
+                changes.append(f"{plan_name} {i+1}번 수정: {old_item['price']:,.0f}×{old_item['quantity']:.2g} → {new_item['price']:,.0f}×{new_item['quantity']:.2g}")
+
+        return changes
+
     def update_plans(
         self,
         position_id: int,
@@ -335,43 +372,34 @@ class PositionService:
                 detail="Position not found"
             )
 
-        changes = {}
+        change_descriptions = []
 
         if buy_plan is not None:
-            changes['buy_plan'] = {
-                'old': position.buy_plan,
-                'new': buy_plan
-            }
+            change_descriptions.extend(self._compare_plans(position.buy_plan, buy_plan, "매수계획"))
             position.buy_plan = self._convert_targets(buy_plan) if buy_plan else None
             flag_modified(position, 'buy_plan')
 
         if take_profit_targets is not None:
-            changes['take_profit_targets'] = {
-                'old': position.take_profit_targets,
-                'new': take_profit_targets
-            }
+            change_descriptions.extend(self._compare_plans(position.take_profit_targets, take_profit_targets, "익절계획"))
             position.take_profit_targets = self._convert_targets(take_profit_targets) if take_profit_targets else None
             flag_modified(position, 'take_profit_targets')
 
         if stop_loss_targets is not None:
-            changes['stop_loss_targets'] = {
-                'old': position.stop_loss_targets,
-                'new': stop_loss_targets
-            }
+            change_descriptions.extend(self._compare_plans(position.stop_loss_targets, stop_loss_targets, "손절계획"))
             position.stop_loss_targets = self._convert_targets(stop_loss_targets) if stop_loss_targets else None
             flag_modified(position, 'stop_loss_targets')
 
         self.db.commit()
         self.db.refresh(position)
 
-        # Audit log
-        if user_id and changes:
+        # Audit log - 실제 변경사항이 있을 때만 기록
+        if user_id and change_descriptions:
             audit_service = AuditService(self.db)
-            audit_service.log_multiple_changes(
+            audit_service.log_change(
                 entity_type='position',
                 entity_id=position_id,
-                user_id=user_id,
-                changes=changes
+                action=', '.join(change_descriptions),
+                user_id=user_id
             )
 
         return position

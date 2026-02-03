@@ -565,11 +565,20 @@ export function PositionDetail() {
             <>
               <Button variant="secondary" onClick={() => setShowAddBuyModal(true)}>추가매수 요청</Button>
               <Button variant="secondary" onClick={() => setShowSellModal(true)}>매도 요청</Button>
-              {isManagerOrAdmin() && (
+              {isManagerOrAdmin() ? (
                 <Button variant="secondary" onClick={() => {
                   setDiscussionTitle(`${position.ticker_name || position.ticker} 토론`);
                   setShowDiscussionModal(true);
                 }}>토론방 열기</Button>
+              ) : !hasOpenDiscussion && (
+                <Button variant="secondary" onClick={async () => {
+                  try {
+                    await positionService.requestDiscussion(id);
+                    alert('토론 요청이 매니저에게 전송되었습니다.');
+                  } catch (error) {
+                    alert(error.response?.data?.detail || '토론 요청에 실패했습니다.');
+                  }
+                }}>토론 요청</Button>
               )}
               {isManagerOrAdmin() && (
                 <Button variant="danger" onClick={() => setShowCloseModal(true)}>수동 종료</Button>

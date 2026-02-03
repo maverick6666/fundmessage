@@ -41,5 +41,10 @@ export const requestService = {
   async startDiscussion(id, title) {
     const response = await api.post(`/requests/${id}/discuss`, { title });
     return response.data.data;
+  },
+
+  async requestDiscussion(id) {
+    const response = await api.post(`/requests/${id}/request-discussion`);
+    return response.data;
   }
 };

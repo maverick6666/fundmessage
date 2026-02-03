@@ -82,5 +82,11 @@ export const positionService = {
       stop_loss_targets: stopLossTargets
     });
     return response.data.data;
+  },
+
+  // 토론 요청 (팀원 → 매니저)
+  async requestDiscussion(id) {
+    const response = await api.post(`/positions/${id}/request-discussion`);
+    return response.data;
   }
 };

@@ -131,6 +131,27 @@ export function MyRequests() {
                   </div>
                 )}
 
+                {/* 대기중일 때 토론 요청 버튼 */}
+                {request.status === 'pending' && (
+                  <div className="mt-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          await requestService.requestDiscussion(request.id);
+                          alert('토론 요청이 매니저에게 전송되었습니다.');
+                        } catch (error) {
+                          alert(error.response?.data?.detail || '토론 요청에 실패했습니다.');
+                        }
+                      }}
+                    >
+                      토론 요청
+                    </Button>
+                  </div>
+                )}
+
                 {/* 세부사항 토글 버튼 */}
                 <button
                   onClick={() => toggleExpand(request.id)}
