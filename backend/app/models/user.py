@@ -33,6 +33,7 @@ class User(Base):
     messages = relationship("Message", back_populates="user")
     opened_discussions = relationship("Discussion", back_populates="opener", foreign_keys="Discussion.opened_by")
     closed_discussions = relationship("Discussion", back_populates="closer", foreign_keys="Discussion.closed_by")
+    notifications = relationship("Notification", back_populates="user")
 
     def is_manager_or_admin(self) -> bool:
         return self.role in [UserRole.MANAGER.value, UserRole.ADMIN.value]

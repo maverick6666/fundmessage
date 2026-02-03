@@ -13,6 +13,7 @@ from app.schemas.discussion import DiscussionCreate, DiscussionResponse
 from app.schemas.common import APIResponse
 from app.services.request_service import RequestService
 from app.services.discussion_service import DiscussionService
+from app.services.notification_service import NotificationService
 from app.dependencies import get_current_user, get_manager_or_admin
 from app.models.user import User
 
@@ -194,6 +195,14 @@ async def approve_request(
     request_service = RequestService(db)
     request, position = request_service.approve_request(request_id, approve_data, current_user.id)
 
+    # 요청자에게 알림 전송
+    notification_service = NotificationService(db)
+    notification_service.notify_request_approved(
+        requester_id=request.requester_id,
+        request_id=request.id,
+        ticker=request.target_ticker
+    )
+
     response_data = {
         "request": request_to_response(request)
     }
@@ -225,6 +234,15 @@ async def reject_request(
     request_service = RequestService(db)
     request = request_service.reject_request(request_id, reject_data.rejection_reason, current_user.id)
 
+    # 요청자에게 알림 전송
+    notification_service = NotificationService(db)
+    notification_service.notify_request_rejected(
+        requester_id=request.requester_id,
+        request_id=request.id,
+        ticker=request.target_ticker,
+        reason=reject_data.rejection_reason
+    )
+
     return APIResponse(
         success=True,
         data={"request": request_to_response(request)},
@@ -251,6 +269,16 @@ async def start_discussion(
     request_service = RequestService(db)
     request = request_service.get_request_by_id(request_id)
 
+    # 요청자에게 토론 개시 알림 전송
+    if request.requester_id != current_user.id:
+        notification_service = NotificationService(db)
+        notification_service.notify_discussion_opened(
+            requester_id=request.requester_id,
+            discussion_id=discussion.id,
+            title=discussion.title,
+            request_id=request_id
+        )
+
     return APIResponse(
         success=True,
         data={
@@ -265,4 +293,52 @@ async def start_discussion(
             }
         },
         message="Discussion session started"
+    )
+
+
+@router.post("/{request_id}/request-discussion", response_model=APIResponse)
+async def request_discussion(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Request a discussion for own request (for team members to ask managers)"""
+    request_service = RequestService(db)
+    request = request_service.get_request_by_id(request_id)
+
+    if not request:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Request not found"
+        )
+
+    # 자신의 요청만 토론 요청 가능
+    if request.requester_id != current_user.id:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Can only request discussion for your own requests"
+        )
+
+    # 이미 토론중이거나 승인/거부된 요청은 불가
+    if request.status != 'pending':
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Can only request discussion for pending requests"
+        )
+
+    # 매니저들에게 알림 전송
+    notification_service = NotificationService(db)
+    notification_service.notify_discussion_requested(
+        requester_id=current_user.id,
+        requester_name=current_user.full_name,
+        request_id=request_id,
+        ticker=request.target_ticker
+    )
+
+    return APIResponse(
+        success=True,
+        message="토론 요청이 매니저에게 전송되었습니다"
     )

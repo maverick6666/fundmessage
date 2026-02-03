@@ -7,5 +7,6 @@ from app.models.price_alert import PriceAlert
 from app.models.verification import EmailVerification
 from app.models.team_settings import TeamSettings
 from app.models.audit_log import AuditLog
+from app.models.notification import Notification
 
-__all__ = ["User", "Position", "Request", "Discussion", "Message", "PriceAlert", "EmailVerification", "TeamSettings", "AuditLog"]
+__all__ = ["User", "Position", "Request", "Discussion", "Message", "PriceAlert", "EmailVerification", "TeamSettings", "AuditLog", "Notification"]

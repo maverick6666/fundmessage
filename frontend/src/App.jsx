@@ -12,6 +12,7 @@ import { MyRequests } from './pages/MyRequests';
 import { Discussion } from './pages/Discussion';
 import { Stats } from './pages/Stats';
 import { TeamManagement } from './pages/TeamManagement';
+import { Notifications } from './pages/Notifications';
 import StockSearch from './pages/StockSearch';
 
 function PrivateRoute({ children }) {
@@ -135,6 +136,15 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Stats />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/notifications"
+        element={
+          <PrivateRoute>
+            <Notifications />
           </PrivateRoute>
         }
       />
