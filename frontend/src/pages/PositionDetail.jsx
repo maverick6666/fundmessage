@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
-import { Input, Textarea } from '../components/common/Input';
-import { SellRequestForm } from '../components/forms/SellRequestForm';
+import { Input } from '../components/common/Input';
+import ReactMarkdown from 'react-markdown';
 import { positionService } from '../services/positionService';
-import { requestService } from '../services/requestService';
 import { discussionService } from '../services/discussionService';
+import { decisionNoteService } from '../services/decisionNoteService';
 import { useAuth } from '../hooks/useAuth';
 import {
   formatCurrency,
@@ -15,6 +15,7 @@ import {
   formatDate,
   formatHours,
   formatQuantity,
+  calcHoldingHours,
   getStatusBadgeClass,
   getStatusLabel,
   getProfitLossClass
@@ -26,22 +27,12 @@ export function PositionDetail() {
   const { isManagerOrAdmin, isManager } = useAuth();
   const [position, setPosition] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showSellModal, setShowSellModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [auditLogs, setAuditLogs] = useState([]);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [discussions, setDiscussions] = useState([]);
   const [showDiscussionModal, setShowDiscussionModal] = useState(false);
   const [discussionTitle, setDiscussionTitle] = useState('');
-  const [showAddBuyModal, setShowAddBuyModal] = useState(false);
-  const [addBuyData, setAddBuyData] = useState({
-    buy_price: '',
-    order_quantity: '',
-    buy_orders: [{ price: '', quantity: '' }],
-    take_profit_targets: [{ price: '', quantity: '' }],
-    stop_loss_targets: [{ price: '', quantity: '' }],
-    memo: ''
-  });
   const [closeData, setCloseData] = useState({
     ticker_name: '',
     average_buy_price: '',
@@ -49,6 +40,14 @@ export function PositionDetail() {
     total_sell_amount: '',
   });
   const [actionLoading, setActionLoading] = useState(false);
+
+  // 의사결정 노트
+  const [decisionNotes, setDecisionNotes] = useState([]);
+  const [showNoteForm, setShowNoteForm] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteContent, setNoteContent] = useState('');
+  const [expandedNoteId, setExpandedNoteId] = useState(null);
 
   // 인라인 편집 상태
   const [editingInfo, setEditingInfo] = useState(false);
@@ -61,6 +60,7 @@ export function PositionDetail() {
   useEffect(() => {
     fetchPosition();
     fetchDiscussions();
+    fetchDecisionNotes();
   }, [id]);
 
   const fetchDiscussions = async () => {
@@ -69,6 +69,57 @@ export function PositionDetail() {
       setDiscussions(data || []);
     } catch (error) {
       console.error('Failed to fetch discussions:', error);
+    }
+  };
+
+  const fetchDecisionNotes = async () => {
+    try {
+      const data = await decisionNoteService.getNotes(id);
+      setDecisionNotes(data.notes || []);
+    } catch (error) {
+      console.error('Failed to fetch decision notes:', error);
+    }
+  };
+
+  const handleSaveNote = async () => {
+    if (!noteTitle.trim() || !noteContent.trim()) {
+      alert('제목과 내용을 입력해주세요.');
+      return;
+    }
+    try {
+      if (editingNoteId) {
+        await decisionNoteService.updateNote(id, editingNoteId, {
+          title: noteTitle, content: noteContent
+        });
+      } else {
+        await decisionNoteService.createNote(id, {
+          title: noteTitle, content: noteContent
+        });
+      }
+      setShowNoteForm(false);
+      setEditingNoteId(null);
+      setNoteTitle('');
+      setNoteContent('');
+      fetchDecisionNotes();
+    } catch (error) {
+      alert(error.response?.data?.detail || '저장에 실패했습니다.');
+    }
+  };
+
+  const handleEditNote = (note) => {
+    setEditingNoteId(note.id);
+    setNoteTitle(note.title);
+    setNoteContent(note.content);
+    setShowNoteForm(true);
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    if (!window.confirm('이 노트를 삭제하시겠습니까?')) return;
+    try {
+      await decisionNoteService.deleteNote(id, noteId);
+      fetchDecisionNotes();
+    } catch (error) {
+      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
@@ -269,54 +320,6 @@ export function PositionDetail() {
   const toggleAuditLogs = () => {
     if (!showAuditLogs && auditLogs.length === 0) fetchAuditLogs();
     setShowAuditLogs(!showAuditLogs);
-  };
-
-  // 추가매수 요청
-  const handleAddBuyRequest = async () => {
-    if (!addBuyData.buy_price || !addBuyData.order_quantity) {
-      alert('매수가와 수량을 입력해주세요.');
-      return;
-    }
-    setActionLoading(true);
-    try {
-      const data = {
-        target_ticker: position.ticker,
-        ticker_name: position.ticker_name,
-        target_market: position.market,
-        position_id: position.id,
-        order_type: 'quantity',
-        order_quantity: parseFloat(addBuyData.order_quantity),
-        buy_price: parseFloat(addBuyData.buy_price),
-        buy_orders: addBuyData.buy_orders
-          .filter(o => o.price && o.quantity)
-          .map(o => ({ price: parseFloat(o.price), quantity: parseFloat(o.quantity) })),
-        take_profit_targets: addBuyData.take_profit_targets
-          .filter(t => t.price && t.quantity)
-          .map(t => ({ price: parseFloat(t.price), quantity: parseFloat(t.quantity) })),
-        stop_loss_targets: addBuyData.stop_loss_targets
-          .filter(t => t.price && t.quantity)
-          .map(t => ({ price: parseFloat(t.price), quantity: parseFloat(t.quantity) })),
-        memo: addBuyData.memo || null
-      };
-      if (data.buy_orders.length === 0) data.buy_orders = null;
-      if (data.take_profit_targets.length === 0) data.take_profit_targets = null;
-      if (data.stop_loss_targets.length === 0) data.stop_loss_targets = null;
-
-      await requestService.createBuyRequest(data);
-      setShowAddBuyModal(false);
-      setAddBuyData({
-        buy_price: '', order_quantity: '',
-        buy_orders: [{ price: '', quantity: '' }],
-        take_profit_targets: [{ price: '', quantity: '' }],
-        stop_loss_targets: [{ price: '', quantity: '' }],
-        memo: ''
-      });
-      alert('추가매수 요청이 생성되었습니다.');
-    } catch (error) {
-      alert(error.response?.data?.detail || '추가매수 요청에 실패했습니다.');
-    } finally {
-      setActionLoading(false);
-    }
   };
 
   // 잔량 경고
@@ -563,25 +566,36 @@ export function PositionDetail() {
 
           {position.status === 'open' && (
             <>
-              <Button variant="secondary" onClick={() => setShowAddBuyModal(true)}>추가매수 요청</Button>
-              <Button variant="secondary" onClick={() => setShowSellModal(true)}>매도 요청</Button>
               {isManagerOrAdmin() ? (
-                <Button variant="secondary" onClick={() => {
-                  setDiscussionTitle(`${position.ticker_name || position.ticker} 토론`);
-                  setShowDiscussionModal(true);
-                }}>토론방 열기</Button>
-              ) : !hasOpenDiscussion && (
-                <Button variant="secondary" onClick={async () => {
-                  try {
-                    await positionService.requestDiscussion(id);
-                    alert('토론 요청이 매니저에게 전송되었습니다.');
-                  } catch (error) {
-                    alert(error.response?.data?.detail || '토론 요청에 실패했습니다.');
-                  }
-                }}>토론 요청</Button>
-              )}
-              {isManagerOrAdmin() && (
-                <Button variant="danger" onClick={() => setShowCloseModal(true)}>수동 종료</Button>
+                <>
+                  <Button variant="secondary" onClick={() => {
+                    setDiscussionTitle(`${position.ticker_name || position.ticker} 토론`);
+                    setShowDiscussionModal(true);
+                  }}>토론방 열기</Button>
+                  <Button variant="danger" onClick={() => setShowCloseModal(true)}>포지션 종료</Button>
+                </>
+              ) : (
+                <>
+                  {!hasOpenDiscussion && (
+                    <Button variant="secondary" onClick={async () => {
+                      try {
+                        await positionService.requestDiscussion(id);
+                        alert('토론 요청이 매니저에게 전송되었습니다.');
+                      } catch (error) {
+                        alert(error.response?.data?.detail || '토론 요청에 실패했습니다.');
+                      }
+                    }}>토론 요청</Button>
+                  )}
+                  <Button variant="danger" onClick={async () => {
+                    if (!window.confirm('포지션 조기종료를 요청하시겠습니까?')) return;
+                    try {
+                      await positionService.requestEarlyClose(id);
+                      alert('조기종료 요청이 매니저에게 전송되었습니다.');
+                    } catch (error) {
+                      alert(error.response?.data?.detail || '조기종료 요청에 실패했습니다.');
+                    }
+                  }}>조기종료 요청</Button>
+                </>
               )}
             </>
           )}
@@ -653,7 +667,7 @@ export function PositionDetail() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">보유 기간</p>
-                  <p className="text-lg font-medium">{formatHours(position.holding_period_hours)}</p>
+                  <p className="text-lg font-medium">{formatHours(position.status === 'open' ? calcHoldingHours(position.opened_at) : position.holding_period_hours)}</p>
                 </div>
               </div>
 
@@ -763,6 +777,98 @@ export function PositionDetail() {
           </Card>
         )}
 
+        {/* 의사결정 노트 */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-center justify-between w-full">
+              <CardTitle>의사결정 노트</CardTitle>
+              {isManager() && !showNoteForm && (
+                <button
+                  onClick={() => { setShowNoteForm(true); setEditingNoteId(null); setNoteTitle(''); setNoteContent(''); }}
+                  className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  + 문서 추가
+                </button>
+              )}
+            </div>
+          </CardHeader>
+
+          {showNoteForm && (
+            <div className="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+              <input
+                type="text"
+                placeholder="노트 제목"
+                value={noteTitle}
+                onChange={(e) => setNoteTitle(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <textarea
+                placeholder="마크다운으로 작성할 수 있습니다..."
+                value={noteContent}
+                onChange={(e) => setNoteContent(e.target.value)}
+                rows={8}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <div className="flex justify-end gap-2 mt-3">
+                <Button variant="secondary" size="sm" onClick={() => { setShowNoteForm(false); setEditingNoteId(null); }}>취소</Button>
+                <Button size="sm" onClick={handleSaveNote}>{editingNoteId ? '수정' : '저장'}</Button>
+              </div>
+            </div>
+          )}
+
+          {decisionNotes.length === 0 && !showNoteForm ? (
+            <p className="text-sm text-gray-500 text-center py-6">작성된 의사결정 노트가 없습니다</p>
+          ) : (
+            <div className="space-y-2">
+              {decisionNotes.map(note => (
+                <div key={note.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div
+                    className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer hover:bg-gray-100"
+                    onClick={() => setExpandedNoteId(expandedNoteId === note.id ? null : note.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${expandedNoteId === note.id ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">{note.title}</p>
+                        <p className="text-xs text-gray-500">{note.author?.full_name} · {formatDate(note.updated_at || note.created_at)}</p>
+                      </div>
+                    </div>
+                    {isManager() && (
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleEditNote(note)}
+                          className="p-1.5 text-gray-400 hover:text-gray-600 rounded"
+                          title="수정"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNote(note.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 rounded"
+                          title="삭제"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {expandedNoteId === note.id && (
+                    <div className="p-4 border-t border-gray-200 prose prose-sm max-w-none">
+                      <ReactMarkdown>{note.content}</ReactMarkdown>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
         {/* 이력 */}
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle>이력</CardTitle></CardHeader>
@@ -824,10 +930,6 @@ export function PositionDetail() {
       </div>
 
       {/* Modals */}
-      <Modal isOpen={showSellModal} onClose={() => setShowSellModal(false)} title="매도 요청">
-        <SellRequestForm position={position} onSuccess={() => { setShowSellModal(false); fetchPosition(); }} onCancel={() => setShowSellModal(false)} />
-      </Modal>
-
       <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="포지션 종료">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">포지션 정보를 확인하고 청산 금액을 입력해주세요.</p>
@@ -867,22 +969,6 @@ export function PositionDetail() {
         </div>
       </Modal>
 
-      <Modal isOpen={showAddBuyModal} onClose={() => setShowAddBuyModal(false)} title="추가매수 요청" size="lg">
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto">
-          <div className="p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700"><strong>{position.ticker_name || position.ticker}</strong>에 추가매수 요청을 작성합니다.</p>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="매수가" type="number" step="any" value={addBuyData.buy_price} onChange={(e) => setAddBuyData({ ...addBuyData, buy_price: e.target.value })} required />
-            <Input label="수량" type="number" step="any" value={addBuyData.order_quantity} onChange={(e) => setAddBuyData({ ...addBuyData, order_quantity: e.target.value })} required />
-          </div>
-          <Textarea label="메모 (선택)" rows={2} placeholder="추가매수 사유..." value={addBuyData.memo} onChange={(e) => setAddBuyData({ ...addBuyData, memo: e.target.value })} />
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="secondary" onClick={() => setShowAddBuyModal(false)}>취소</Button>
-            <Button onClick={handleAddBuyRequest} loading={actionLoading}>추가매수 요청</Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

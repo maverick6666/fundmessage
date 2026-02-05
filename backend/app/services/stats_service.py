@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Dict
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 
@@ -77,7 +77,12 @@ class StatsService:
             } if worst_trade else None
         }
 
-    def get_team_stats(self, start_date: Optional[date] = None, end_date: Optional[date] = None) -> dict:
+    def get_team_stats(
+        self,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        price_data: Optional[Dict[int, Dict]] = None
+    ) -> dict:
         # 열린 포지션
         open_positions = self.db.query(Position).filter(
             Position.status == PositionStatus.OPEN.value
@@ -91,7 +96,29 @@ class StatsService:
             closed_query = closed_query.filter(Position.closed_at <= datetime.combine(end_date, datetime.max.time()))
         closed_positions = closed_query.all()
 
-        # 열린 포지션 통계
+        # 통화별 열린 포지션 통계 (KRW / USD / USDT)
+        currency_stats = {}
+        for p in open_positions:
+            currency = self._get_currency(p.market)
+            if currency not in currency_stats:
+                currency_stats[currency] = {
+                    "invested": Decimal(0),
+                    "evaluation": Decimal(0),
+                    "unrealized_pl": Decimal(0),
+                    "count": 0
+                }
+            currency_stats[currency]["count"] += 1
+            invested = p.total_buy_amount or Decimal(0)
+            currency_stats[currency]["invested"] += invested
+
+            # 시세 데이터가 있으면 평가금액 계산
+            if price_data and p.id in price_data and price_data[p.id].get("evaluation_amount"):
+                eval_amt = Decimal(str(price_data[p.id]["evaluation_amount"]))
+                currency_stats[currency]["evaluation"] += eval_amt
+                currency_stats[currency]["unrealized_pl"] += eval_amt - invested
+            else:
+                currency_stats[currency]["evaluation"] += invested  # 시세 없으면 투자금액 = 평가금액
+
         open_count = len(open_positions)
         open_invested = sum([p.total_buy_amount or Decimal(0) for p in open_positions])
 
@@ -108,7 +135,7 @@ class StatsService:
         total_losses = abs(sum([p.profit_loss for p in closed_positions if p.profit_loss and p.profit_loss < 0]))
         profit_factor = float(total_gains / total_losses) if total_losses > 0 else 0
 
-        # Leaderboard by user (종료된 포지션 기준)
+        # Leaderboard by user (종료 + 진행중 포지션 모두 포함)
         user_stats = {}
         for position in closed_positions:
             user_id = position.opened_by
@@ -116,23 +143,46 @@ class StatsService:
                 user = self.db.query(User).filter(User.id == user_id).first()
                 user_stats[user_id] = {
                     "user": {"id": user.id, "username": user.username, "full_name": user.full_name} if user else {"id": user_id, "username": "Unknown", "full_name": "Unknown"},
-                    "total_profit_loss": Decimal(0),
+                    "realized_pl": Decimal(0),
+                    "unrealized_pl": Decimal(0),
                     "win_count": 0,
-                    "trades": 0
+                    "closed_trades": 0,
+                    "open_trades": 0
                 }
 
-            user_stats[user_id]["total_profit_loss"] += position.profit_loss or Decimal(0)
-            user_stats[user_id]["trades"] += 1
+            user_stats[user_id]["realized_pl"] += position.profit_loss or Decimal(0)
+            user_stats[user_id]["closed_trades"] += 1
             if position.profit_loss and position.profit_loss > 0:
                 user_stats[user_id]["win_count"] += 1
+
+        # 진행중 포지션의 미실현 손익 추가
+        for position in open_positions:
+            user_id = position.opened_by
+            if user_id not in user_stats:
+                user = self.db.query(User).filter(User.id == user_id).first()
+                user_stats[user_id] = {
+                    "user": {"id": user.id, "username": user.username, "full_name": user.full_name} if user else {"id": user_id, "username": "Unknown", "full_name": "Unknown"},
+                    "realized_pl": Decimal(0),
+                    "unrealized_pl": Decimal(0),
+                    "win_count": 0,
+                    "closed_trades": 0,
+                    "open_trades": 0
+                }
+
+            user_stats[user_id]["open_trades"] += 1
+            if price_data and position.id in price_data and price_data[position.id].get("profit_loss") is not None:
+                user_stats[user_id]["unrealized_pl"] += Decimal(str(price_data[position.id]["profit_loss"]))
 
         leaderboard = sorted(
             [
                 {
                     "user": s["user"],
-                    "total_profit_loss": float(s["total_profit_loss"]),
-                    "win_rate": s["win_count"] / s["trades"] if s["trades"] > 0 else 0,
-                    "trades": s["trades"]
+                    "realized_pl": float(s["realized_pl"]),
+                    "unrealized_pl": float(s["unrealized_pl"]),
+                    "total_profit_loss": float(s["realized_pl"] + s["unrealized_pl"]),
+                    "win_rate": s["win_count"] / s["closed_trades"] if s["closed_trades"] > 0 else 0,
+                    "closed_trades": s["closed_trades"],
+                    "open_trades": s["open_trades"]
                 }
                 for s in user_stats.values()
             ],
@@ -186,6 +236,18 @@ class StatsService:
             reverse=True
         )
 
+        # 통화별 통계를 직렬화
+        by_currency = {
+            currency: {
+                "count": stats["count"],
+                "invested": float(stats["invested"]),
+                "evaluation": float(stats["evaluation"]),
+                "unrealized_pl": float(stats["unrealized_pl"]),
+                "pl_rate": float(stats["unrealized_pl"] / stats["invested"]) if stats["invested"] > 0 else 0
+            }
+            for currency, stats in currency_stats.items()
+        }
+
         return {
             "period": {
                 "start": start_date.isoformat() if start_date else None,
@@ -193,7 +255,8 @@ class StatsService:
             },
             "open_positions": {
                 "count": open_count,
-                "total_invested": float(open_invested)
+                "total_invested": float(open_invested),
+                "by_currency": by_currency
             },
             "closed_positions": {
                 "count": closed_count,
@@ -214,3 +277,13 @@ class StatsService:
             "leaderboard": leaderboard,
             "by_ticker": by_ticker
         }
+
+    def _get_currency(self, market: str) -> str:
+        """시장으로부터 통화를 결정"""
+        if market in ('KOSPI', 'KOSDAQ', 'KRX'):
+            return 'KRW'
+        elif market in ('NASDAQ', 'NYSE'):
+            return 'USD'
+        elif market == 'CRYPTO':
+            return 'USDT'
+        return 'KRW'

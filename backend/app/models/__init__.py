@@ -8,5 +8,6 @@ from app.models.verification import EmailVerification
 from app.models.team_settings import TeamSettings
 from app.models.audit_log import AuditLog
 from app.models.notification import Notification
+from app.models.decision_note import DecisionNote
 
-__all__ = ["User", "Position", "Request", "Discussion", "Message", "PriceAlert", "EmailVerification", "TeamSettings", "AuditLog", "Notification"]
+__all__ = ["User", "Position", "Request", "Discussion", "Message", "PriceAlert", "EmailVerification", "TeamSettings", "AuditLog", "Notification", "DecisionNote"]

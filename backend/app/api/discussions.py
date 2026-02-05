@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -199,3 +199,40 @@ async def export_discussion(
     export_data = discussion_service.get_discussion_export(discussion_id)
 
     return JSONResponse(content=export_data)
+
+
+@router.get("/{discussion_id}/sessions", response_model=APIResponse)
+async def get_discussion_sessions(
+    discussion_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get discussion session list (open/close periods)"""
+    discussion_service = DiscussionService(db)
+    sessions = discussion_service.get_discussion_sessions(discussion_id)
+
+    return APIResponse(
+        success=True,
+        data={"sessions": sessions}
+    )
+
+
+@router.get("/{discussion_id}/export-txt", response_model=APIResponse)
+async def export_discussion_txt(
+    discussion_id: int,
+    sessions: Optional[str] = Query(None, description="Comma-separated session numbers"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Export discussion sessions as txt content"""
+    discussion_service = DiscussionService(db)
+    session_numbers = None
+    if sessions:
+        session_numbers = [int(s.strip()) for s in sessions.split(",") if s.strip().isdigit()]
+
+    results = discussion_service.export_discussion_txt(discussion_id, session_numbers)
+
+    return APIResponse(
+        success=True,
+        data={"files": results}
+    )

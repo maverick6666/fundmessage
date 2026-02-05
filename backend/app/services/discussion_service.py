@@ -229,5 +229,142 @@ class DiscussionService:
             ]
         }
 
+    def get_discussion_sessions(self, discussion_id: int) -> list[dict]:
+        """Parse system messages to identify open/close session boundaries."""
+        discussion = self.get_discussion_by_id(discussion_id)
+        if not discussion:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Discussion not found"
+            )
+
+        messages, _ = self.get_messages(discussion_id, page=1, limit=10000)
+
+        sessions = []
+        current_session_start = None
+        current_session_msgs = 0
+
+        for msg in messages:
+            if msg.message_type == MessageType.SYSTEM.value:
+                if msg.content in ("Discussion started", "Discussion reopened"):
+                    current_session_start = msg.created_at
+                    current_session_msgs = 0
+                elif msg.content == "Discussion closed" and current_session_start:
+                    sessions.append({
+                        "session_number": len(sessions) + 1,
+                        "started_at": current_session_start.isoformat(),
+                        "closed_at": msg.created_at.isoformat(),
+                        "message_count": current_session_msgs,
+                        "status": "closed"
+                    })
+                    current_session_start = None
+                    current_session_msgs = 0
+            elif msg.message_type == MessageType.TEXT.value and current_session_start:
+                current_session_msgs += 1
+
+        # If there's an open session remaining
+        if current_session_start:
+            sessions.append({
+                "session_number": len(sessions) + 1,
+                "started_at": current_session_start.isoformat(),
+                "closed_at": None,
+                "message_count": current_session_msgs,
+                "status": "open"
+            })
+
+        # If no sessions found (old data without system messages), treat entire discussion as one session
+        if not sessions:
+            text_count = sum(1 for m in messages if m.message_type == MessageType.TEXT.value)
+            sessions.append({
+                "session_number": 1,
+                "started_at": discussion.opened_at.isoformat() if discussion.opened_at else None,
+                "closed_at": discussion.closed_at.isoformat() if discussion.closed_at else None,
+                "message_count": text_count,
+                "status": discussion.status
+            })
+
+        return sessions
+
+    def export_discussion_txt(self, discussion_id: int, session_numbers: list[int] = None) -> list[dict]:
+        """Export discussion sessions as text content."""
+        discussion = self.get_discussion_by_id(discussion_id)
+        if not discussion:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Discussion not found"
+            )
+
+        messages, _ = self.get_messages(discussion_id, page=1, limit=10000)
+
+        # Parse sessions with their messages
+        sessions = []
+        current_session = None
+
+        for msg in messages:
+            if msg.message_type == MessageType.SYSTEM.value:
+                if msg.content in ("Discussion started", "Discussion reopened"):
+                    current_session = {
+                        "number": len(sessions) + 1,
+                        "started_at": msg.created_at,
+                        "closed_at": None,
+                        "messages": [],
+                        "participants": set()
+                    }
+                elif msg.content == "Discussion closed" and current_session:
+                    current_session["closed_at"] = msg.created_at
+                    sessions.append(current_session)
+                    current_session = None
+            elif msg.message_type == MessageType.TEXT.value and current_session:
+                current_session["messages"].append(msg)
+                current_session["participants"].add(msg.user.full_name or msg.user.username)
+
+        # Handle open session
+        if current_session:
+            sessions.append(current_session)
+
+        # Fallback: no system messages
+        if not sessions:
+            text_msgs = [m for m in messages if m.message_type == MessageType.TEXT.value]
+            participants = set()
+            for m in text_msgs:
+                participants.add(m.user.full_name or m.user.username)
+            sessions.append({
+                "number": 1,
+                "started_at": discussion.opened_at,
+                "closed_at": discussion.closed_at,
+                "messages": text_msgs,
+                "participants": participants
+            })
+
+        # Filter to requested sessions
+        if session_numbers:
+            sessions = [s for s in sessions if s["number"] in session_numbers]
+
+        # Format each session as text
+        results = []
+        for sess in sessions:
+            lines = []
+            lines.append(f"토론: {discussion.title}")
+            start_str = sess["started_at"].strftime("%Y-%m-%d %H:%M") if sess["started_at"] else "?"
+            end_str = sess["closed_at"].strftime("%Y-%m-%d %H:%M") if sess["closed_at"] else "진행중"
+            lines.append(f"세션 {sess['number']}: {start_str} ~ {end_str}")
+            lines.append(f"참여자: {', '.join(sorted(sess['participants']))}")
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+
+            for msg in sess["messages"]:
+                ts = msg.created_at.strftime("%Y-%m-%d %H:%M") if msg.created_at else ""
+                name = msg.user.full_name or msg.user.username
+                lines.append(f"[{ts}] {name}: {msg.content}")
+
+            results.append({
+                "session_number": sess["number"],
+                "filename": f"{discussion.title}_세션{sess['number']}.txt",
+                "content": "\n".join(lines)
+            })
+
+        return results
+
     def get_message_count(self, discussion_id: int) -> int:
         return self.db.query(Message).filter(Message.discussion_id == discussion_id).count()

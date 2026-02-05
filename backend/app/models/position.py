@@ -60,3 +60,4 @@ class Position(Base):
     requests = relationship("Request", back_populates="position")
     price_alerts = relationship("PriceAlert", back_populates="position")
     discussions = relationship("Discussion", back_populates="position")
+    decision_notes = relationship("DecisionNote", back_populates="position", order_by="DecisionNote.created_at.desc()")

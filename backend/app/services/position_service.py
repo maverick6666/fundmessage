@@ -343,11 +343,13 @@ class PositionService:
 
         # 개수 변화
         if len(new_valid) > len(old_valid):
-            added_count = len(new_valid) - len(old_valid)
-            changes.append(f"{plan_name} {added_count}건 추가")
+            added_items = new_valid[len(old_valid):]
+            for item in added_items:
+                changes.append(f"{plan_name} 추가: {item['price']:,.0f}×{item['quantity']:.2g}")
         elif len(new_valid) < len(old_valid):
-            removed_count = len(old_valid) - len(new_valid)
-            changes.append(f"{plan_name} {removed_count}건 삭제")
+            removed_items = old_valid[len(new_valid):]
+            for item in removed_items:
+                changes.append(f"{plan_name} 삭제: {item['price']:,.0f}×{item['quantity']:.2g}")
 
         # 기존 항목 수정 확인
         for i, (old_item, new_item) in enumerate(zip(old_valid, new_valid)):

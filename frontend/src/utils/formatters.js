@@ -96,6 +96,8 @@ export function formatRelativeTime(date) {
 
 export function formatHours(hours) {
   if (hours == null) return '-';
+  if (hours < 1) return '1시간 미만';
+  hours = Math.floor(hours);
   if (hours < 24) {
     return `${hours}시간`;
   }
@@ -105,6 +107,15 @@ export function formatHours(hours) {
     return `${days}일`;
   }
   return `${days}일 ${remainingHours}시간`;
+}
+
+// 진행중 포지션의 보유기간을 opened_at으로부터 계산
+export function calcHoldingHours(openedAt) {
+  if (!openedAt) return null;
+  const opened = new Date(openedAt);
+  const now = new Date();
+  const diffMs = now - opened;
+  return diffMs / (1000 * 60 * 60); // hours as float
 }
 
 export function getStatusBadgeClass(status) {

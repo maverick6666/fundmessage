@@ -88,5 +88,11 @@ export const positionService = {
   async requestDiscussion(id) {
     const response = await api.post(`/positions/${id}/request-discussion`);
     return response.data;
+  },
+
+  // 조기종료 요청 (팀원 → 매니저)
+  async requestEarlyClose(id) {
+    const response = await api.post(`/positions/${id}/request-early-close`);
+    return response.data;
   }
 };

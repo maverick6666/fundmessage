@@ -8,6 +8,7 @@ from app.api.discussions import router as discussions_router
 from app.api.stats import router as stats_router
 from app.api.prices import router as prices_router
 from app.api.notifications import router as notifications_router
+from app.api.decision_notes import router as decision_notes_router
 
 api_router = APIRouter()
 
@@ -19,3 +20,4 @@ api_router.include_router(discussions_router, prefix="/discussions", tags=["Disc
 api_router.include_router(stats_router, prefix="/stats", tags=["Stats"])
 api_router.include_router(prices_router, prefix="/prices", tags=["Prices"])
 api_router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
+api_router.include_router(decision_notes_router, prefix="/positions", tags=["Decision Notes"])

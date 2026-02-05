@@ -431,3 +431,42 @@ async def request_discussion(
         success=True,
         message="토론 요청이 매니저에게 전송되었습니다"
     )
+
+
+@router.post("/{position_id}/request-early-close", response_model=APIResponse)
+async def request_early_close(
+    position_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """포지션 조기종료 요청 (팀원이 매니저에게 요청)"""
+    position_service = PositionService(db)
+    position = position_service.get_position_by_id(position_id)
+
+    if not position:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Position not found"
+        )
+
+    if position.status != 'open':
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="종료된 포지션입니다"
+        )
+
+    notification_service = NotificationService(db)
+    notification_service.create_notification_for_managers(
+        notification_type="early_close_requested",
+        title=f"{current_user.full_name}님이 {position.ticker_name or position.ticker} 조기종료를 요청했습니다",
+        related_type="position",
+        related_id=position_id,
+        exclude_user_id=current_user.id
+    )
+
+    return APIResponse(
+        success=True,
+        message="조기종료 요청이 매니저에게 전송되었습니다"
+    )

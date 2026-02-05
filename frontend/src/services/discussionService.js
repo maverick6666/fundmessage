@@ -43,5 +43,16 @@ export const discussionService = {
   async exportDiscussion(id) {
     const response = await api.get(`/discussions/${id}/export`);
     return response.data;
+  },
+
+  async getSessions(id) {
+    const response = await api.get(`/discussions/${id}/sessions`);
+    return response.data.data;
+  },
+
+  async exportTxt(id, sessionNumbers = null) {
+    const params = sessionNumbers ? `?sessions=${sessionNumbers.join(',')}` : '';
+    const response = await api.get(`/discussions/${id}/export-txt${params}`);
+    return response.data.data;
   }
 };

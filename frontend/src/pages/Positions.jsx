@@ -7,7 +7,9 @@ import { priceService } from '../services/priceService';
 import {
   formatCurrency,
   formatPercent,
+  formatQuantity,
   formatHours,
+  calcHoldingHours,
   getStatusBadgeClass,
   getStatusLabel,
   getProfitLossClass
@@ -152,7 +154,7 @@ export function Positions() {
                       </td>
                     )}
                     <td className="px-4 py-3 text-right">
-                      {position.total_quantity}
+                      {formatQuantity(position.total_quantity)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {formatCurrency(position.total_buy_amount, position.market)}
@@ -187,7 +189,7 @@ export function Positions() {
                       </>
                     )}
                     <td className="px-4 py-3 text-right text-gray-500">
-                      {formatHours(position.holding_period_hours)}
+                      {formatHours(position.status === 'open' ? calcHoldingHours(position.opened_at) : position.holding_period_hours)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`badge ${getStatusBadgeClass(position.status)}`}>
@@ -252,7 +254,7 @@ export function Positions() {
                     )}
                     <div>
                       <p className="text-gray-500">수량</p>
-                      <p className="font-medium">{position.total_quantity}</p>
+                      <p className="font-medium">{formatQuantity(position.total_quantity)}</p>
                     </div>
                     <div>
                       <p className="text-gray-500">매수금액</p>
