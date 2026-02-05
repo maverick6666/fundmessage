@@ -278,11 +278,11 @@ export function Stats() {
               <div className="flex items-center justify-between w-full">
                 <CardTitle>
                   종목별 현황
-                  {teamStats.open_positions?.count > 0 && (
-                    <span className="ml-2 text-sm font-normal text-green-600">
-                      진행중 - {teamStats.open_positions.count}
-                    </span>
-                  )}
+                  <span className="ml-2 text-sm font-normal text-gray-400">
+                    {tickerFilter === 'open' && `진행중 ${filteredTickers.length}`}
+                    {tickerFilter === 'closed' && `종료됨 ${filteredTickers.length}`}
+                    {tickerFilter === 'all' && `전체 ${filteredTickers.length}`}
+                  </span>
                 </CardTitle>
                 <div className="flex gap-1">
                   {[
@@ -310,33 +310,114 @@ export function Stats() {
                 <thead>
                   <tr className="border-b">
                     <th className="py-2 text-left">종목</th>
-                    <th className="py-2 text-right">진행</th>
-                    <th className="py-2 text-right">종료</th>
-                    <th className="py-2 text-right">투자금</th>
-                    <th className="py-2 text-right">실현 손익</th>
+                    {tickerFilter === 'open' && (
+                      <>
+                        <th className="py-2 text-right">투자금</th>
+                        <th className="py-2 text-right">평가금액</th>
+                        <th className="py-2 text-right">미실현 손익</th>
+                        <th className="py-2 text-right">수익률</th>
+                      </>
+                    )}
+                    {tickerFilter === 'closed' && (
+                      <>
+                        <th className="py-2 text-right">거래금액</th>
+                        <th className="py-2 text-right">실현 손익</th>
+                        <th className="py-2 text-right">수익률</th>
+                        <th className="py-2 text-right">평균 보유</th>
+                      </>
+                    )}
+                    {tickerFilter === 'all' && (
+                      <>
+                        <th className="py-2 text-center">진행/종료</th>
+                        <th className="py-2 text-right">투자금</th>
+                        <th className="py-2 text-right">손익</th>
+                        <th className="py-2 text-right">수익률</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTickers.length === 0 ? (
                     <tr><td colSpan={5} className="py-4 text-center text-gray-500">해당 종목이 없습니다</td></tr>
                   ) : filteredTickers.map((ticker, i) => (
-                    <tr key={i} className="border-b">
-                      <td className="py-2">
-                        <div>{ticker.ticker_name || ticker.ticker}</div>
-                        <div className="text-xs text-gray-400">{ticker.ticker}</div>
+                    <tr key={i} className="border-b hover:bg-gray-50">
+                      <td className="py-2.5">
+                        <div className="font-medium">{ticker.ticker_name || ticker.ticker}</div>
+                        <div className="text-xs text-gray-400">{ticker.ticker} · {ticker.market}</div>
                       </td>
-                      <td className="py-2 text-right">
-                        {ticker.open_count > 0 ? (
-                          <span className="text-green-600">{ticker.open_count}</span>
-                        ) : '-'}
-                      </td>
-                      <td className="py-2 text-right">{ticker.closed_count || '-'}</td>
-                      <td className="py-2 text-right">
-                        {ticker.invested > 0 ? formatCurrency(ticker.invested, ticker.market) : '-'}
-                      </td>
-                      <td className={`py-2 text-right ${getProfitLossClass(ticker.profit_loss)}`}>
-                        {ticker.closed_count > 0 ? formatCurrency(ticker.profit_loss, ticker.market) : '-'}
-                      </td>
+                      {tickerFilter === 'open' && (
+                        <>
+                          <td className="py-2.5 text-right">
+                            {formatCurrency(ticker.invested, ticker.market)}
+                          </td>
+                          <td className="py-2.5 text-right">
+                            {ticker.evaluation > 0 ? formatCurrency(ticker.evaluation, ticker.market) : '-'}
+                          </td>
+                          <td className={`py-2.5 text-right ${getProfitLossClass(ticker.unrealized_pl)}`}>
+                            {ticker.unrealized_pl !== 0
+                              ? (ticker.unrealized_pl > 0 ? '+' : '') + formatCurrency(ticker.unrealized_pl, ticker.market)
+                              : '-'}
+                          </td>
+                          <td className={`py-2.5 text-right font-medium ${getProfitLossClass(ticker.unrealized_rate)}`}>
+                            {ticker.unrealized_rate !== 0
+                              ? (ticker.unrealized_rate > 0 ? '+' : '') + formatPercent(ticker.unrealized_rate)
+                              : '-'}
+                          </td>
+                        </>
+                      )}
+                      {tickerFilter === 'closed' && (
+                        <>
+                          <td className="py-2.5 text-right">
+                            {ticker.closed_volume > 0 ? formatCurrency(ticker.closed_volume, ticker.market) : '-'}
+                          </td>
+                          <td className={`py-2.5 text-right ${getProfitLossClass(ticker.profit_loss)}`}>
+                            {ticker.profit_loss !== 0
+                              ? (ticker.profit_loss > 0 ? '+' : '') + formatCurrency(ticker.profit_loss, ticker.market)
+                              : '-'}
+                          </td>
+                          <td className={`py-2.5 text-right font-medium ${getProfitLossClass(ticker.profit_rate)}`}>
+                            {ticker.profit_rate !== 0 ? formatPercent(ticker.profit_rate) : '-'}
+                          </td>
+                          <td className="py-2.5 text-right text-gray-500">
+                            {ticker.avg_holding_hours > 0 ? formatHours(ticker.avg_holding_hours) : '-'}
+                          </td>
+                        </>
+                      )}
+                      {tickerFilter === 'all' && (
+                        <>
+                          <td className="py-2.5 text-center">
+                            {ticker.open_count > 0 && <span className="text-green-600 font-medium">{ticker.open_count}</span>}
+                            {ticker.open_count > 0 && ticker.closed_count > 0 && <span className="text-gray-300 mx-1">/</span>}
+                            {ticker.closed_count > 0 && <span className="text-gray-500">{ticker.closed_count}</span>}
+                            {ticker.open_count === 0 && ticker.closed_count === 0 && '-'}
+                          </td>
+                          <td className="py-2.5 text-right">
+                            {ticker.invested > 0
+                              ? formatCurrency(ticker.invested, ticker.market)
+                              : ticker.closed_volume > 0
+                                ? formatCurrency(ticker.closed_volume, ticker.market)
+                                : '-'}
+                          </td>
+                          <td className="py-2.5 text-right">
+                            {ticker.open_count > 0 && ticker.unrealized_pl !== 0 && (
+                              <div className={getProfitLossClass(ticker.unrealized_pl)}>
+                                <span className="text-xs text-gray-400">미실현 </span>
+                                {ticker.unrealized_pl > 0 ? '+' : ''}{formatCurrency(ticker.unrealized_pl, ticker.market)}
+                              </div>
+                            )}
+                            {ticker.closed_count > 0 && ticker.profit_loss !== 0 && (
+                              <div className={getProfitLossClass(ticker.profit_loss)}>
+                                <span className="text-xs text-gray-400">실현 </span>
+                                {ticker.profit_loss > 0 ? '+' : ''}{formatCurrency(ticker.profit_loss, ticker.market)}
+                              </div>
+                            )}
+                            {ticker.unrealized_pl === 0 && ticker.profit_loss === 0 && '-'}
+                          </td>
+                          <td className={`py-2.5 text-right font-medium ${getProfitLossClass(ticker.avg_profit_rate)}`}>
+                            {ticker.avg_profit_rate !== 0 ? formatPercent(ticker.avg_profit_rate) : '-'}
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>

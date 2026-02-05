@@ -226,17 +226,38 @@ class StatsService:
                     "open_count": 0,
                     "closed_count": 0,
                     "invested": Decimal(0),
+                    "evaluation": Decimal(0),
+                    "unrealized_pl": Decimal(0),
                     "profit_loss": Decimal(0),
-                    "total_holding_hours": 0
+                    "total_holding_hours": 0,
+                    "closed_volume": Decimal(0),
+                    "profit_rates": []
                 }
 
             if position.status == PositionStatus.OPEN.value:
                 ticker_stats[ticker]["open_count"] += 1
-                ticker_stats[ticker]["invested"] += position.total_buy_amount or Decimal(0)
+                invested = position.total_buy_amount or Decimal(0)
+                ticker_stats[ticker]["invested"] += invested
+                # 시세 데이터로 평가금액/미실현손익 계산
+                if price_data and position.id in price_data:
+                    pd = price_data[position.id]
+                    if pd.get("evaluation_amount"):
+                        eval_amt = Decimal(str(pd["evaluation_amount"]))
+                        ticker_stats[ticker]["evaluation"] += eval_amt
+                        ticker_stats[ticker]["unrealized_pl"] += eval_amt - invested
+                    else:
+                        ticker_stats[ticker]["evaluation"] += invested
+                    if pd.get("profit_rate") is not None:
+                        ticker_stats[ticker]["profit_rates"].append(float(pd["profit_rate"]))
+                else:
+                    ticker_stats[ticker]["evaluation"] += invested
             else:
                 ticker_stats[ticker]["closed_count"] += 1
                 ticker_stats[ticker]["profit_loss"] += position.profit_loss or Decimal(0)
+                ticker_stats[ticker]["closed_volume"] += position.total_buy_amount or Decimal(0)
                 ticker_stats[ticker]["total_holding_hours"] += position.holding_period_hours or 0
+                if position.profit_rate is not None:
+                    ticker_stats[ticker]["profit_rates"].append(float(position.profit_rate))
 
         by_ticker = sorted(
             [
@@ -247,7 +268,13 @@ class StatsService:
                     "open_count": s["open_count"],
                     "closed_count": s["closed_count"],
                     "invested": float(s["invested"]),
+                    "evaluation": float(s["evaluation"]),
+                    "unrealized_pl": float(s["unrealized_pl"]),
+                    "unrealized_rate": float(s["unrealized_pl"] / s["invested"]) if s["invested"] > 0 else 0,
                     "profit_loss": float(s["profit_loss"]),
+                    "closed_volume": float(s["closed_volume"]),
+                    "profit_rate": float(s["profit_loss"] / s["closed_volume"]) if s["closed_volume"] > 0 else 0,
+                    "avg_profit_rate": sum(s["profit_rates"]) / len(s["profit_rates"]) if s["profit_rates"] else 0,
                     "avg_holding_hours": s["total_holding_hours"] // s["closed_count"] if s["closed_count"] > 0 else 0
                 }
                 for s in ticker_stats.values()

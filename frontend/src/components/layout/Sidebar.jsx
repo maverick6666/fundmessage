@@ -32,8 +32,8 @@ export function Sidebar({ isOpen, onClose }) {
 
       {/* Sidebar */}
       <aside className={`
-        fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50
-        w-64 h-screen bg-white border-r flex flex-col flex-shrink-0
+        fixed lg:relative inset-y-0 left-0 z-50
+        w-64 h-full bg-white border-r flex flex-col flex-shrink-0
         transform transition-transform duration-200
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
