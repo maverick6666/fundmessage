@@ -236,21 +236,18 @@ export function Notifications() {
                     {formatRelativeTime(notification.created_at)}
                   </p>
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   {!notification.is_read && (
                     <button
                       onClick={(e) => handleMarkSingleRead(e, notification.id)}
-                      className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="읽음 처리"
+                      className="px-2 py-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                      </svg>
+                      읽음
                     </button>
                   )}
                   <button
                     onClick={(e) => handleDelete(e, notification.id)}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                     title="삭제"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

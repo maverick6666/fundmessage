@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle } from '../components/common/Card';
 import { statsService } from '../services/statsService';
+import { positionService } from '../services/positionService';
 import { useAuth } from '../hooks/useAuth';
 import {
   formatCurrency,
   formatPercent,
   formatHours,
+  formatNumber,
   getProfitLossClass
 } from '../utils/formatters';
 
@@ -14,6 +16,7 @@ export function Stats() {
   const [activeTab, setActiveTab] = useState('team');
   const [myStats, setMyStats] = useState(null);
   const [teamStats, setTeamStats] = useState(null);
+  const [teamSettings, setTeamSettings] = useState(null);
   const [exchangeRate, setExchangeRate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tickerFilter, setTickerFilter] = useState('open'); // open, closed, all
@@ -26,14 +29,16 @@ export function Stats() {
     if (!user) return;
     setLoading(true);
     try {
-      const [my, team, rate] = await Promise.all([
+      const [my, team, rate, settings] = await Promise.all([
         statsService.getUserStats(user.id),
         statsService.getTeamStats(),
-        statsService.getExchangeRate().catch(() => ({ usd_krw: null }))
+        statsService.getExchangeRate().catch(() => ({ usd_krw: null })),
+        positionService.getTeamSettings().catch(() => null)
       ]);
       setMyStats(my);
       setTeamStats(team);
       setExchangeRate(rate.usd_krw);
+      setTeamSettings(settings);
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     } finally {
@@ -79,14 +84,73 @@ export function Stats() {
       </div>
 
       {/* Team Stats */}
-      {activeTab === 'team' && teamStats && (
+      {activeTab === 'team' && teamStats && (() => {
+        // 자산 계산
+        const capitalKrw = Number(teamSettings?.initial_capital_krw) || 0;
+        const capitalUsd = Number(teamSettings?.initial_capital_usd) || 0;
+        const byCurrency = teamStats.open_positions?.by_currency || {};
+
+        const krwInvested = byCurrency['KRW']?.invested || 0;
+        const krwEvaluation = byCurrency['KRW']?.evaluation || 0;
+        const usdInvested = byCurrency['USD']?.invested || 0;
+        const usdEvaluation = byCurrency['USD']?.evaluation || 0;
+        const usdtInvested = byCurrency['USDT']?.invested || 0;
+        const usdtEvaluation = byCurrency['USDT']?.evaluation || 0;
+
+        // 보유 현금 (자본금 - 투자금)
+        const krwCash = capitalKrw - krwInvested;
+        const usdCash = capitalUsd - usdInvested - usdtInvested;
+
+        // KRW 기준 전체 자산 = KRW 현금 + KRW 평가 + (USD 현금 + USD 평가 + USDT 평가) * 환율
+        const totalKrwAsset = exchangeRate
+          ? krwCash + krwEvaluation + (usdCash + usdEvaluation + usdtEvaluation) * exchangeRate
+          : null;
+
+        return (
         <div className="space-y-6">
-          {/* 진행중 포지션 - 통화별 평가자산 먼저 */}
+          {/* 전체 자산 요약 */}
+          {totalKrwAsset !== null && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-3">전체 자산 (KRW 환산)</h3>
+              <Card>
+                <div className="flex items-baseline gap-3">
+                  <p className="text-3xl font-bold">
+                    {formatCurrency(totalKrwAsset, 'KRX')}
+                  </p>
+                  {exchangeRate && (
+                    <span className="text-sm text-gray-400">
+                      환율 ₩{formatNumber(exchangeRate, 0)}/$
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-sm">
+                  <div>
+                    <span className="text-gray-500">KRW 보유</span>
+                    <p className="font-medium">{formatCurrency(krwCash, 'KRX')}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">KRW 평가</span>
+                    <p className="font-medium">{krwEvaluation > 0 ? formatCurrency(krwEvaluation, 'KRX') : '-'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">USD 보유</span>
+                    <p className="font-medium">{formatCurrency(usdCash, 'USD')}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">USD 평가</span>
+                    <p className="font-medium">{(usdEvaluation + usdtEvaluation) > 0 ? formatCurrency(usdEvaluation + usdtEvaluation, 'USD') : '-'}</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* 진행중 포지션 - 통화별 평가자산 */}
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-3">진행중 포지션</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* 통화별 평가자산 먼저 */}
-              {Object.entries(teamStats.open_positions?.by_currency || {}).map(([currency, data]) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 통화별 평가자산 */}
+              {Object.entries(byCurrency).map(([currency, data]) => (
                 <Card key={currency}>
                   <p className="text-sm text-gray-500">{currency} 평가자산</p>
                   <div className="flex items-baseline gap-2">
@@ -117,17 +181,12 @@ export function Stats() {
                 </Card>
               ))}
               {/* 진행중 포지션이 없을 때 */}
-              {Object.keys(teamStats.open_positions?.by_currency || {}).length === 0 && (
+              {Object.keys(byCurrency).length === 0 && (
                 <Card>
                   <p className="text-sm text-gray-500">평가자산</p>
                   <p className="text-2xl font-bold text-gray-400">-</p>
                 </Card>
               )}
-              {/* 포지션 수 */}
-              <Card>
-                <p className="text-sm text-gray-500">포지션 수</p>
-                <p className="text-2xl font-bold">{teamStats.open_positions?.count || 0}</p>
-              </Card>
             </div>
           </div>
 
@@ -194,7 +253,14 @@ export function Stats() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between w-full">
-                <CardTitle>종목별 현황</CardTitle>
+                <CardTitle>
+                  종목별 현황
+                  {teamStats.open_positions?.count > 0 && (
+                    <span className="ml-2 text-sm font-normal text-green-600">
+                      진행중 - {teamStats.open_positions.count}
+                    </span>
+                  )}
+                </CardTitle>
                 <div className="flex gap-1">
                   {[
                     { key: 'open', label: '진행중' },
@@ -255,7 +321,8 @@ export function Stats() {
             </div>
           </Card>
         </div>
-      )}
+        );
+      })()}
 
       {/* My Stats */}
       {activeTab === 'my' && myStats && (

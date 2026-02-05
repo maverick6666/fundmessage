@@ -10,7 +10,7 @@ export function Discussions() {
   const { adminMode } = useAuth();
   const [discussions, setDiscussions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('open');
 
   useEffect(() => {
     fetchDiscussions();
@@ -49,9 +49,9 @@ export function Discussions() {
       {/* 필터 탭 */}
       <div className="flex gap-2">
         {[
-          { key: 'all', label: '전체' },
           { key: 'open', label: '진행중' },
-          { key: 'closed', label: '종료됨' }
+          { key: 'closed', label: '종료됨' },
+          { key: 'all', label: '전체' }
         ].map(f => (
           <button
             key={f.key}

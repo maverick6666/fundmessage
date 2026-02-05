@@ -481,7 +481,8 @@ async def delete_position(
     """포지션 삭제 (팀장/관리자만) - DB에서 완전 삭제"""
     from app.models.position import Position
     from app.models.request import Request
-    from app.models.discussion import Discussion, Message
+    from app.models.discussion import Discussion
+    from app.models.message import Message
     from app.models.audit_log import AuditLog
     from app.models.decision_note import DecisionNote
 
