@@ -16,7 +16,7 @@ class Message(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     discussion_id = Column(Integer, ForeignKey("discussions.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     content = Column(Text, nullable=False)
     message_type = Column(String(20), default=MessageType.TEXT.value)

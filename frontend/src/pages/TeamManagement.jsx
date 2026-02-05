@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { userService } from '../services/userService';
 import { Button } from '../components/common/Button';
+import { useAuth } from '../hooks/useAuth';
 
 const ROLE_LABELS = {
   manager: '팀장',
@@ -15,7 +16,8 @@ const ROLE_COLORS = {
 };
 
 export function TeamManagement() {
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'members'
+  const { adminMode } = useAuth();
+  const [activeTab, setActiveTab] = useState('members'); // 'members', 'pending'
   const [pendingUsers, setPendingUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +84,21 @@ export function TeamManagement() {
     }
   };
 
+  const handleDeleteUser = async (userId, userName) => {
+    if (!confirm(`${userName}님의 계정을 완전히 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 관련된 알림과 메시지가 모두 삭제됩니다.`)) return;
+
+    setActionLoading(userId);
+    try {
+      await userService.deleteUser(userId);
+      await loadData();
+      alert('계정이 삭제되었습니다.');
+    } catch (error) {
+      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -105,6 +122,16 @@ export function TeamManagement() {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           <button
+            onClick={() => setActiveTab('members')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'members'
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            팀원 목록
+          </button>
+          <button
             onClick={() => setActiveTab('pending')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'pending'
@@ -119,63 +146,8 @@ export function TeamManagement() {
               </span>
             )}
           </button>
-          <button
-            onClick={() => setActiveTab('members')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'members'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            팀원 목록
-          </button>
         </nav>
       </div>
-
-      {/* Pending Users Tab */}
-      {activeTab === 'pending' && (
-        <div className="bg-white rounded-lg shadow">
-          {pendingUsers.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              승인 대기 중인 사용자가 없습니다.
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-200">
-              {pendingUsers.map((user) => (
-                <li key={user.id} className="p-4 flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-gray-900">{user.full_name}</div>
-                    <div className="text-sm text-gray-500">{user.email}</div>
-                    <div className="text-sm text-gray-500">
-                      @{user.username} - 희망 역할:{' '}
-                      <span className={`px-2 py-0.5 rounded text-xs ${ROLE_COLORS[user.role]}`}>
-                        {ROLE_LABELS[user.role]}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleApprove(user.id)}
-                      loading={actionLoading === user.id}
-                    >
-                      승인
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => handleDeactivate(user.id, user.full_name)}
-                      loading={actionLoading === user.id}
-                    >
-                      거부
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
 
       {/* Members Tab */}
       {activeTab === 'members' && (
@@ -226,20 +198,89 @@ export function TeamManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {user.role !== 'manager' && (
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => handleDeactivate(user.id, user.full_name)}
-                          loading={actionLoading === user.id}
-                        >
-                          비활성화
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleDeactivate(user.id, user.full_name)}
+                            loading={actionLoading === user.id}
+                          >
+                            비활성화
+                          </Button>
+                          {adminMode && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="text-red-600 hover:bg-red-50"
+                              onClick={() => handleDeleteUser(user.id, user.full_name)}
+                              loading={actionLoading === user.id}
+                            >
+                              삭제
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+      )}
+
+      {/* Pending Users Tab */}
+      {activeTab === 'pending' && (
+        <div className="bg-white rounded-lg shadow">
+          {pendingUsers.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              승인 대기 중인 사용자가 없습니다.
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-200">
+              {pendingUsers.map((user) => (
+                <li key={user.id} className="p-4 flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-gray-900">{user.full_name}</div>
+                    <div className="text-sm text-gray-500">{user.email}</div>
+                    <div className="text-sm text-gray-500">
+                      @{user.username} - 희망 역할:{' '}
+                      <span className={`px-2 py-0.5 rounded text-xs ${ROLE_COLORS[user.role]}`}>
+                        {ROLE_LABELS[user.role]}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleApprove(user.id)}
+                      loading={actionLoading === user.id}
+                    >
+                      승인
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleDeactivate(user.id, user.full_name)}
+                      loading={actionLoading === user.id}
+                    >
+                      거부
+                    </Button>
+                    {adminMode && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteUser(user.id, user.full_name)}
+                        loading={actionLoading === user.id}
+                      >
+                        삭제
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}

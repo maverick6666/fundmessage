@@ -14,7 +14,7 @@ import {
 } from '../utils/formatters';
 
 export function MyRequests() {
-  const { user } = useAuth();
+  const { user, adminMode } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
@@ -36,6 +36,17 @@ export function MyRequests() {
       console.error('Failed to fetch requests:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (e, request) => {
+    e.stopPropagation();
+    if (!window.confirm(`요청 "${request.ticker_name || request.target_ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 토론도 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+      await requestService.deleteRequest(request.id);
+      fetchRequests();
+    } catch (error) {
+      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
@@ -66,6 +77,17 @@ export function MyRequests() {
                   <span className={`badge ${getStatusBadgeClass(request.status)}`}>
                     {getStatusLabel(request.status)}
                   </span>
+                  {adminMode && (
+                    <button
+                      onClick={(e) => handleDelete(e, request)}
+                      className="ml-auto text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
+                      title="삭제"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
 
                 {/* 기본 정보 */}

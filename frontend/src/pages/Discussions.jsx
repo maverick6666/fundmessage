@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { discussionService } from '../services/discussionService';
+import { useAuth } from '../hooks/useAuth';
 import { formatRelativeTime } from '../utils/formatters';
 
 export function Discussions() {
   const navigate = useNavigate();
+  const { adminMode } = useAuth();
   const [discussions, setDiscussions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -13,6 +15,17 @@ export function Discussions() {
   useEffect(() => {
     fetchDiscussions();
   }, [statusFilter]);
+
+  const handleDelete = async (e, discussion) => {
+    e.stopPropagation();
+    if (!window.confirm(`토론 "${discussion.title}"을(를) 정말 삭제하시겠습니까?\n\n모든 메시지가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+      await discussionService.deleteDiscussion(discussion.id);
+      fetchDiscussions();
+    } catch (error) {
+      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+    }
+  };
 
   const fetchDiscussions = async () => {
     setLoading(true);
@@ -140,6 +153,17 @@ export function Discussions() {
                     <div className="mt-1 text-xs text-gray-500">
                       {discussion.message_count}개 메시지
                     </div>
+                  )}
+                  {adminMode && (
+                    <button
+                      onClick={(e) => handleDelete(e, discussion)}
+                      className="mt-1 text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
+                      title="삭제"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   )}
                 </div>
               </div>

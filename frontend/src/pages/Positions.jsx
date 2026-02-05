@@ -4,6 +4,8 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { usePositions } from '../hooks/usePositions';
 import { priceService } from '../services/priceService';
+import { positionService } from '../services/positionService';
+import { useAuth } from '../hooks/useAuth';
 import {
   formatCurrency,
   formatPercent,
@@ -16,6 +18,7 @@ import {
 } from '../utils/formatters';
 
 export function Positions() {
+  const { adminMode } = useAuth();
   const [statusFilter, setStatusFilter] = useState('open');
   const { positions, total, loading, error, updateFilters, setPage, filters } = usePositions({ status: 'open' });
   const [priceData, setPriceData] = useState({});
@@ -44,6 +47,18 @@ export function Positions() {
       console.error('시세 조회 실패:', err);
     } finally {
       setPriceLoading(false);
+    }
+  };
+
+  const handleDelete = async (e, position) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`포지션 "${position.ticker_name || position.ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 모든 요청, 토론, 의사결정 노트가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+      await positionService.deletePosition(position.id);
+      updateFilters({ ...filters });
+    } catch (error) {
+      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
@@ -111,6 +126,7 @@ export function Positions() {
                   )}
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">보유기간</th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">상태</th>
+                  {adminMode && <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">관리</th>}
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -196,6 +212,19 @@ export function Positions() {
                         {getStatusLabel(position.status)}
                       </span>
                     </td>
+                    {adminMode && (
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={(e) => handleDelete(e, position)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
+                          title="삭제"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -206,6 +235,19 @@ export function Positions() {
           <div className="md:hidden space-y-4">
             {positions.map(position => (
               <Card key={position.id}>
+                {adminMode && (
+                  <div className="flex justify-end mb-2">
+                    <button
+                      onClick={(e) => handleDelete(e, position)}
+                      className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      삭제
+                    </button>
+                  </div>
+                )}
                 <Link to={`/positions/${position.id}`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">

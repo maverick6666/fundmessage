@@ -82,16 +82,15 @@ export function Dashboard() {
     }
   };
 
-  // 환전 방향에 따른 금액 자동 계산
+  // 환전 금액 변경 핸들러
   const handleExchangeAmountChange = (field, value) => {
     const newData = { ...exchangeData, [field]: value };
 
+    // 환율이 있으면 자동 계산
     if (field === 'fromAmount' && newData.exchangeRate) {
       if (newData.direction === 'krw_to_usd') {
-        // 원화 → 달러: 원화 / 환율
         newData.toAmount = value ? (parseFloat(value) / parseFloat(newData.exchangeRate)).toFixed(2) : '';
       } else {
-        // 달러 → 원화: 달러 × 환율
         newData.toAmount = value ? (parseFloat(value) * parseFloat(newData.exchangeRate)).toFixed(0) : '';
       }
     }
@@ -101,6 +100,19 @@ export function Dashboard() {
         newData.toAmount = newData.fromAmount ? (parseFloat(newData.fromAmount) / parseFloat(value)).toFixed(2) : '';
       } else {
         newData.toAmount = newData.fromAmount ? (parseFloat(newData.fromAmount) * parseFloat(value)).toFixed(0) : '';
+      }
+    }
+
+    // toAmount 직접 입력 시 환율 자동 계산
+    if (field === 'toAmount' && newData.fromAmount && value) {
+      const from = parseFloat(newData.fromAmount);
+      const to = parseFloat(value);
+      if (from > 0 && to > 0) {
+        if (newData.direction === 'krw_to_usd') {
+          newData.exchangeRate = (from / to).toFixed(2);
+        } else {
+          newData.exchangeRate = (to / from).toFixed(2);
+        }
       }
     }
 
@@ -118,14 +130,14 @@ export function Dashboard() {
   };
 
   const handleExchange = async () => {
-    if (!exchangeData.fromAmount || !exchangeData.toAmount || !exchangeData.exchangeRate) {
-      alert('금액과 환율을 입력해주세요.');
+    if (!exchangeData.fromAmount || !exchangeData.toAmount) {
+      alert('변환 전 금액과 변환 후 금액을 입력해주세요.');
       return;
     }
 
     const fromAmount = parseFloat(exchangeData.fromAmount);
     const toAmount = parseFloat(exchangeData.toAmount);
-    const exchangeRate = parseFloat(exchangeData.exchangeRate);
+    const exchangeRate = exchangeData.exchangeRate ? parseFloat(exchangeData.exchangeRate) : null;
 
     // 잔액 확인
     if (exchangeData.direction === 'krw_to_usd') {
@@ -149,7 +161,7 @@ export function Dashboard() {
         toCurrency: exchangeData.direction === 'krw_to_usd' ? 'USD' : 'KRW',
         fromAmount,
         toAmount,
-        exchangeRate,
+        exchangeRate: exchangeRate || null,
         memo: exchangeData.memo || null
       });
       setShowExchangeModal(false);
@@ -416,7 +428,7 @@ export function Dashboard() {
                         ? `₩${formatNumber(ex.to_amount, 0)}`
                         : `$${formatNumber(ex.to_amount, 2)}`}
                     </td>
-                    <td className="py-2">{formatNumber(ex.exchange_rate, 2)}</td>
+                    <td className="py-2">{ex.exchange_rate ? formatNumber(ex.exchange_rate, 2) : '-'}</td>
                     <td className="py-2 text-gray-500">{ex.memo || '-'}</td>
                   </tr>
                 ))}
@@ -508,15 +520,6 @@ export function Dashboard() {
           </div>
 
           <Input
-            label="환율"
-            type="number"
-            step="0.01"
-            value={exchangeData.exchangeRate}
-            onChange={(e) => handleExchangeAmountChange('exchangeRate', e.target.value)}
-            placeholder="예: 1350.50"
-          />
-
-          <Input
             label={exchangeData.direction === 'krw_to_usd' ? '환전할 원화 금액' : '환전할 달러 금액'}
             type="number"
             step={exchangeData.direction === 'krw_to_usd' ? '1' : '0.01'}
@@ -525,17 +528,23 @@ export function Dashboard() {
             placeholder={exchangeData.direction === 'krw_to_usd' ? '예: 1000000' : '예: 1000'}
           />
 
-          {exchangeData.toAmount && (
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-700">
-                환전 후: <strong>
-                  {exchangeData.direction === 'krw_to_usd'
-                    ? `$${formatNumber(parseFloat(exchangeData.toAmount), 2)}`
-                    : `₩${formatNumber(parseFloat(exchangeData.toAmount), 0)}`}
-                </strong>
-              </p>
-            </div>
-          )}
+          <Input
+            label={exchangeData.direction === 'krw_to_usd' ? '변환 후 달러 금액' : '변환 후 원화 금액'}
+            type="number"
+            step={exchangeData.direction === 'krw_to_usd' ? '0.01' : '1'}
+            value={exchangeData.toAmount}
+            onChange={(e) => handleExchangeAmountChange('toAmount', e.target.value)}
+            placeholder={exchangeData.direction === 'krw_to_usd' ? '예: 740.74' : '예: 1350000'}
+          />
+
+          <Input
+            label="환율 (선택 - 금액 입력 시 자동 계산)"
+            type="number"
+            step="0.01"
+            value={exchangeData.exchangeRate}
+            onChange={(e) => handleExchangeAmountChange('exchangeRate', e.target.value)}
+            placeholder="예: 1350.50"
+          />
 
           <Input
             label="메모 (선택)"

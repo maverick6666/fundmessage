@@ -181,6 +181,15 @@ async def signup(
             )
         )
     else:
+        # 매니저에게 승인 대기 알림 전송
+        from app.services.notification_service import NotificationService
+        notification_service = NotificationService(db)
+        notification_service.create_notification_for_managers(
+            notification_type="user_pending_approval",
+            title=f"{data.full_name}님이 가입 승인을 요청했습니다",
+            message=f"이메일: {data.email}",
+        )
+
         return APIResponse(
             success=True,
             data=SignupResponse(

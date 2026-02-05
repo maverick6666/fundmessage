@@ -25,7 +25,7 @@ class Discussion(Base):
     summary = Column(Text)
     summary_by_participant = Column(JSON)  # {"user_id": "summary", ...}
 
-    opened_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    opened_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     closed_by = Column(Integer, ForeignKey("users.id"))
 
     opened_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -8,6 +8,12 @@ from app.schemas.common import APIResponse
 from app.services.auth_service import AuthService
 from app.dependencies import get_current_user, get_manager_or_admin, get_manager
 from app.models.user import User
+from app.models.notification import Notification
+from app.models.discussion import Discussion
+from app.models.message import Message
+from app.models.request import Request
+from app.models.audit_log import AuditLog
+from app.models.decision_note import DecisionNote
 
 router = APIRouter()
 
@@ -152,6 +158,80 @@ async def deactivate_user(
         success=True,
         data=UserResponse.model_validate(user),
         message=f"{user.full_name}님의 계정이 비활성화되었습니다"
+    )
+
+
+@router.delete("/{user_id}", response_model=APIResponse)
+async def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager)
+):
+    """사용자 완전 삭제 (팀장만) - 관련 데이터 모두 삭제"""
+    auth_service = AuthService(db)
+
+    # 자기 자신은 삭제 불가
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="자기 자신은 삭제할 수 없습니다"
+        )
+
+    user = auth_service.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="사용자를 찾을 수 없습니다"
+        )
+
+    if user.role == 'manager':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="팀장은 삭제할 수 없습니다"
+        )
+
+    user_name = user.full_name
+
+    # 관련 데이터 삭제
+    # 1. 알림 삭제
+    db.query(Notification).filter(Notification.user_id == user_id).delete(synchronize_session=False)
+
+    # 2. 메시지 user_id null 처리 (메시지 내용 보존)
+    db.query(Message).filter(Message.user_id == user_id).update(
+        {"user_id": None}, synchronize_session=False
+    )
+
+    # 3. 의사결정 노트 삭제
+    db.query(DecisionNote).filter(DecisionNote.created_by == user_id).delete(synchronize_session=False)
+
+    # 4. 감사 로그에서 user_id null 처리
+    db.query(AuditLog).filter(AuditLog.user_id == user_id).update(
+        {"user_id": None}, synchronize_session=False
+    )
+
+    # 5. 요청에서 requester_id, approved_by null 처리
+    db.query(Request).filter(Request.requester_id == user_id).update(
+        {"requester_id": None}, synchronize_session=False
+    )
+    db.query(Request).filter(Request.approved_by == user_id).update(
+        {"approved_by": None}, synchronize_session=False
+    )
+
+    # 6. 토론에서 opened_by, closed_by null 처리
+    db.query(Discussion).filter(Discussion.opened_by == user_id).update(
+        {"opened_by": None}, synchronize_session=False
+    )
+    db.query(Discussion).filter(Discussion.closed_by == user_id).update(
+        {"closed_by": None}, synchronize_session=False
+    )
+
+    # 7. 사용자 삭제
+    db.delete(user)
+    db.commit()
+
+    return APIResponse(
+        success=True,
+        message=f"{user_name}님의 계정이 삭제되었습니다"
     )
 
 

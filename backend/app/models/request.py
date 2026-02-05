@@ -23,7 +23,7 @@ class Request(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     position_id = Column(Integer, ForeignKey("positions.id", ondelete="CASCADE"), nullable=True)
-    requester_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    requester_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     # Request type
     request_type = Column(String(20), nullable=False)  # 'buy', 'sell'

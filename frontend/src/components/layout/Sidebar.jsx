@@ -32,8 +32,8 @@ export function Sidebar({ isOpen, onClose }) {
 
       {/* Sidebar */}
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-white border-r flex flex-col
+        fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50
+        w-64 h-screen bg-white border-r flex flex-col flex-shrink-0
         transform transition-transform duration-200
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
@@ -46,7 +46,7 @@ export function Sidebar({ isOpen, onClose }) {
           </button>
         </div>
 
-        <nav className="flex-1 p-4 pt-16 lg:pt-4">
+        <nav className="flex-1 p-4 pt-16 lg:pt-4 overflow-y-auto">
           <ul className="space-y-2">
             {filteredItems.map(item => (
               <li key={item.path}>
