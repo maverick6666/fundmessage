@@ -179,7 +179,7 @@ export function TeamManagement() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이메일</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">사용자명</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">역할</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">관리</th>
+                  {adminMode && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">관리</th>}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -211,28 +211,28 @@ export function TeamManagement() {
                         </select>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.role !== 'manager' ? (
-                        <div className="flex gap-2 flex-wrap">
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => handleDeactivate(user.id, user.full_name)}
-                            loading={actionLoading === user.id}
-                          >
-                            비활성화
-                          </Button>
-                          {isManager() && (
+                    {adminMode && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {user.role !== 'manager' ? (
+                          <div className="flex gap-2 flex-wrap">
                             <Button
                               size="sm"
-                              variant="secondary"
-                              onClick={() => handleTransferManager(user.id, user.full_name)}
+                              variant="danger"
+                              onClick={() => handleDeactivate(user.id, user.full_name)}
                               loading={actionLoading === user.id}
                             >
-                              팀장 위임
+                              비활성화
                             </Button>
-                          )}
-                          {adminMode && (
+                            {isManager() && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleTransferManager(user.id, user.full_name)}
+                                loading={actionLoading === user.id}
+                              >
+                                팀장 위임
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="secondary"
@@ -242,12 +242,12 @@ export function TeamManagement() {
                             >
                               삭제
                             </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">-</span>
-                      )}
-                    </td>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

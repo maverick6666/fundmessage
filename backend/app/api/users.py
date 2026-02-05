@@ -267,8 +267,8 @@ async def transfer_manager_role(
             detail="비활성화된 유저에게 이전할 수 없습니다"
         )
 
-    # 권한 이전: 현재 팀장 → 팀원, 대상 → 팀장
-    current_user.role = UserRole.MEMBER.value
+    # 권한 이전: 현재 팀장 → 관리자, 대상 → 팀장
+    current_user.role = UserRole.ADMIN.value
     new_manager.role = UserRole.MANAGER.value
     db.commit()
 

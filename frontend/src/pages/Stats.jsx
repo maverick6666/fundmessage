@@ -106,6 +106,16 @@ export function Stats() {
           ? krwCash + krwEvaluation + (usdCash + usdEvaluation + usdtEvaluation) * exchangeRate
           : null;
 
+        // 초기 자산 (KRW 환산)
+        const initialKrwAsset = exchangeRate
+          ? capitalKrw + capitalUsd * exchangeRate
+          : null;
+
+        // 수익률
+        const totalReturnRate = (initialKrwAsset && initialKrwAsset > 0 && totalKrwAsset !== null)
+          ? (totalKrwAsset - initialKrwAsset) / initialKrwAsset
+          : null;
+
         return (
         <div className="space-y-6">
           {/* 전체 자산 요약 */}
@@ -113,16 +123,31 @@ export function Stats() {
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-3">전체 자산 (KRW 환산)</h3>
               <Card>
-                <div className="flex items-baseline gap-3">
+                <div className="flex items-baseline gap-3 flex-wrap">
                   <p className="text-3xl font-bold">
                     {formatCurrency(totalKrwAsset, 'KRX')}
                   </p>
+                  {totalReturnRate !== null && (
+                    <span className={`text-lg font-bold ${getProfitLossClass(totalReturnRate)}`}>
+                      {totalReturnRate >= 0 ? '+' : ''}{formatPercent(totalReturnRate)}
+                    </span>
+                  )}
                   {exchangeRate && (
                     <span className="text-sm text-gray-400">
                       환율 ₩{formatNumber(exchangeRate, 0)}/$
                     </span>
                   )}
                 </div>
+                {initialKrwAsset && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    초기자산: {formatCurrency(initialKrwAsset, 'KRX')}
+                    {totalKrwAsset !== null && (
+                      <span className={`ml-2 ${getProfitLossClass(totalKrwAsset - initialKrwAsset)}`}>
+                        {totalKrwAsset - initialKrwAsset >= 0 ? '+' : ''}{formatCurrency(totalKrwAsset - initialKrwAsset, 'KRX')}
+                      </span>
+                    )}
+                  </p>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-sm">
                   <div>
                     <span className="text-gray-500">KRW 보유</span>
@@ -212,8 +237,10 @@ export function Stats() {
                 </p>
               </Card>
               <Card>
-                <p className="text-sm text-gray-500">수익 팩터</p>
-                <p className="text-2xl font-bold">{(teamStats.closed_positions?.profit_factor || 0).toFixed(2)}</p>
+                <p className="text-sm text-gray-500">평균 수익률</p>
+                <p className={`text-2xl font-bold ${getProfitLossClass(teamStats.closed_positions?.avg_profit_rate)}`}>
+                  {formatPercent(teamStats.closed_positions?.avg_profit_rate || 0)}
+                </p>
               </Card>
             </div>
           </div>
@@ -223,7 +250,7 @@ export function Stats() {
             <CardHeader>
               <CardTitle>팀 상세지표</CardTitle>
             </CardHeader>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <span className="text-sm text-gray-500">수익 거래</span>
                 <p className="text-lg font-medium text-red-600">{teamStats.closed_positions?.winning_trades || 0}</p>
@@ -241,10 +268,6 @@ export function Stats() {
                 <p className={`text-lg font-medium ${getProfitLossClass(teamStats.closed_positions?.avg_profit_rate)}`}>
                   {formatPercent(teamStats.closed_positions?.avg_profit_rate || 0)}
                 </p>
-              </div>
-              <div>
-                <span className="text-sm text-gray-500">수익 팩터</span>
-                <p className="text-lg font-medium">{(teamStats.closed_positions?.profit_factor || 0).toFixed(2)}</p>
               </div>
             </div>
           </Card>
@@ -367,10 +390,6 @@ export function Stats() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">평균 보유 시간</span>
                   <span className="font-medium">{formatHours(myStats.overall.avg_holding_hours)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">수익 팩터</span>
-                  <span className="font-medium">{myStats.overall.profit_factor.toFixed(2)}</span>
                 </div>
               </div>
             </Card>

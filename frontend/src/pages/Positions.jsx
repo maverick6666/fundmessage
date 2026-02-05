@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { usePositions } from '../hooks/usePositions';
 import { priceService } from '../services/priceService';
@@ -23,12 +22,11 @@ export function Positions() {
   const { positions, total, loading, error, updateFilters, setPage, filters } = usePositions({ status: 'open' });
   const [priceData, setPriceData] = useState({});
   const [priceLoading, setPriceLoading] = useState(false);
+  const [expandedIds, setExpandedIds] = useState(new Set());
 
-  // 시세 데이터 가져오기
   useEffect(() => {
     if (statusFilter === 'open' && positions.length > 0) {
       fetchPrices();
-      // 1분마다 갱신
       const interval = setInterval(fetchPrices, 60000);
       return () => clearInterval(interval);
     }
@@ -64,7 +62,17 @@ export function Positions() {
 
   const handleStatusChange = (status) => {
     setStatusFilter(status);
+    setExpandedIds(new Set());
     updateFilters({ status: status === 'all' ? null : status });
+  };
+
+  const toggleExpand = (id) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   return (
@@ -99,229 +107,162 @@ export function Positions() {
         <div className="text-center py-12 text-gray-500">포지션이 없습니다</div>
       ) : (
         <>
-          {/* Desktop Table */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">종목</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">평균매수가</th>
-                  {statusFilter === 'open' && (
-                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">현재가</th>
-                  )}
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">수량</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">매수금액</th>
-                  {statusFilter === 'open' && (
-                    <>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">평가금액</th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">평가손익</th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">수익률</th>
-                    </>
-                  )}
-                  {statusFilter === 'closed' && (
-                    <>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">손익</th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">수익률</th>
-                    </>
-                  )}
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">보유기간</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">상태</th>
-                  {adminMode && <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">관리</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {positions.map(position => (
-                  <tr key={position.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <Link to={`/positions/${position.id}`} className="hover:text-primary-600">
-                        <div className="flex items-center gap-2">
-                          <div>
-                            <p className="font-medium">{position.ticker_name || position.ticker}</p>
-                            <p className="text-sm text-gray-500">{position.ticker}</p>
-                          </div>
-                          {position.status === 'open' && !position.is_info_confirmed && (
-                            <span className="badge bg-yellow-100 text-yellow-800 text-xs">미수정</span>
-                          )}
-                        </div>
-                        {/* 남은 계획 표시 */}
-                        {position.status === 'open' && (position.remaining_buys > 0 || position.remaining_take_profits > 0 || position.remaining_stop_losses > 0) && (
-                          <div className="flex gap-2 mt-1 text-xs">
-                            {position.remaining_buys > 0 && (
-                              <span className="text-blue-600">매수 {position.remaining_buys}건</span>
-                            )}
-                            {position.remaining_take_profits > 0 && (
-                              <span className="text-red-600">익절 {position.remaining_take_profits}건</span>
-                            )}
-                            {position.remaining_stop_losses > 0 && (
-                              <span className="text-gray-600">손절 {position.remaining_stop_losses}건</span>
-                            )}
-                          </div>
-                        )}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {formatCurrency(position.average_buy_price, position.market)}
-                    </td>
-                    {statusFilter === 'open' && (
-                      <td className="px-4 py-3 text-right">
-                        {priceData[position.id]?.current_price
-                          ? formatCurrency(priceData[position.id].current_price, position.market)
-                          : priceLoading ? '...' : '-'}
-                      </td>
-                    )}
-                    <td className="px-4 py-3 text-right">
-                      {formatQuantity(position.total_quantity)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {formatCurrency(position.total_buy_amount, position.market)}
-                    </td>
-                    {statusFilter === 'open' && (
-                      <>
-                        <td className="px-4 py-3 text-right">
-                          {priceData[position.id]?.evaluation_amount
-                            ? formatCurrency(priceData[position.id].evaluation_amount, position.market)
-                            : '-'}
-                        </td>
-                        <td className={`px-4 py-3 text-right ${getProfitLossClass(priceData[position.id]?.profit_loss)}`}>
-                          {priceData[position.id]?.profit_loss != null
-                            ? formatCurrency(priceData[position.id].profit_loss, position.market)
-                            : '-'}
-                        </td>
-                        <td className={`px-4 py-3 text-right ${getProfitLossClass(priceData[position.id]?.profit_rate)}`}>
-                          {priceData[position.id]?.profit_rate != null
-                            ? formatPercent(priceData[position.id].profit_rate)
-                            : '-'}
-                        </td>
-                      </>
-                    )}
-                    {statusFilter === 'closed' && (
-                      <>
-                        <td className={`px-4 py-3 text-right ${getProfitLossClass(position.profit_loss)}`}>
-                          {formatCurrency(position.profit_loss, position.market)}
-                        </td>
-                        <td className={`px-4 py-3 text-right ${getProfitLossClass(position.profit_rate)}`}>
-                          {formatPercent(position.profit_rate)}
-                        </td>
-                      </>
-                    )}
-                    <td className="px-4 py-3 text-right text-gray-500">
-                      {formatHours(position.status === 'open' ? calcHoldingHours(position.opened_at) : position.holding_period_hours)}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`badge ${getStatusBadgeClass(position.status)}`}>
-                        {getStatusLabel(position.status)}
-                      </span>
-                    </td>
-                    {adminMode && (
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={(e) => handleDelete(e, position)}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
-                          title="삭제"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <div className="space-y-3">
+            {positions.map(position => {
+              const isOpen = position.status === 'open';
+              const price = priceData[position.id];
+              const profitRate = isOpen ? price?.profit_rate : position.profit_rate;
+              const profitLoss = isOpen ? price?.profit_loss : position.profit_loss;
+              const holdingHours = isOpen ? calcHoldingHours(position.opened_at) : position.holding_period_hours;
+              const expanded = expandedIds.has(position.id);
 
-          {/* Mobile Cards */}
-          <div className="md:hidden space-y-4">
-            {positions.map(position => (
-              <Card key={position.id}>
-                {adminMode && (
-                  <div className="flex justify-end mb-2">
-                    <button
-                      onClick={(e) => handleDelete(e, position)}
-                      className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                      삭제
-                    </button>
-                  </div>
-                )}
-                <Link to={`/positions/${position.id}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{position.ticker_name || position.ticker}</p>
-                          {position.status === 'open' && !position.is_info_confirmed && (
-                            <span className="badge bg-yellow-100 text-yellow-800 text-xs">미수정</span>
+              return (
+                <div key={position.id} className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
+                  {/* Card Header - Always Visible */}
+                  <div
+                    className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => toggleExpand(position.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      {/* Left: Ticker Info */}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900 truncate">
+                              {position.ticker_name || position.ticker}
+                            </span>
+                            <span className="text-xs text-gray-400">{position.ticker}</span>
+                            {isOpen && !position.is_info_confirmed && (
+                              <span className="bg-yellow-100 text-yellow-800 text-xs px-1.5 py-0.5 rounded">미수정</span>
+                            )}
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadgeClass(position.status)}`}>
+                              {getStatusLabel(position.status)}
+                            </span>
+                          </div>
+                          {/* Remaining plans */}
+                          {isOpen && (position.remaining_buys > 0 || position.remaining_take_profits > 0 || position.remaining_stop_losses > 0) && (
+                            <div className="flex gap-2 mt-0.5 text-xs">
+                              {position.remaining_buys > 0 && (
+                                <span className="text-blue-600">매수 {position.remaining_buys}</span>
+                              )}
+                              {position.remaining_take_profits > 0 && (
+                                <span className="text-red-600">익절 {position.remaining_take_profits}</span>
+                              )}
+                              {position.remaining_stop_losses > 0 && (
+                                <span className="text-gray-600">손절 {position.remaining_stop_losses}</span>
+                              )}
+                            </div>
                           )}
                         </div>
-                        <p className="text-sm text-gray-500">{position.ticker}</p>
-                        {/* 남은 계획 표시 */}
-                        {position.status === 'open' && (position.remaining_buys > 0 || position.remaining_take_profits > 0 || position.remaining_stop_losses > 0) && (
-                          <div className="flex gap-2 text-xs">
-                            {position.remaining_buys > 0 && (
-                              <span className="text-blue-600">매수 {position.remaining_buys}건</span>
-                            )}
-                            {position.remaining_take_profits > 0 && (
-                              <span className="text-red-600">익절 {position.remaining_take_profits}건</span>
-                            )}
-                            {position.remaining_stop_losses > 0 && (
-                              <span className="text-gray-600">손절 {position.remaining_stop_losses}건</span>
-                            )}
+                      </div>
+
+                      {/* Right: Key Metrics */}
+                      <div className="flex items-center gap-4 text-right flex-shrink-0">
+                        {isOpen && price?.current_price && (
+                          <div className="hidden sm:block">
+                            <p className="text-xs text-gray-400">현재가</p>
+                            <p className="font-medium text-sm">{formatCurrency(price.current_price, position.market)}</p>
                           </div>
+                        )}
+                        <div>
+                          <p className="text-xs text-gray-400">{isOpen ? '평가손익' : '손익'}</p>
+                          <p className={`font-bold text-sm ${getProfitLossClass(profitRate)}`}>
+                            {profitRate != null ? formatPercent(profitRate) : '-'}
+                          </p>
+                        </div>
+                        {/* Expand Arrow */}
+                        <svg
+                          className={`w-5 h-5 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expanded Details */}
+                  {expanded && (
+                    <div className="border-t border-gray-100 px-4 pb-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-3 text-sm">
+                        <div>
+                          <p className="text-gray-400 text-xs">평균매수가</p>
+                          <p className="font-medium">{formatCurrency(position.average_buy_price, position.market)}</p>
+                        </div>
+                        {isOpen && (
+                          <div>
+                            <p className="text-gray-400 text-xs">현재가</p>
+                            <p className="font-medium">
+                              {price?.current_price
+                                ? formatCurrency(price.current_price, position.market)
+                                : priceLoading ? '...' : '-'}
+                            </p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-gray-400 text-xs">수량</p>
+                          <p className="font-medium">{formatQuantity(position.total_quantity)}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400 text-xs">매수금액</p>
+                          <p className="font-medium">{formatCurrency(position.total_buy_amount, position.market)}</p>
+                        </div>
+                        {isOpen && (
+                          <>
+                            <div>
+                              <p className="text-gray-400 text-xs">평가금액</p>
+                              <p className="font-medium">
+                                {price?.evaluation_amount
+                                  ? formatCurrency(price.evaluation_amount, position.market)
+                                  : '-'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-xs">평가손익</p>
+                              <p className={`font-medium ${getProfitLossClass(profitLoss)}`}>
+                                {profitLoss != null
+                                  ? formatCurrency(profitLoss, position.market)
+                                  : '-'}
+                              </p>
+                            </div>
+                          </>
+                        )}
+                        {!isOpen && (
+                          <div>
+                            <p className="text-gray-400 text-xs">실현손익</p>
+                            <p className={`font-medium ${getProfitLossClass(profitLoss)}`}>
+                              {formatCurrency(profitLoss, position.market)}
+                            </p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-gray-400 text-xs">보유기간</p>
+                          <p className="font-medium">{formatHours(holdingHours)}</p>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                        <Link
+                          to={`/positions/${position.id}`}
+                          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                        >
+                          상세보기
+                        </Link>
+                        {adminMode && (
+                          <button
+                            onClick={(e) => handleDelete(e, position)}
+                            className="text-sm text-red-500 hover:text-red-700 font-medium ml-auto"
+                          >
+                            삭제
+                          </button>
                         )}
                       </div>
                     </div>
-                    <span className={`badge ${getStatusBadgeClass(position.status)}`}>
-                      {getStatusLabel(position.status)}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <p className="text-gray-500">평균매수가</p>
-                      <p className="font-medium">{formatCurrency(position.average_buy_price, position.market)}</p>
-                    </div>
-                    {position.status === 'open' && (
-                      <div>
-                        <p className="text-gray-500">현재가</p>
-                        <p className="font-medium">
-                          {priceData[position.id]?.current_price
-                            ? formatCurrency(priceData[position.id].current_price, position.market)
-                            : priceLoading ? '...' : '-'}
-                        </p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-gray-500">수량</p>
-                      <p className="font-medium">{formatQuantity(position.total_quantity)}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">매수금액</p>
-                      <p className="font-medium">{formatCurrency(position.total_buy_amount, position.market)}</p>
-                    </div>
-                    {position.status === 'open' && priceData[position.id]?.profit_rate != null && (
-                      <div>
-                        <p className="text-gray-500">평가손익</p>
-                        <p className={`font-medium ${getProfitLossClass(priceData[position.id].profit_rate)}`}>
-                          {formatPercent(priceData[position.id].profit_rate)}
-                        </p>
-                      </div>
-                    )}
-                    {position.status === 'closed' && (
-                      <div>
-                        <p className="text-gray-500">수익률</p>
-                        <p className={`font-medium ${getProfitLossClass(position.profit_rate)}`}>
-                          {formatPercent(position.profit_rate)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              </Card>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Pagination */}

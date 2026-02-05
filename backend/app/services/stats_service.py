@@ -40,11 +40,6 @@ class StatsService:
 
         win_rate = winning_trades / total_trades if total_trades > 0 else 0
 
-        # Calculate profit factor
-        total_gains = sum([p.profit_loss for p in closed_positions if p.profit_loss and p.profit_loss > 0])
-        total_losses = abs(sum([p.profit_loss for p in closed_positions if p.profit_loss and p.profit_loss < 0]))
-        profit_factor = float(total_gains / total_losses) if total_losses > 0 else 0
-
         # Best and worst trades
         best_trade = max(closed_positions, key=lambda p: p.profit_rate or Decimal(0)) if closed_positions else None
         worst_trade = min(closed_positions, key=lambda p: p.profit_rate or Decimal(0)) if closed_positions else None
@@ -62,8 +57,7 @@ class StatsService:
                 "win_rate": win_rate,
                 "total_profit_loss": float(total_profit_loss),
                 "avg_profit_rate": float(avg_profit_rate),
-                "avg_holding_hours": int(avg_holding_hours),
-                "profit_factor": profit_factor
+                "avg_holding_hours": int(avg_holding_hours)
             },
             "best_trade": {
                 "ticker": best_trade.ticker,
@@ -130,19 +124,33 @@ class StatsService:
         losing_trades = len([p for p in closed_positions if p.profit_loss and p.profit_loss < 0])
         win_rate = winning_trades / closed_count if closed_count > 0 else 0
 
-        # 수익 팩터
-        total_gains = sum([p.profit_loss for p in closed_positions if p.profit_loss and p.profit_loss > 0])
-        total_losses = abs(sum([p.profit_loss for p in closed_positions if p.profit_loss and p.profit_loss < 0]))
-        profit_factor = float(total_gains / total_losses) if total_losses > 0 else 0
+        # 평균 보유 시간, 평균 수익률 (진행중 + 종료 포지션 모두 포함)
+        all_for_avg = open_positions + closed_positions
+        total_for_avg = len(all_for_avg)
 
-        # 평균 보유 시간, 평균 수익률
+        # 진행중 포지션의 보유 시간 계산
+        open_holding_hours = 0
+        open_profit_rates = []
+        for p in open_positions:
+            if p.opened_at:
+                hours = (datetime.utcnow() - p.opened_at).total_seconds() / 3600
+                open_holding_hours += hours
+            # 진행중 포지션의 수익률은 시세 데이터에서 가져옴
+            if price_data and p.id in price_data and price_data[p.id].get("profit_rate") is not None:
+                open_profit_rates.append(float(price_data[p.id]["profit_rate"]))
+
+        closed_holding_hours = sum([p.holding_period_hours or 0 for p in closed_positions])
+        closed_profit_rates = [float(p.profit_rate or 0) for p in closed_positions]
+
         avg_holding_hours = (
-            sum([p.holding_period_hours or 0 for p in closed_positions]) / closed_count
-            if closed_count > 0 else 0
+            (closed_holding_hours + open_holding_hours) / total_for_avg
+            if total_for_avg > 0 else 0
         )
+
+        all_profit_rates = closed_profit_rates + open_profit_rates
         avg_profit_rate = (
-            sum([float(p.profit_rate or 0) for p in closed_positions]) / closed_count
-            if closed_count > 0 else 0
+            sum(all_profit_rates) / len(all_profit_rates)
+            if len(all_profit_rates) > 0 else 0
         )
 
         # Leaderboard by user (종료 + 진행중 포지션 모두 포함)
@@ -275,7 +283,6 @@ class StatsService:
                 "win_rate": win_rate,
                 "realized_profit_loss": float(realized_profit_loss),
                 "total_volume": float(total_volume),
-                "profit_factor": profit_factor,
                 "avg_holding_hours": int(avg_holding_hours),
                 "avg_profit_rate": avg_profit_rate
             },
