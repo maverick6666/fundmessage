@@ -107,7 +107,7 @@ export function Positions() {
         <div className="text-center py-12 text-gray-500">포지션이 없습니다</div>
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {positions.map(position => {
               const isOpen = position.status === 'open';
               const price = priceData[position.id];
@@ -115,148 +115,206 @@ export function Positions() {
               const profitLoss = isOpen ? price?.profit_loss : position.profit_loss;
               const holdingHours = isOpen ? calcHoldingHours(position.opened_at) : position.holding_period_hours;
               const expanded = expandedIds.has(position.id);
+              const isProfit = profitRate != null && profitRate > 0;
+              const isLoss = profitRate != null && profitRate < 0;
 
               return (
-                <div key={position.id} className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
-                  {/* Card Header - Always Visible */}
+                <div
+                  key={position.id}
+                  className={`bg-white rounded-xl shadow-sm border overflow-hidden transition-all ${
+                    expanded ? 'shadow-md border-primary-200' : 'border-gray-200 hover:shadow-md'
+                  }`}
+                >
+                  {/* Card Header */}
                   <div
-                    className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="cursor-pointer transition-colors hover:bg-gray-50/50"
                     onClick={() => toggleExpand(position.id)}
                   >
-                    <div className="flex items-center justify-between">
-                      {/* Left: Ticker Info */}
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900 truncate">
-                              {position.ticker_name || position.ticker}
+                    {/* Top Row: Ticker + Status */}
+                    <div className="px-5 pt-4 pb-2 flex items-start justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-bold text-gray-900">
+                            {position.ticker_name || position.ticker}
+                          </h3>
+                          <span className="text-sm text-gray-400 font-mono">{position.ticker}</span>
+                          {isOpen && !position.is_info_confirmed && (
+                            <span className="bg-yellow-100 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                              미수정
                             </span>
-                            <span className="text-xs text-gray-400">{position.ticker}</span>
-                            {isOpen && !position.is_info_confirmed && (
-                              <span className="bg-yellow-100 text-yellow-800 text-xs px-1.5 py-0.5 rounded">미수정</span>
-                            )}
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadgeClass(position.status)}`}>
-                              {getStatusLabel(position.status)}
-                            </span>
-                          </div>
-                          {/* Remaining plans */}
-                          {isOpen && (position.remaining_buys > 0 || position.remaining_take_profits > 0 || position.remaining_stop_losses > 0) && (
-                            <div className="flex gap-2 mt-0.5 text-xs">
-                              {position.remaining_buys > 0 && (
-                                <span className="text-blue-600">매수 {position.remaining_buys}</span>
-                              )}
-                              {position.remaining_take_profits > 0 && (
-                                <span className="text-red-600">익절 {position.remaining_take_profits}</span>
-                              )}
-                              {position.remaining_stop_losses > 0 && (
-                                <span className="text-gray-600">손절 {position.remaining_stop_losses}</span>
-                              )}
-                            </div>
                           )}
                         </div>
-                      </div>
-
-                      {/* Right: Key Metrics */}
-                      <div className="flex items-center gap-4 text-right flex-shrink-0">
-                        {isOpen && price?.current_price && (
-                          <div className="hidden sm:block">
-                            <p className="text-xs text-gray-400">현재가</p>
-                            <p className="font-medium text-sm">{formatCurrency(price.current_price, position.market)}</p>
+                        {/* Remaining plans */}
+                        {isOpen && (position.remaining_buys > 0 || position.remaining_take_profits > 0 || position.remaining_stop_losses > 0) && (
+                          <div className="flex gap-3 mt-1">
+                            {position.remaining_buys > 0 && (
+                              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                                매수 {position.remaining_buys}건
+                              </span>
+                            )}
+                            {position.remaining_take_profits > 0 && (
+                              <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                                익절 {position.remaining_take_profits}건
+                              </span>
+                            )}
+                            {position.remaining_stop_losses > 0 && (
+                              <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                                손절 {position.remaining_stop_losses}건
+                              </span>
+                            )}
                           </div>
                         )}
-                        <div>
-                          <p className="text-xs text-gray-400">{isOpen ? '평가손익' : '손익'}</p>
-                          <p className={`font-bold text-sm ${getProfitLossClass(profitRate)}`}>
-                            {profitRate != null ? formatPercent(profitRate) : '-'}
-                          </p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getStatusBadgeClass(position.status)}`}>
+                          {getStatusLabel(position.status)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Key Metrics Row */}
+                    <div className="px-5 pb-4">
+                      <div className="flex items-end justify-between gap-4">
+                        {/* Left metrics */}
+                        <div className="flex gap-6 items-end">
+                          <div>
+                            <p className="text-xs text-gray-400 mb-0.5">매수금액</p>
+                            <p className="text-sm font-semibold text-gray-700">
+                              {formatCurrency(position.total_buy_amount, position.market)}
+                            </p>
+                          </div>
+                          {isOpen && price?.current_price && (
+                            <div>
+                              <p className="text-xs text-gray-400 mb-0.5">현재가</p>
+                              <p className="text-sm font-semibold text-gray-700">
+                                {formatCurrency(price.current_price, position.market)}
+                              </p>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-xs text-gray-400 mb-0.5">보유기간</p>
+                            <p className="text-sm font-medium text-gray-500">{formatHours(holdingHours)}</p>
+                          </div>
                         </div>
-                        {/* Expand Arrow */}
-                        <svg
-                          className={`w-5 h-5 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
-                          fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                        </svg>
+
+                        {/* Right: P&L highlight */}
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="text-xs text-gray-400 mb-0.5">{isOpen ? '수익률' : '실현 수익률'}</p>
+                            <p className={`text-xl font-bold ${
+                              isProfit ? 'text-red-500' : isLoss ? 'text-blue-500' : 'text-gray-400'
+                            }`}>
+                              {profitRate != null ? (
+                                <>
+                                  {profitRate > 0 ? '+' : ''}{formatPercent(profitRate)}
+                                </>
+                              ) : '-'}
+                            </p>
+                          </div>
+                          {/* Expand Arrow */}
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                            expanded ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-400'
+                          }`}>
+                            <svg
+                              className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+                              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Expanded Details */}
                   {expanded && (
-                    <div className="border-t border-gray-100 px-4 pb-4">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-3 text-sm">
-                        <div>
-                          <p className="text-gray-400 text-xs">평균매수가</p>
-                          <p className="font-medium">{formatCurrency(position.average_buy_price, position.market)}</p>
-                        </div>
-                        {isOpen && (
-                          <div>
-                            <p className="text-gray-400 text-xs">현재가</p>
-                            <p className="font-medium">
-                              {price?.current_price
-                                ? formatCurrency(price.current_price, position.market)
-                                : priceLoading ? '...' : '-'}
-                            </p>
+                    <div className="border-t border-gray-100 bg-gray-50/50">
+                      <div className="px-5 py-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                          <div className="bg-white rounded-lg p-3 border border-gray-100">
+                            <p className="text-xs text-gray-400 mb-1">평균매수가</p>
+                            <p className="text-sm font-semibold">{formatCurrency(position.average_buy_price, position.market)}</p>
                           </div>
-                        )}
-                        <div>
-                          <p className="text-gray-400 text-xs">수량</p>
-                          <p className="font-medium">{formatQuantity(position.total_quantity)}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400 text-xs">매수금액</p>
-                          <p className="font-medium">{formatCurrency(position.total_buy_amount, position.market)}</p>
-                        </div>
-                        {isOpen && (
-                          <>
-                            <div>
-                              <p className="text-gray-400 text-xs">평가금액</p>
-                              <p className="font-medium">
-                                {price?.evaluation_amount
-                                  ? formatCurrency(price.evaluation_amount, position.market)
-                                  : '-'}
+                          {isOpen && (
+                            <div className="bg-white rounded-lg p-3 border border-gray-100">
+                              <p className="text-xs text-gray-400 mb-1">현재가</p>
+                              <p className="text-sm font-semibold">
+                                {price?.current_price
+                                  ? formatCurrency(price.current_price, position.market)
+                                  : priceLoading ? '...' : '-'}
                               </p>
                             </div>
-                            <div>
-                              <p className="text-gray-400 text-xs">평가손익</p>
-                              <p className={`font-medium ${getProfitLossClass(profitLoss)}`}>
-                                {profitLoss != null
-                                  ? formatCurrency(profitLoss, position.market)
-                                  : '-'}
+                          )}
+                          <div className="bg-white rounded-lg p-3 border border-gray-100">
+                            <p className="text-xs text-gray-400 mb-1">수량</p>
+                            <p className="text-sm font-semibold">{formatQuantity(position.total_quantity)}</p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 border border-gray-100">
+                            <p className="text-xs text-gray-400 mb-1">매수금액</p>
+                            <p className="text-sm font-semibold">{formatCurrency(position.total_buy_amount, position.market)}</p>
+                          </div>
+                          {isOpen && (
+                            <>
+                              <div className="bg-white rounded-lg p-3 border border-gray-100">
+                                <p className="text-xs text-gray-400 mb-1">평가금액</p>
+                                <p className="text-sm font-semibold">
+                                  {price?.evaluation_amount
+                                    ? formatCurrency(price.evaluation_amount, position.market)
+                                    : '-'}
+                                </p>
+                              </div>
+                              <div className={`rounded-lg p-3 border ${
+                                isProfit ? 'bg-red-50 border-red-100' : isLoss ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100'
+                              }`}>
+                                <p className="text-xs text-gray-400 mb-1">평가손익</p>
+                                <p className={`text-sm font-bold ${getProfitLossClass(profitLoss)}`}>
+                                  {profitLoss != null
+                                    ? formatCurrency(profitLoss, position.market)
+                                    : '-'}
+                                </p>
+                              </div>
+                            </>
+                          )}
+                          {!isOpen && (
+                            <div className={`rounded-lg p-3 border ${
+                              isProfit ? 'bg-red-50 border-red-100' : isLoss ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100'
+                            }`}>
+                              <p className="text-xs text-gray-400 mb-1">실현손익</p>
+                              <p className={`text-sm font-bold ${getProfitLossClass(profitLoss)}`}>
+                                {formatCurrency(profitLoss, position.market)}
                               </p>
                             </div>
-                          </>
-                        )}
-                        {!isOpen && (
-                          <div>
-                            <p className="text-gray-400 text-xs">실현손익</p>
-                            <p className={`font-medium ${getProfitLossClass(profitLoss)}`}>
-                              {formatCurrency(profitLoss, position.market)}
-                            </p>
+                          )}
+                          <div className="bg-white rounded-lg p-3 border border-gray-100">
+                            <p className="text-xs text-gray-400 mb-1">보유기간</p>
+                            <p className="text-sm font-semibold">{formatHours(holdingHours)}</p>
                           </div>
-                        )}
-                        <div>
-                          <p className="text-gray-400 text-xs">보유기간</p>
-                          <p className="font-medium">{formatHours(holdingHours)}</p>
                         </div>
-                      </div>
 
-                      {/* Action Buttons */}
-                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-                        <Link
-                          to={`/positions/${position.id}`}
-                          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-                        >
-                          상세보기
-                        </Link>
-                        {adminMode && (
-                          <button
-                            onClick={(e) => handleDelete(e, position)}
-                            className="text-sm text-red-500 hover:text-red-700 font-medium ml-auto"
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-200">
+                          <Link
+                            to={`/positions/${position.id}`}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
                           >
-                            삭제
-                          </button>
-                        )}
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                            상세보기
+                          </Link>
+                          {adminMode && (
+                            <button
+                              onClick={(e) => handleDelete(e, position)}
+                              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors ml-auto"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              삭제
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}

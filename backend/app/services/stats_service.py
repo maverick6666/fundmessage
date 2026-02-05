@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from decimal import Decimal
 from typing import Optional, List, Dict
 from sqlalchemy.orm import Session
@@ -133,7 +133,9 @@ class StatsService:
         open_profit_rates = []
         for p in open_positions:
             if p.opened_at:
-                hours = (datetime.utcnow() - p.opened_at).total_seconds() / 3600
+                now = datetime.now(timezone.utc)
+                opened = p.opened_at if p.opened_at.tzinfo else p.opened_at.replace(tzinfo=timezone.utc)
+                hours = (now - opened).total_seconds() / 3600
                 open_holding_hours += hours
             # 진행중 포지션의 수익률은 시세 데이터에서 가져옴
             if price_data and p.id in price_data and price_data[p.id].get("profit_rate") is not None:
