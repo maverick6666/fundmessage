@@ -38,7 +38,26 @@ function ManagerRoute({ children }) {
   const { isManagerOrAdmin } = useAuth();
 
   if (!isManagerOrAdmin()) {
-    return <Navigate to="/" replace />;
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+          <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">접근 권한이 필요합니다</h2>
+        <p className="text-gray-500 mb-6">이 페이지는 팀장 또는 관리자만 접근할 수 있습니다.</p>
+        <a
+          href="/"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          대시보드로 이동
+        </a>
+      </div>
+    );
   }
 
   return children;
@@ -107,9 +126,7 @@ function AppRoutes() {
         path="/requests"
         element={
           <PrivateRoute>
-            <ManagerRoute>
-              <Requests />
-            </ManagerRoute>
+            <Requests />
           </PrivateRoute>
         }
       />

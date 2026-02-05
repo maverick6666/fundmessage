@@ -8,6 +8,7 @@ import {
   formatCurrency,
   formatPercent,
   formatRelativeTime,
+  formatDate,
   getStatusBadgeClass,
   getStatusLabel,
   getRequestTypeLabel
@@ -90,9 +91,69 @@ export function MyRequests() {
                   )}
                 </div>
 
-                {/* 기본 정보 */}
-                <div className="text-sm text-gray-500 mb-2">
-                  {formatRelativeTime(request.created_at)}
+                {/* 상태 타임라인 */}
+                <div className="flex items-center gap-0 my-3 text-xs">
+                  {/* Step 1: 제출 */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ring-green-100" />
+                    <div>
+                      <span className="text-gray-600 font-medium">제출</span>
+                      <span className="text-gray-400 ml-1">{formatDate(request.created_at, 'M/d HH:mm')}</span>
+                    </div>
+                  </div>
+
+                  <div className={`flex-1 h-0.5 mx-2 ${request.status === 'pending' ? 'bg-gradient-to-r from-green-300 to-yellow-300' : 'bg-green-300'}`} />
+
+                  {/* Step 2: 검토 */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {request.status === 'pending' ? (
+                      <>
+                        <div className="w-2.5 h-2.5 rounded-full bg-yellow-400 ring-2 ring-yellow-100 animate-pulse" />
+                        <span className="text-yellow-600 font-medium">검토중</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ring-green-100" />
+                        <span className="text-gray-500">검토</span>
+                      </>
+                    )}
+                  </div>
+
+                  {request.status !== 'pending' && (
+                    <>
+                      <div className={`flex-1 h-0.5 mx-2 ${
+                        request.status === 'approved' ? 'bg-green-300' :
+                        request.status === 'rejected' ? 'bg-red-300' : 'bg-blue-300'
+                      }`} />
+
+                      {/* Step 3: 결과 */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {request.status === 'approved' && (
+                          <>
+                            <div className="w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ring-green-100" />
+                            <div>
+                              <span className="text-green-600 font-medium">승인</span>
+                              {request.approved_at && (
+                                <span className="text-gray-400 ml-1">{formatDate(request.approved_at, 'M/d HH:mm')}</span>
+                              )}
+                            </div>
+                          </>
+                        )}
+                        {request.status === 'rejected' && (
+                          <>
+                            <div className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-red-100" />
+                            <span className="text-red-600 font-medium">거부</span>
+                          </>
+                        )}
+                        {request.status === 'discussion' && (
+                          <>
+                            <div className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-100" />
+                            <span className="text-blue-600 font-medium">토론중</span>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* 매수 요청 기본 표시 */}

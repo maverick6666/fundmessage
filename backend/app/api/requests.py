@@ -106,6 +106,16 @@ async def create_buy_request(
     request_service = RequestService(db)
     request = request_service.create_buy_request(request_data, current_user.id)
 
+    # 매니저에게 새 요청 알림
+    notification_service = NotificationService(db)
+    notification_service.notify_new_request(
+        requester_id=current_user.id,
+        requester_name=current_user.full_name,
+        request_id=request.id,
+        ticker=request_data.target_ticker,
+        request_type="buy"
+    )
+
     return APIResponse(
         success=True,
         data={"request": request_to_response(request)},
@@ -122,6 +132,16 @@ async def create_sell_request(
     """Create a sell request"""
     request_service = RequestService(db)
     request = request_service.create_sell_request(request_data, current_user.id)
+
+    # 매니저에게 새 요청 알림
+    notification_service = NotificationService(db)
+    notification_service.notify_new_request(
+        requester_id=current_user.id,
+        requester_name=current_user.full_name,
+        request_id=request.id,
+        ticker=request_data.target_ticker,
+        request_type="sell"
+    )
 
     return APIResponse(
         success=True,
@@ -200,7 +220,8 @@ async def approve_request(
     notification_service.notify_request_approved(
         requester_id=request.requester_id,
         request_id=request.id,
-        ticker=request.target_ticker
+        ticker=request.target_ticker,
+        position_id=position.id if position else None
     )
 
     response_data = {

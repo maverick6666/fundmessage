@@ -19,10 +19,10 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
     target_ticker: '',
     ticker_name: '',
     target_market: 'KOSPI',
-    order_quantity: '',   // 매수 수량
-    buy_price: '',        // 매수 희망가
-    take_profit_targets: [{ price: '', ratio: '1' }],
-    stop_loss_targets: [{ price: '', ratio: '1' }],
+    order_quantity: '',
+    buy_price: '',
+    take_profit_targets: [{ price: '', quantity: '' }],
+    stop_loss_targets: [{ price: '', quantity: '' }],
     memo: '',
   });
   const [currentPrice, setCurrentPrice] = useState(null);
@@ -31,6 +31,23 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
   const totalAmount = formData.order_quantity && formData.buy_price
     ? parseFloat(formData.order_quantity) * parseFloat(formData.buy_price)
     : null;
+
+  // 매수 수량 변경 시 익절/손절 수량 자동 맞춤
+  useEffect(() => {
+    if (!formData.order_quantity) return;
+    const qty = formData.order_quantity;
+
+    setFormData(prev => ({
+      ...prev,
+      take_profit_targets: prev.take_profit_targets.map(t =>
+        (!t.quantity || t.quantity === prev._prevQty) ? { ...t, quantity: qty } : t
+      ),
+      stop_loss_targets: prev.stop_loss_targets.map(t =>
+        (!t.quantity || t.quantity === prev._prevQty) ? { ...t, quantity: qty } : t
+      ),
+      _prevQty: qty
+    }));
+  }, [formData.order_quantity]);
 
   // 종목 코드 조회 (debounce)
   const lookupTicker = useCallback(async (ticker, market) => {
@@ -67,13 +84,18 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
       if (formData.target_ticker) {
         lookupTicker(formData.target_ticker, formData.target_market);
       }
-    }, 500); // 0.5초 debounce
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [formData.target_ticker, formData.target_market, lookupTicker]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.target_ticker) {
+      alert('종목 코드를 입력해주세요.');
+      return;
+    }
 
     if (!formData.order_quantity || !formData.buy_price) {
       alert('수량과 매수가를 입력해주세요.');
@@ -91,11 +113,17 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
         order_quantity: parseFloat(formData.order_quantity),
         buy_price: parseFloat(formData.buy_price),
         take_profit_targets: formData.take_profit_targets
-          .filter(t => t.price)
-          .map(t => ({ price: parseFloat(t.price), ratio: parseFloat(t.ratio) })),
+          .filter(t => t.price && !isNaN(parseFloat(t.price)))
+          .map(t => ({
+            price: parseFloat(t.price),
+            quantity: t.quantity ? parseFloat(t.quantity) : parseFloat(formData.order_quantity)
+          })),
         stop_loss_targets: formData.stop_loss_targets
-          .filter(t => t.price)
-          .map(t => ({ price: parseFloat(t.price), ratio: parseFloat(t.ratio) })),
+          .filter(t => t.price && !isNaN(parseFloat(t.price)))
+          .map(t => ({
+            price: parseFloat(t.price),
+            quantity: t.quantity ? parseFloat(t.quantity) : parseFloat(formData.order_quantity)
+          })),
         memo: formData.memo || null,
       };
 
@@ -117,13 +145,13 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
 
   const updateTakeProfit = (index, field, value) => {
     const newTargets = [...formData.take_profit_targets];
-    newTargets[index][field] = value;
+    newTargets[index] = { ...newTargets[index], [field]: value };
     setFormData({ ...formData, take_profit_targets: newTargets });
   };
 
   const updateStopLoss = (index, field, value) => {
     const newTargets = [...formData.stop_loss_targets];
-    newTargets[index][field] = value;
+    newTargets[index] = { ...newTargets[index], [field]: value };
     setFormData({ ...formData, stop_loss_targets: newTargets });
   };
 
@@ -239,11 +267,11 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
 
       {/* 익절가 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">익절가</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">익절 목표</label>
         {formData.take_profit_targets.map((target, index) => (
-          <div key={index} className="flex gap-2 mb-2">
+          <div key={index} className="flex gap-2 mb-2 items-center">
             <Input
-              placeholder="가격"
+              placeholder="목표가"
               type="number"
               step="any"
               value={target.price}
@@ -251,23 +279,21 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
               className="flex-1"
             />
             <Input
-              placeholder="비중"
+              placeholder="수량"
               type="number"
-              step="0.1"
-              min="0"
-              max="1"
-              value={target.ratio}
-              onChange={(e) => updateTakeProfit(index, 'ratio', e.target.value)}
-              className="w-24"
+              step="any"
+              value={target.quantity}
+              onChange={(e) => updateTakeProfit(index, 'quantity', e.target.value)}
+              className="w-28"
             />
-            {index > 0 && (
+            {formData.take_profit_targets.length > 1 && (
               <button
                 type="button"
                 onClick={() => {
                   const newTargets = formData.take_profit_targets.filter((_, i) => i !== index);
                   setFormData({ ...formData, take_profit_targets: newTargets });
                 }}
-                className="text-red-500 hover:text-red-700 px-2"
+                className="text-red-500 hover:text-red-700 px-2 flex-shrink-0"
               >
                 X
               </button>
@@ -276,7 +302,10 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
         ))}
         <button
           type="button"
-          onClick={() => setFormData({ ...formData, take_profit_targets: [...formData.take_profit_targets, { price: '', ratio: '' }] })}
+          onClick={() => setFormData({
+            ...formData,
+            take_profit_targets: [...formData.take_profit_targets, { price: '', quantity: formData.order_quantity || '' }]
+          })}
           className="text-sm text-primary-600 hover:text-primary-700"
         >
           + 익절 추가
@@ -285,11 +314,11 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
 
       {/* 손절가 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">손절가</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">손절 목표</label>
         {formData.stop_loss_targets.map((target, index) => (
-          <div key={index} className="flex gap-2 mb-2">
+          <div key={index} className="flex gap-2 mb-2 items-center">
             <Input
-              placeholder="가격"
+              placeholder="손절가"
               type="number"
               step="any"
               value={target.price}
@@ -297,17 +326,37 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
               className="flex-1"
             />
             <Input
-              placeholder="비중"
+              placeholder="수량"
               type="number"
-              step="0.1"
-              min="0"
-              max="1"
-              value={target.ratio}
-              onChange={(e) => updateStopLoss(index, 'ratio', e.target.value)}
-              className="w-24"
+              step="any"
+              value={target.quantity}
+              onChange={(e) => updateStopLoss(index, 'quantity', e.target.value)}
+              className="w-28"
             />
+            {formData.stop_loss_targets.length > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const newTargets = formData.stop_loss_targets.filter((_, i) => i !== index);
+                  setFormData({ ...formData, stop_loss_targets: newTargets });
+                }}
+                className="text-red-500 hover:text-red-700 px-2 flex-shrink-0"
+              >
+                X
+              </button>
+            )}
           </div>
         ))}
+        <button
+          type="button"
+          onClick={() => setFormData({
+            ...formData,
+            stop_loss_targets: [...formData.stop_loss_targets, { price: '', quantity: formData.order_quantity || '' }]
+          })}
+          className="text-sm text-primary-600 hover:text-primary-700"
+        >
+          + 손절 추가
+        </button>
       </div>
 
       {/* 메모 */}

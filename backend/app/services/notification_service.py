@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import Optional, List
 from sqlalchemy.orm import Session
@@ -30,7 +31,36 @@ class NotificationService:
         self.db.add(notification)
         self.db.commit()
         self.db.refresh(notification)
+
+        # WebSocket으로 실시간 알림 전송
+        self._broadcast_ws(notification)
+
         return notification
+
+    def _broadcast_ws(self, notification: Notification):
+        """WebSocket으로 알림을 실시간 전송 (best-effort)"""
+        try:
+            from app.websocket import manager
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(manager.send_personal_message(
+                    {
+                        "type": "notification",
+                        "data": {
+                            "id": notification.id,
+                            "notification_type": notification.notification_type,
+                            "title": notification.title,
+                            "message": notification.message,
+                            "related_type": notification.related_type,
+                            "related_id": notification.related_id,
+                            "is_read": False,
+                            "created_at": notification.created_at.isoformat() if notification.created_at else None
+                        }
+                    },
+                    notification.user_id
+                ))
+        except Exception:
+            pass  # WebSocket 전송 실패 시 무시 (알림은 DB에 저장됨)
 
     def create_notification_for_managers(
         self,
@@ -48,11 +78,11 @@ class NotificationService:
         ).all()
 
         notifications = []
-        for manager in managers:
-            if exclude_user_id and manager.id == exclude_user_id:
+        for mgr in managers:
+            if exclude_user_id and mgr.id == exclude_user_id:
                 continue
             notification = Notification(
-                user_id=manager.id,
+                user_id=mgr.id,
                 notification_type=notification_type,
                 title=title,
                 message=message,
@@ -63,6 +93,12 @@ class NotificationService:
             notifications.append(notification)
 
         self.db.commit()
+
+        # WebSocket으로 실시간 알림 전송
+        for notification in notifications:
+            self.db.refresh(notification)
+            self._broadcast_ws(notification)
+
         return notifications
 
     def get_notifications(
@@ -138,15 +174,23 @@ class NotificationService:
         self,
         requester_id: int,
         request_id: int,
-        ticker: str
+        ticker: str,
+        position_id: Optional[int] = None
     ):
         """요청 승인 알림"""
+        # position_id가 있으면 포지션으로 링크, 없으면 요청으로 링크
+        if position_id:
+            related_type = "position"
+            related_id = position_id
+        else:
+            related_type = "request"
+            related_id = request_id
         self.create_notification(
             user_id=requester_id,
             notification_type="request_approved",
             title=f"{ticker} 매수 요청이 승인되었습니다",
-            related_type="request",
-            related_id=request_id
+            related_type=related_type,
+            related_id=related_id
         )
 
     def notify_request_rejected(
@@ -194,6 +238,24 @@ class NotificationService:
         self.create_notification_for_managers(
             notification_type="discussion_requested",
             title=f"{requester_name}님이 {ticker} 관련 토론을 요청했습니다",
+            related_type="request",
+            related_id=request_id,
+            exclude_user_id=requester_id
+        )
+
+    def notify_new_request(
+        self,
+        requester_id: int,
+        requester_name: str,
+        request_id: int,
+        ticker: str,
+        request_type: str = "buy"
+    ):
+        """새 요청 알림 (매니저에게)"""
+        type_label = "매수" if request_type == "buy" else "매도"
+        self.create_notification_for_managers(
+            notification_type="new_request",
+            title=f"{requester_name}님이 {ticker} {type_label} 요청을 제출했습니다",
             related_type="request",
             related_id=request_id,
             exclude_user_id=requester_id

@@ -63,3 +63,15 @@ body {
     @apply bg-gray-100 text-gray-800;
   }
 }
+
+/* Toast animation */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

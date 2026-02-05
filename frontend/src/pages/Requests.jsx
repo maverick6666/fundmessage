@@ -17,7 +17,8 @@ import {
 
 export function Requests() {
   const navigate = useNavigate();
-  const { adminMode } = useAuth();
+  const { adminMode, isManagerOrAdmin } = useAuth();
+  const canManage = isManagerOrAdmin();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -113,7 +114,7 @@ export function Requests() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">요청 관리</h1>
+      <h1 className="text-2xl font-bold">{canManage ? '요청 관리' : '팀 요청 현황'}</h1>
 
       {/* Filters */}
       <div className="flex gap-2 flex-wrap">
@@ -206,7 +207,7 @@ export function Requests() {
 
                   {/* 액션 버튼 */}
                   <div className="flex gap-2 lg:flex-col">
-                    {(request.status === 'pending' || request.status === 'discussion') && (
+                    {canManage && (request.status === 'pending' || request.status === 'discussion') && (
                       <>
                         <Button
                           size="sm"
@@ -220,7 +221,7 @@ export function Requests() {
                         </Button>
                       </>
                     )}
-                    {request.status === 'pending' && (
+                    {canManage && request.status === 'pending' && (
                       <Button size="sm" variant="secondary" onClick={() => openDiscussModal(request)}>
                         토론
                       </Button>

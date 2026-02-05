@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { notificationService } from '../services/notificationService';
+import { useWebSocket } from '../hooks/useWebSocket';
 import { formatRelativeTime } from '../utils/formatters';
 
 const getNotificationIcon = (type) => {
@@ -30,6 +31,14 @@ const getNotificationIcon = (type) => {
         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
           <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
+      );
+    case 'new_request':
+      return (
+        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+          <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
       );
@@ -62,6 +71,7 @@ const getNotificationIcon = (type) => {
 
 export function Notifications() {
   const navigate = useNavigate();
+  const { subscribe, isConnected } = useWebSocket();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('unread'); // unread, read, all
@@ -69,6 +79,25 @@ export function Notifications() {
   useEffect(() => {
     fetchNotifications();
   }, [filter]);
+
+  // WebSocket으로 새 알림 실시간 추가
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const unsubscribe = subscribe('notification', (data) => {
+      const newNotification = {
+        ...data,
+        is_read: false,
+        created_at: data.created_at || new Date().toISOString()
+      };
+      // 읽지 않음/전체 필터일 때만 추가
+      if (filter !== 'read') {
+        setNotifications(prev => [newNotification, ...prev]);
+      }
+    });
+
+    return unsubscribe;
+  }, [isConnected, subscribe, filter]);
 
   const fetchNotifications = async () => {
     setLoading(true);
@@ -104,8 +133,12 @@ export function Notifications() {
     // 관련 페이지로 이동
     if (notification.notification_type === 'user_pending_approval') {
       navigate('/team');
+    } else if (notification.notification_type === 'new_request') {
+      navigate('/requests');
     } else if (notification.related_type === 'discussion' && notification.related_id) {
       navigate(`/discussions/${notification.related_id}`);
+    } else if (notification.related_type === 'position' && notification.related_id) {
+      navigate(`/positions/${notification.related_id}`);
     } else if (notification.related_type === 'request' && notification.related_id) {
       navigate('/my-requests');
     }
