@@ -342,3 +342,39 @@ async def request_discussion(
         success=True,
         message="토론 요청이 매니저에게 전송되었습니다"
     )
+
+
+@router.delete("/{request_id}", response_model=APIResponse)
+async def delete_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager_or_admin)
+):
+    """요청 삭제 (팀장/관리자만) - DB에서 완전 삭제"""
+    from app.models.request import Request
+    from app.models.discussion import Discussion, Message
+
+    request = db.query(Request).filter(Request.id == request_id).first()
+    if not request:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Request not found"
+        )
+
+    ticker = request.target_ticker
+
+    # 연관된 토론 삭제
+    discussions = db.query(Discussion).filter(Discussion.request_id == request_id).all()
+    for disc in discussions:
+        db.query(Message).filter(Message.discussion_id == disc.id).delete()
+        db.delete(disc)
+
+    # 요청 삭제
+    db.delete(request)
+    db.commit()
+
+    return APIResponse(
+        success=True,
+        message=f"요청 '{ticker}'이(가) 삭제되었습니다"
+    )

@@ -5,6 +5,7 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { Input, Textarea } from '../components/common/Input';
 import { requestService } from '../services/requestService';
+import { useAuth } from '../hooks/useAuth';
 import {
   formatCurrency,
   formatPercent,
@@ -16,6 +17,7 @@ import {
 
 export function Requests() {
   const navigate = useNavigate();
+  const { adminMode } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -27,6 +29,16 @@ export function Requests() {
   const [approveLoading, setApproveLoading] = useState(null); // 승인 중인 요청 ID
   const [rejectReason, setRejectReason] = useState('');
   const [discussTitle, setDiscussTitle] = useState('');
+
+  const handleDelete = async (request) => {
+    if (!window.confirm(`요청 "${request.ticker_name || request.target_ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 토론도 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+      await requestService.deleteRequest(request.id);
+      fetchRequests();
+    } catch (error) {
+      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+    }
+  };
 
   useEffect(() => {
     fetchRequests();
@@ -219,6 +231,11 @@ export function Requests() {
                           토론방
                         </Button>
                       </Link>
+                    )}
+                    {adminMode && (
+                      <Button size="sm" variant="secondary" className="text-red-600 hover:bg-red-50" onClick={() => handleDelete(request)}>
+                        삭제
+                      </Button>
                     )}
                   </div>
                 </div>

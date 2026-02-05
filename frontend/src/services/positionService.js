@@ -94,5 +94,11 @@ export const positionService = {
   async requestEarlyClose(id) {
     const response = await api.post(`/positions/${id}/request-early-close`);
     return response.data;
+  },
+
+  // 포지션 삭제 (팀장/관리자)
+  async deletePosition(id) {
+    const response = await api.delete(`/positions/${id}`);
+    return response.data;
   }
 };

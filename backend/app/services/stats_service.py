@@ -135,6 +135,16 @@ class StatsService:
         total_losses = abs(sum([p.profit_loss for p in closed_positions if p.profit_loss and p.profit_loss < 0]))
         profit_factor = float(total_gains / total_losses) if total_losses > 0 else 0
 
+        # 평균 보유 시간, 평균 수익률
+        avg_holding_hours = (
+            sum([p.holding_period_hours or 0 for p in closed_positions]) / closed_count
+            if closed_count > 0 else 0
+        )
+        avg_profit_rate = (
+            sum([float(p.profit_rate or 0) for p in closed_positions]) / closed_count
+            if closed_count > 0 else 0
+        )
+
         # Leaderboard by user (종료 + 진행중 포지션 모두 포함)
         user_stats = {}
         for position in closed_positions:
@@ -265,7 +275,9 @@ class StatsService:
                 "win_rate": win_rate,
                 "realized_profit_loss": float(realized_profit_loss),
                 "total_volume": float(total_volume),
-                "profit_factor": profit_factor
+                "profit_factor": profit_factor,
+                "avg_holding_hours": int(avg_holding_hours),
+                "avg_profit_rate": avg_profit_rate
             },
             "overall": {
                 "total_positions": open_count + closed_count,

@@ -1,6 +1,15 @@
 import api from './api';
 
 export const discussionService = {
+  async getDiscussions({ status, limit = 50, offset = 0 } = {}) {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    params.append('limit', limit);
+    params.append('offset', offset);
+    const response = await api.get(`/discussions?${params}`);
+    return response.data.data;
+  },
+
   async createDiscussion({ requestId, positionId, title }) {
     const response = await api.post('/discussions', {
       request_id: requestId || null,
@@ -40,6 +49,11 @@ export const discussionService = {
     return response.data.data;
   },
 
+  async requestReopen(id) {
+    const response = await api.post(`/discussions/${id}/request-reopen`);
+    return response.data;
+  },
+
   async exportDiscussion(id) {
     const response = await api.get(`/discussions/${id}/export`);
     return response.data;
@@ -54,5 +68,11 @@ export const discussionService = {
     const params = sessionNumbers ? `?sessions=${sessionNumbers.join(',')}` : '';
     const response = await api.get(`/discussions/${id}/export-txt${params}`);
     return response.data.data;
+  },
+
+  // 토론 삭제 (팀장/관리자)
+  async deleteDiscussion(id) {
+    const response = await api.delete(`/discussions/${id}`);
+    return response.data;
   }
 };

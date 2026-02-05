@@ -368,3 +368,38 @@ class DiscussionService:
 
     def get_message_count(self, discussion_id: int) -> int:
         return self.db.query(Message).filter(Message.discussion_id == discussion_id).count()
+
+    def get_all_discussions(self, status_filter: str = None, limit: int = 50, offset: int = 0) -> tuple[List[Discussion], int]:
+        """전체 토론 목록 조회 (최근 활동순)"""
+        from sqlalchemy import func, case
+
+        # 서브쿼리: 각 토론의 마지막 메시지 시간
+        last_message_subq = self.db.query(
+            Message.discussion_id,
+            func.max(Message.created_at).label('last_message_at')
+        ).group_by(Message.discussion_id).subquery()
+
+        query = self.db.query(Discussion)
+
+        if status_filter:
+            query = query.filter(Discussion.status == status_filter)
+
+        # 마지막 메시지 시간으로 정렬 (없으면 opened_at 사용)
+        query = query.outerjoin(
+            last_message_subq,
+            Discussion.id == last_message_subq.c.discussion_id
+        ).order_by(
+            func.coalesce(last_message_subq.c.last_message_at, Discussion.opened_at).desc()
+        )
+
+        total = query.count()
+        discussions = query.offset(offset).limit(limit).all()
+
+        return discussions, total
+
+    def get_last_message(self, discussion_id: int) -> Optional[Message]:
+        """토론의 마지막 메시지 조회"""
+        return self.db.query(Message).filter(
+            Message.discussion_id == discussion_id,
+            Message.message_type == MessageType.TEXT.value
+        ).order_by(Message.created_at.desc()).first()

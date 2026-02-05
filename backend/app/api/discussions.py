@@ -11,6 +11,7 @@ from app.schemas.discussion import (
 from app.schemas.user import UserBrief
 from app.schemas.common import APIResponse
 from app.services.discussion_service import DiscussionService
+from app.services.notification_service import NotificationService
 from app.dependencies import get_current_user, get_manager_or_admin
 from app.models.user import User
 
@@ -41,6 +42,72 @@ def message_to_response(message) -> MessageResponse:
         content=message.content,
         message_type=message.message_type,
         created_at=message.created_at
+    )
+
+
+@router.get("", response_model=APIResponse)
+async def get_discussions(
+    status: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all discussions (ordered by last activity)"""
+    discussion_service = DiscussionService(db)
+    discussions, total = discussion_service.get_all_discussions(
+        status_filter=status,
+        limit=limit,
+        offset=offset
+    )
+
+    result = []
+    for d in discussions:
+        message_count = discussion_service.get_message_count(d.id)
+        last_message = discussion_service.get_last_message(d.id)
+
+        # 관련 정보 (포지션 또는 요청)
+        ticker_name = None
+        ticker = None
+        requester = None
+
+        if d.position:
+            ticker_name = d.position.ticker_name
+            ticker = d.position.ticker
+            if d.position.opener:
+                requester = {
+                    "id": d.position.opener.id,
+                    "username": d.position.opener.username,
+                    "full_name": d.position.opener.full_name
+                }
+        elif d.request:
+            ticker_name = d.request.ticker_name
+            ticker = d.request.target_ticker
+            if d.request.requester:
+                requester = {
+                    "id": d.request.requester.id,
+                    "username": d.request.requester.username,
+                    "full_name": d.request.requester.full_name
+                }
+
+        result.append({
+            **discussion_to_response(d, message_count).model_dump(),
+            "ticker_name": ticker_name,
+            "ticker": ticker,
+            "requester": requester,
+            "last_message": {
+                "content": last_message.content[:50] + "..." if len(last_message.content) > 50 else last_message.content,
+                "user": last_message.user.full_name or last_message.user.username,
+                "created_at": last_message.created_at.isoformat() if last_message.created_at else None
+            } if last_message else None
+        })
+
+    return APIResponse(
+        success=True,
+        data={
+            "discussions": result,
+            "total": total
+        }
     )
 
 
@@ -188,6 +255,46 @@ async def reopen_discussion(
     )
 
 
+@router.post("/{discussion_id}/request-reopen", response_model=APIResponse)
+async def request_reopen_discussion(
+    discussion_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Request to reopen a closed discussion (for team members)"""
+    discussion_service = DiscussionService(db)
+    discussion = discussion_service.get_discussion_by_id(discussion_id)
+
+    if not discussion:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Discussion not found"
+        )
+
+    if discussion.status == 'open':
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="토론이 이미 열려있습니다"
+        )
+
+    # 매니저들에게 알림 전송
+    notification_service = NotificationService(db)
+    notification_service.create_notification_for_managers(
+        notification_type="reopen_requested",
+        title=f"{current_user.full_name}님이 '{discussion.title}' 재개를 요청했습니다",
+        related_type="discussion",
+        related_id=discussion_id,
+        exclude_user_id=current_user.id
+    )
+
+    return APIResponse(
+        success=True,
+        message="토론 재개 요청이 매니저에게 전송되었습니다"
+    )
+
+
 @router.get("/{discussion_id}/export")
 async def export_discussion(
     discussion_id: int,
@@ -235,4 +342,36 @@ async def export_discussion_txt(
     return APIResponse(
         success=True,
         data={"files": results}
+    )
+
+
+@router.delete("/{discussion_id}", response_model=APIResponse)
+async def delete_discussion(
+    discussion_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager_or_admin)
+):
+    """토론 삭제 (팀장/관리자만) - DB에서 완전 삭제"""
+    from app.models.discussion import Discussion, Message
+
+    discussion = db.query(Discussion).filter(Discussion.id == discussion_id).first()
+    if not discussion:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Discussion not found"
+        )
+
+    title = discussion.title
+
+    # 메시지 삭제
+    db.query(Message).filter(Message.discussion_id == discussion_id).delete()
+
+    # 토론 삭제
+    db.delete(discussion)
+    db.commit()
+
+    return APIResponse(
+        success=True,
+        message=f"토론 '{title}'이(가) 삭제되었습니다"
     )

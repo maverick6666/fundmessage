@@ -12,7 +12,7 @@ import { formatDate } from '../utils/formatters';
 export function Discussion() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isManagerOrAdmin } = useAuth();
+  const { user, isManagerOrAdmin, adminMode } = useAuth();
   const { joinDiscussion, leaveDiscussion, subscribe, sendMessage: wsSendMessage } = useWebSocket();
 
   const [discussion, setDiscussion] = useState(null);
@@ -142,6 +142,17 @@ export function Discussion() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm(`토론 "${discussion.title}"을(를) 정말 삭제하시겠습니까?\n\n모든 메시지가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+      await discussionService.deleteDiscussion(id);
+      alert('토론이 삭제되었습니다.');
+      navigate(-1);
+    } catch (error) {
+      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+    }
+  };
+
   const toggleSession = (num) => {
     setSelectedSessions(prev => {
       const next = new Set(prev);
@@ -209,12 +220,29 @@ export function Discussion() {
         </div>
 
         <div className="flex gap-2">
+          {adminMode && (
+            <Button variant="secondary" size="sm" className="text-red-600 hover:bg-red-50" onClick={handleDelete}>
+              삭제
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={handleOpenExportModal}>
             내보내기
           </Button>
           {isClosed && isManagerOrAdmin() && (
             <Button variant="primary" size="sm" onClick={handleReopen}>
               토론 재개
+            </Button>
+          )}
+          {isClosed && !isManagerOrAdmin() && (
+            <Button variant="secondary" size="sm" onClick={async () => {
+              try {
+                await discussionService.requestReopen(id);
+                alert('토론 재개 요청이 매니저에게 전송되었습니다.');
+              } catch (error) {
+                alert(error.response?.data?.detail || '요청에 실패했습니다.');
+              }
+            }}>
+              재개 요청
             </Button>
           )}
           {!isClosed && isManagerOrAdmin() && (

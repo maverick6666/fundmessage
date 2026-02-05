@@ -81,16 +81,11 @@ export function Stats() {
       {/* Team Stats */}
       {activeTab === 'team' && teamStats && (
         <div className="space-y-6">
-          {/* 진행중 포지션 - 통화별 평가자산 */}
+          {/* 진행중 포지션 - 통화별 평가자산 먼저 */}
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-3">진행중 포지션</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <p className="text-sm text-gray-500">포지션 수</p>
-                <p className="text-2xl font-bold">{teamStats.open_positions?.count || 0}</p>
-              </Card>
-
-              {/* 통화별 평가자산 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* 통화별 평가자산 먼저 */}
               {Object.entries(teamStats.open_positions?.by_currency || {}).map(([currency, data]) => (
                 <Card key={currency}>
                   <p className="text-sm text-gray-500">{currency} 평가자산</p>
@@ -121,6 +116,18 @@ export function Stats() {
                   )}
                 </Card>
               ))}
+              {/* 진행중 포지션이 없을 때 */}
+              {Object.keys(teamStats.open_positions?.by_currency || {}).length === 0 && (
+                <Card>
+                  <p className="text-sm text-gray-500">평가자산</p>
+                  <p className="text-2xl font-bold text-gray-400">-</p>
+                </Card>
+              )}
+              {/* 포지션 수 */}
+              <Card>
+                <p className="text-sm text-gray-500">포지션 수</p>
+                <p className="text-2xl font-bold">{teamStats.open_positions?.count || 0}</p>
+              </Card>
             </div>
           </div>
 
@@ -151,6 +158,37 @@ export function Stats() {
               </Card>
             </div>
           </div>
+
+          {/* 팀 상세지표 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>팀 상세지표</CardTitle>
+            </CardHeader>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div>
+                <span className="text-sm text-gray-500">수익 거래</span>
+                <p className="text-lg font-medium text-red-600">{teamStats.closed_positions?.winning_trades || 0}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-500">손실 거래</span>
+                <p className="text-lg font-medium text-blue-600">{teamStats.closed_positions?.losing_trades || 0}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-500">평균 보유시간</span>
+                <p className="text-lg font-medium">{formatHours(teamStats.closed_positions?.avg_holding_hours || 0)}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-500">평균 수익률</span>
+                <p className={`text-lg font-medium ${getProfitLossClass(teamStats.closed_positions?.avg_profit_rate)}`}>
+                  {formatPercent(teamStats.closed_positions?.avg_profit_rate || 0)}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-500">수익 팩터</span>
+                <p className="text-lg font-medium">{(teamStats.closed_positions?.profit_factor || 0).toFixed(2)}</p>
+              </div>
+            </div>
+          </Card>
 
           {/* 종목별 현황 */}
           <Card>

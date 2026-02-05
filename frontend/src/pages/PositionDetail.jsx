@@ -24,7 +24,7 @@ import {
 export function PositionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isManagerOrAdmin, isManager } = useAuth();
+  const { isManagerOrAdmin, isManager, adminMode } = useAuth();
   const [position, setPosition] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -546,6 +546,26 @@ export function PositionDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
+          {/* 삭제 버튼 - 관리자 모드일 때만 */}
+          {adminMode && (
+            <Button
+              variant="secondary"
+              className="text-red-600 hover:bg-red-50"
+              onClick={async () => {
+                if (!window.confirm(`포지션 "${position.ticker_name || position.ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 모든 요청, 토론, 의사결정 노트가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+                try {
+                  await positionService.deletePosition(id);
+                  alert('포지션이 삭제되었습니다.');
+                  navigate('/positions');
+                } catch (error) {
+                  alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+                }
+              }}
+            >
+              삭제
+            </Button>
+          )}
+
           {/* 토론방 입장 버튼 - 모든 사용자에게 표시 */}
           {hasOpenDiscussion && (
             <Button

@@ -46,5 +46,11 @@ export const requestService = {
   async requestDiscussion(id) {
     const response = await api.post(`/requests/${id}/request-discussion`);
     return response.data;
+  },
+
+  // 요청 삭제 (팀장/관리자)
+  async deleteRequest(id) {
+    const response = await api.delete(`/requests/${id}`);
+    return response.data;
   }
 };

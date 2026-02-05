@@ -112,6 +112,26 @@ class NotificationService:
         self.db.commit()
         return updated
 
+    def delete_notification(self, notification_id: int, user_id: int) -> bool:
+        """알림 삭제"""
+        notification = self.db.query(Notification).filter(
+            Notification.id == notification_id,
+            Notification.user_id == user_id
+        ).first()
+        if not notification:
+            return False
+        self.db.delete(notification)
+        self.db.commit()
+        return True
+
+    def delete_all_notifications(self, user_id: int) -> int:
+        """모든 알림 삭제"""
+        deleted = self.db.query(Notification).filter(
+            Notification.user_id == user_id
+        ).delete(synchronize_session=False)
+        self.db.commit()
+        return deleted
+
     # 편의 메서드: 특정 이벤트에 대한 알림 생성
 
     def notify_request_approved(

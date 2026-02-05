@@ -10,6 +10,7 @@ import { PositionDetail } from './pages/PositionDetail';
 import { Requests } from './pages/Requests';
 import { MyRequests } from './pages/MyRequests';
 import { Discussion } from './pages/Discussion';
+import { Discussions } from './pages/Discussions';
 import { Stats } from './pages/Stats';
 import { TeamManagement } from './pages/TeamManagement';
 import { Notifications } from './pages/Notifications';
@@ -118,6 +119,15 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <MyRequests />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/discussions"
+        element={
+          <PrivateRoute>
+            <Discussions />
           </PrivateRoute>
         }
       />

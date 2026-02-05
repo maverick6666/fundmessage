@@ -89,3 +89,41 @@ async def mark_all_notifications_read(
         success=True,
         message=f"{updated}개의 알림을 읽음으로 표시했습니다"
     )
+
+
+@router.delete("/{notification_id}", response_model=APIResponse)
+async def delete_notification(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """알림 삭제"""
+    notification_service = NotificationService(db)
+    deleted = notification_service.delete_notification(notification_id, current_user.id)
+
+    if not deleted:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="알림을 찾을 수 없습니다"
+        )
+
+    return APIResponse(
+        success=True,
+        message="알림이 삭제되었습니다"
+    )
+
+
+@router.delete("", response_model=APIResponse)
+async def delete_all_notifications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """모든 알림 삭제"""
+    notification_service = NotificationService(db)
+    deleted = notification_service.delete_all_notifications(current_user.id)
+
+    return APIResponse(
+        success=True,
+        message=f"{deleted}개의 알림이 삭제되었습니다"
+    )

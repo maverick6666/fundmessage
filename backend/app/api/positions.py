@@ -470,3 +470,61 @@ async def request_early_close(
         success=True,
         message="조기종료 요청이 매니저에게 전송되었습니다"
     )
+
+
+@router.delete("/{position_id}", response_model=APIResponse)
+async def delete_position(
+    position_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager_or_admin)
+):
+    """포지션 삭제 (팀장/관리자만) - DB에서 완전 삭제"""
+    from app.models.position import Position
+    from app.models.request import Request
+    from app.models.discussion import Discussion, Message
+    from app.models.audit_log import AuditLog
+    from app.models.decision_note import DecisionNote
+
+    position = db.query(Position).filter(Position.id == position_id).first()
+    if not position:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Position not found"
+        )
+
+    ticker_name = position.ticker_name or position.ticker
+
+    # 연관 데이터 삭제
+    # 1. 결정노트 삭제
+    db.query(DecisionNote).filter(DecisionNote.position_id == position_id).delete()
+
+    # 2. 토론 관련 삭제 (포지션 관련)
+    position_discussions = db.query(Discussion).filter(Discussion.position_id == position_id).all()
+    for disc in position_discussions:
+        db.query(Message).filter(Message.discussion_id == disc.id).delete()
+        db.delete(disc)
+
+    # 3. 요청과 관련된 토론도 삭제
+    requests = db.query(Request).filter(Request.position_id == position_id).all()
+    for req in requests:
+        request_discussions = db.query(Discussion).filter(Discussion.request_id == req.id).all()
+        for disc in request_discussions:
+            db.query(Message).filter(Message.discussion_id == disc.id).delete()
+            db.delete(disc)
+        db.delete(req)
+
+    # 4. 감사로그 삭제
+    db.query(AuditLog).filter(
+        AuditLog.entity_type == 'position',
+        AuditLog.entity_id == position_id
+    ).delete()
+
+    # 5. 포지션 삭제
+    db.delete(position)
+    db.commit()
+
+    return APIResponse(
+        success=True,
+        message=f"포지션 '{ticker_name}'이(가) 삭제되었습니다"
+    )
