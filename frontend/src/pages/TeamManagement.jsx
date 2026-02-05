@@ -16,7 +16,7 @@ const ROLE_COLORS = {
 };
 
 export function TeamManagement() {
-  const { adminMode } = useAuth();
+  const { adminMode, isManager, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('members'); // 'members', 'pending'
   const [pendingUsers, setPendingUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
@@ -79,6 +79,21 @@ export function TeamManagement() {
       alert('역할이 변경되었습니다.');
     } catch (error) {
       alert(error.response?.data?.detail || '역할 변경에 실패했습니다.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleTransferManager = async (userId, userName) => {
+    if (!confirm(`${userName}님에게 팀장 권한을 이전하시겠습니까?\n\n현재 팀장(본인)은 팀원으로 변경됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+
+    setActionLoading(userId);
+    try {
+      await userService.transferManager(userId);
+      alert(`팀장 권한이 ${userName}님에게 이전되었습니다. 다시 로그인해주세요.`);
+      logout();
+    } catch (error) {
+      alert(error.response?.data?.detail || '권한 이전에 실패했습니다.');
     } finally {
       setActionLoading(null);
     }
@@ -197,8 +212,8 @@ export function TeamManagement() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {user.role !== 'manager' && (
-                        <div className="flex gap-2">
+                      {user.role !== 'manager' ? (
+                        <div className="flex gap-2 flex-wrap">
                           <Button
                             size="sm"
                             variant="danger"
@@ -207,6 +222,16 @@ export function TeamManagement() {
                           >
                             비활성화
                           </Button>
+                          {isManager() && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => handleTransferManager(user.id, user.full_name)}
+                              loading={actionLoading === user.id}
+                            >
+                              팀장 위임
+                            </Button>
+                          )}
                           {adminMode && (
                             <Button
                               size="sm"
@@ -219,6 +244,8 @@ export function TeamManagement() {
                             </Button>
                           )}
                         </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
                       )}
                     </td>
                   </tr>

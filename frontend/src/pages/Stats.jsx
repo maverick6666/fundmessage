@@ -145,9 +145,9 @@ export function Stats() {
             </div>
           )}
 
-          {/* 진행중 포지션 - 통화별 평가자산 */}
+          {/* 통화별 평가자산 */}
           <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-3">진행중 포지션</h3>
+            <h3 className="text-sm font-medium text-gray-500 mb-3">평가자산</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* 통화별 평가자산 */}
               {Object.entries(byCurrency).map(([currency, data]) => (

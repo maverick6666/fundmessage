@@ -352,7 +352,8 @@ async def delete_request(
 ):
     """요청 삭제 (팀장/관리자만) - DB에서 완전 삭제"""
     from app.models.request import Request
-    from app.models.discussion import Discussion, Message
+    from app.models.discussion import Discussion
+    from app.models.message import Message
 
     request = db.query(Request).filter(Request.id == request_id).first()
     if not request:

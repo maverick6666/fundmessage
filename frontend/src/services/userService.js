@@ -39,5 +39,10 @@ export const userService = {
   async deleteUser(id) {
     const response = await api.delete(`/users/${id}`);
     return response.data;
+  },
+
+  async transferManager(id) {
+    const response = await api.post(`/users/${id}/transfer-manager`);
+    return response.data;
   }
 };

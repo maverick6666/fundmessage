@@ -352,7 +352,8 @@ async def delete_discussion(
     current_user: User = Depends(get_manager_or_admin)
 ):
     """토론 삭제 (팀장/관리자만) - DB에서 완전 삭제"""
-    from app.models.discussion import Discussion, Message
+    from app.models.discussion import Discussion
+    from app.models.message import Message
 
     discussion = db.query(Discussion).filter(Discussion.id == discussion_id).first()
     if not discussion:
