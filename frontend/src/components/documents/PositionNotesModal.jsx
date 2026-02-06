@@ -62,7 +62,7 @@ export function PositionNotesModal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 transition-opacity duration-200 ${
+      className={`fixed inset-0 z-[60] transition-opacity duration-200 ${
         isClosing ? 'opacity-0' : 'opacity-100'
       }`}
     >
