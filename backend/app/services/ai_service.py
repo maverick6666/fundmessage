@@ -175,6 +175,8 @@ class AIService:
 
 ## 출력 형식
 
+**제목**: [이 토론의 핵심을 요약한 간략한 제목, 15자 이내. 예: "NVDA 분할매수 결정", "손절라인 $180 합의"]
+
 # 투자 의사결정서
 
 ## 1. 개요
@@ -239,6 +241,15 @@ class AIService:
 
             content = response.choices[0].message.content
 
+            # 제목 추출 (첫 줄에서 **제목**: 패턴 찾기)
+            title = "AI 의사결정서"
+            import re
+            title_match = re.search(r'\*\*제목\*\*:\s*(.+?)(?:\n|$)', content)
+            if title_match:
+                title = title_match.group(1).strip().strip('"\'')
+                # 제목 줄을 본문에서 제거
+                content = re.sub(r'\*\*제목\*\*:\s*.+?\n*', '', content, count=1).strip()
+
             # 사용량 증가
             self._increment_usage()
 
@@ -247,6 +258,7 @@ class AIService:
 
             return {
                 "success": True,
+                "title": title,
                 "content": content,
                 "remaining_uses": status["remaining_uses"],
                 "sessions_analyzed": len(session_ids)

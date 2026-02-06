@@ -18,6 +18,7 @@ export function AIDecisionNoteModal({
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState(null);
+  const [generatedTitle, setGeneratedTitle] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export function AIDecisionNoteModal({
       fetchAIStatus();
       setSelectedSessions([]);
       setGeneratedContent(null);
+      setGeneratedTitle(null);
       setError(null);
     }
   }, [isOpen]);
@@ -61,6 +63,7 @@ export function AIDecisionNoteModal({
     try {
       const result = await aiService.generateDecisionNote(selectedSessions, positionId);
       setGeneratedContent(result.data.content);
+      setGeneratedTitle(result.data.title || 'AI 의사결정서');
       setAiStatus(prev => ({
         ...prev,
         remaining_uses: result.data.remaining_uses
@@ -74,7 +77,7 @@ export function AIDecisionNoteModal({
 
   const handleSave = () => {
     if (generatedContent && onGenerated) {
-      onGenerated(generatedContent);
+      onGenerated(generatedContent, generatedTitle);
     }
     onClose();
   };
@@ -124,7 +127,7 @@ export function AIDecisionNoteModal({
               남은 사용 횟수: {aiStatus?.remaining_uses || 0}회
             </span>
             <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => setGeneratedContent(null)}>
+              <Button variant="secondary" onClick={() => { setGeneratedContent(null); setGeneratedTitle(null); }}>
                 다시 생성
               </Button>
               <Button onClick={handleSave}>
