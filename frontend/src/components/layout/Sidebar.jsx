@@ -110,6 +110,16 @@ export function Sidebar({ isOpen, onClose }) {
             </button>
           </div>
         )}
+
+        {/* Branding */}
+        <div className="p-4 text-center" style={{ borderTop: '1px solid var(--color-border)' }}>
+          <span
+            className="text-xs font-medium tracking-widest uppercase"
+            style={{ color: 'var(--color-text-muted)', opacity: 0.5 }}
+          >
+            mavericx
+          </span>
+        </div>
       </aside>
     </>
   );
