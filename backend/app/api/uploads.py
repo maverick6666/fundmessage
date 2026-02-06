@@ -12,9 +12,9 @@ from app.config import settings
 
 router = APIRouter()
 
-# 업로드 디렉토리 설정
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
-MAX_FILE_SIZE = 200 * 1024  # 200KB
+# 업로드 디렉토리 설정 (컨테이너 환경에서는 /tmp 사용)
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/tmp/fundmessage_uploads")
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 
 
@@ -37,7 +37,7 @@ async def upload_image(
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"파일 크기가 너무 큽니다. 최대 {MAX_FILE_SIZE // 1024}KB까지 허용됩니다."
+            detail=f"파일 크기가 너무 큽니다. 최대 {MAX_FILE_SIZE // (1024 * 1024)}MB까지 허용됩니다."
         )
 
     # 업로드 디렉토리 생성

@@ -132,7 +132,7 @@ async def get_team_ranking(
         user_positions = db.query(Position).join(
             Request, Position.id == Request.position_id, isouter=True
         ).filter(
-            (Position.opener_id == user.id) | (Request.requester_id == user.id)
+            (Position.opened_by == user.id) | (Request.requester_id == user.id)
         ).distinct().all()
 
         # 수익률/수익금 계산
@@ -141,22 +141,25 @@ async def get_team_ranking(
         position_count = 0
 
         for pos in user_positions:
+            avg_price = float(pos.average_buy_price) if pos.average_buy_price else 0
+            quantity = float(pos.total_quantity) if pos.total_quantity else 0
+
             # 포지션 평가액 계산
             if pos.status == PositionStatus.OPEN.value:
                 # 열린 포지션: 실시간 시세 사용
-                current_price = price_data.get(pos.id, {}).get('current_price', pos.avg_price)
-                if current_price and pos.avg_price and pos.quantity:
-                    unrealized = (current_price - pos.avg_price) * pos.quantity
-                    investment = pos.avg_price * pos.quantity
+                current_price = price_data.get(pos.id, {}).get('current_price', avg_price)
+                if current_price and avg_price and quantity:
+                    unrealized = (float(current_price) - avg_price) * quantity
+                    investment = avg_price * quantity
                     total_profit += unrealized
                     total_investment += investment
                     position_count += 1
             else:
                 # 종료된 포지션: 확정 수익 사용
-                if pos.realized_profit is not None:
-                    total_profit += pos.realized_profit
-                    if pos.avg_price and pos.quantity:
-                        total_investment += pos.avg_price * pos.quantity
+                if pos.profit_loss is not None:
+                    total_profit += float(pos.profit_loss)
+                    if avg_price and quantity:
+                        total_investment += avg_price * quantity
                     position_count += 1
 
         # 평균 수익률 계산
