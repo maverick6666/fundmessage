@@ -83,8 +83,15 @@ export function WebSocketProvider({ children }) {
     send('leave_discussion', { discussion_id: discussionId });
   }, [send]);
 
-  const sendMessage = useCallback((discussionId, content) => {
-    send('send_message', { discussion_id: discussionId, content });
+  const sendMessage = useCallback((discussionId, content, messageType = 'text', chartData = null) => {
+    const payload = { discussion_id: discussionId, content };
+    if (messageType !== 'text') {
+      payload.message_type = messageType;
+    }
+    if (chartData) {
+      payload.chart_data = chartData;
+    }
+    send('send_message', payload);
   }, [send]);
 
   // Price subscription methods

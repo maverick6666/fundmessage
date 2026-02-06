@@ -51,31 +51,37 @@ async def handle_websocket_message(
     elif message_type == "send_message":
         discussion_id = payload.get("discussion_id")
         content = payload.get("content")
+        msg_type = payload.get("message_type", "text")
+        chart_data = payload.get("chart_data")
 
         if discussion_id and content:
             discussion_service = DiscussionService(db)
             message = discussion_service.create_message(
                 discussion_id,
-                MessageCreate(content=content),
+                MessageCreate(content=content, message_type=msg_type, chart_data=chart_data),
                 user_id
             )
+
+            message_data = {
+                "id": message.id,
+                "discussion_id": message.discussion_id,
+                "user": {
+                    "id": message.user.id,
+                    "username": message.user.username,
+                    "full_name": message.user.full_name
+                },
+                "content": message.content,
+                "message_type": message.message_type,
+                "chart_data": message.chart_data,
+                "created_at": message.created_at.isoformat() if message.created_at else None
+            }
 
             # Broadcast to others (exclude sender)
             await manager.broadcast_to_discussion(
                 discussion_id,
                 {
                     "type": "message_received",
-                    "data": {
-                        "id": message.id,
-                        "discussion_id": message.discussion_id,
-                        "user": {
-                            "id": message.user.id,
-                            "username": message.user.username,
-                            "full_name": message.user.full_name
-                        },
-                        "content": message.content,
-                        "created_at": message.created_at.isoformat() if message.created_at else None
-                    }
+                    "data": message_data
                 },
                 exclude_user=user_id
             )
@@ -84,17 +90,7 @@ async def handle_websocket_message(
             await manager.send_personal_message(
                 {
                     "type": "message_sent",
-                    "data": {
-                        "id": message.id,
-                        "discussion_id": message.discussion_id,
-                        "user": {
-                            "id": message.user.id,
-                            "username": message.user.username,
-                            "full_name": message.user.full_name
-                        },
-                        "content": message.content,
-                        "created_at": message.created_at.isoformat() if message.created_at else None
-                    }
+                    "data": message_data
                 },
                 user_id
             )

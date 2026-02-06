@@ -4,6 +4,8 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Modal } from '../components/common/Modal';
+import { ChartShareModal } from '../components/charts/ChartShareModal';
+import { MiniChart } from '../components/charts/MiniChart';
 import { discussionService } from '../services/discussionService';
 import { useAuth } from '../hooks/useAuth';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -25,6 +27,7 @@ export function Discussion() {
   const [sessions, setSessions] = useState([]);
   const [selectedSessions, setSelectedSessions] = useState(new Set());
   const [exportLoading, setExportLoading] = useState(false);
+  const [showChartModal, setShowChartModal] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -162,6 +165,12 @@ export function Discussion() {
     });
   };
 
+  const handleShareChart = (content, chartData) => {
+    // Send chart message via WebSocket
+    wsSendMessage(parseInt(id), content, 'chart', chartData);
+    setShowChartModal(false);
+  };
+
   const handleExportTxt = async () => {
     if (selectedSessions.size === 0) {
       alert('최소 하나의 세션을 선택해주세요.');
@@ -265,6 +274,16 @@ export function Discussion() {
                 <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-2 w-full">
                   {message.content}
                 </div>
+              ) : message.message_type === 'chart' && message.chart_data ? (
+                <div className={`max-w-[85%] ${message.user.id === user?.id ? 'order-1' : ''}`}>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    {message.user.full_name}
+                    <span className="ml-2">{formatDate(message.created_at, 'HH:mm')}</span>
+                  </div>
+                  <div className="w-[320px]">
+                    <MiniChart chartData={message.chart_data} height={150} />
+                  </div>
+                </div>
               ) : (
                 <div className={`max-w-[70%] ${message.user.id === user?.id ? 'order-1' : ''}`}>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
@@ -290,6 +309,16 @@ export function Discussion() {
         {/* Input */}
         {!isClosed && (
           <form onSubmit={handleSendMessage} className="border-t dark:border-gray-700 p-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowChartModal(true)}
+              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              title="차트 공유"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+              </svg>
+            </button>
             <Input
               placeholder="메시지 입력..."
               value={messageInput}
@@ -391,6 +420,13 @@ export function Discussion() {
           </div>
         </div>
       </Modal>
+
+      {/* Chart Share Modal */}
+      <ChartShareModal
+        isOpen={showChartModal}
+        onClose={() => setShowChartModal(false)}
+        onShare={handleShareChart}
+      />
     </div>
   );
 }

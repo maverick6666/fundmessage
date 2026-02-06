@@ -179,11 +179,17 @@ class DiscussionService:
                 detail="Cannot add message to closed discussion"
             )
 
+        # 차트 메시지인지 확인
+        msg_type = MessageType.TEXT.value
+        if hasattr(message_data, 'message_type') and message_data.message_type == 'chart':
+            msg_type = MessageType.CHART.value
+
         message = Message(
             discussion_id=discussion_id,
             user_id=user_id,
             content=message_data.content,
-            message_type=MessageType.TEXT.value
+            message_type=msg_type,
+            chart_data=message_data.chart_data if hasattr(message_data, 'chart_data') else None
         )
 
         self.db.add(message)

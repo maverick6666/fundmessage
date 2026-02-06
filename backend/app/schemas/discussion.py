@@ -17,6 +17,8 @@ class DiscussionClose(BaseModel):
 
 class MessageCreate(BaseModel):
     content: str = Field(..., min_length=1)
+    message_type: str = "text"  # text, chart
+    chart_data: Optional[dict] = None  # 차트 메시지일 때 캔들 데이터
 
 
 class MessageResponse(BaseModel):
@@ -25,6 +27,7 @@ class MessageResponse(BaseModel):
     user: UserBrief
     content: str
     message_type: str
+    chart_data: Optional[dict] = None
     created_at: datetime
 
     class Config:
