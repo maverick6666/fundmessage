@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { aiService } from '../../services/aiService';
@@ -99,20 +101,21 @@ export function AIDecisionNoteModal({
         // 생성 결과 표시
         <div className="space-y-4">
           <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg max-h-96 overflow-y-auto">
-            <div className="prose dark:prose-invert max-w-none text-sm">
-              {generatedContent.split('\n').map((line, i) => {
-                if (line.startsWith('## ')) {
-                  return <h3 key={i} className="text-lg font-semibold mt-4 mb-2 dark:text-gray-200">{line.slice(3)}</h3>;
-                } else if (line.startsWith('# ')) {
-                  return <h2 key={i} className="text-xl font-bold mt-4 mb-2 dark:text-gray-100">{line.slice(2)}</h2>;
-                } else if (line.match(/^\d+\./)) {
-                  return <p key={i} className="ml-4 mb-1 dark:text-gray-300">{line}</p>;
-                } else if (line.startsWith('- ')) {
-                  return <p key={i} className="ml-4 mb-1 dark:text-gray-300">• {line.slice(2)}</p>;
-                } else {
-                  return <p key={i} className="mb-2 dark:text-gray-300">{line || '\u00A0'}</p>;
-                }
-              })}
+            <div className="prose prose-sm dark:prose-invert max-w-none
+              prose-headings:text-gray-900 dark:prose-headings:text-gray-100
+              prose-h1:text-xl prose-h1:font-bold prose-h1:mt-4 prose-h1:mb-2
+              prose-h2:text-lg prose-h2:font-semibold prose-h2:mt-4 prose-h2:mb-2
+              prose-h3:text-base prose-h3:font-semibold prose-h3:mt-3 prose-h3:mb-1
+              prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:my-1
+              prose-li:text-gray-700 dark:prose-li:text-gray-300
+              prose-table:text-sm
+              prose-th:bg-gray-100 dark:prose-th:bg-gray-600 prose-th:px-3 prose-th:py-2
+              prose-td:px-3 prose-td:py-2 prose-td:border prose-td:border-gray-200 dark:prose-td:border-gray-600
+              prose-strong:text-gray-900 dark:prose-strong:text-gray-100
+            ">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {generatedContent}
+              </ReactMarkdown>
             </div>
           </div>
 
