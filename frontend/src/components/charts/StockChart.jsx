@@ -116,11 +116,15 @@ export function StockChart({
     window.addEventListener('resize', handleResize);
 
     // 보이는 범위 변경 감지 (lazy loading용)
-    const unsubscribe = chart.timeScale().subscribeVisibleTimeRangeChange(handleVisibleRangeChange);
+    const subscription = chart.timeScale().subscribeVisibleTimeRangeChange(handleVisibleRangeChange);
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      unsubscribe();
+      if (subscription && typeof subscription.unsubscribe === 'function') {
+        subscription.unsubscribe();
+      } else if (typeof subscription === 'function') {
+        subscription();
+      }
       chart.remove();
     };
   }, [height, handleVisibleRangeChange]);
