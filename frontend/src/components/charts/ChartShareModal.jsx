@@ -28,8 +28,8 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
     const searchStocks = async () => {
       try {
         const result = await priceService.searchStocks(searchQuery, null, 10);
-        // API 응답: { success: true, data: [...] }
-        setSearchResults(result.data || result || []);
+        // API 응답: { success: true, data: { results: [...] } }
+        setSearchResults(result.data?.results || []);
       } catch (error) {
         console.error('Search failed:', error);
         setSearchResults([]);
