@@ -86,7 +86,7 @@ export function Reports() {
   };
 
   const tabs = [
-    { id: 'reports', label: '운용보고서' },
+    { id: 'reports', label: '보고서' },
     { id: 'columns', label: '칼럼' }
   ];
 
@@ -94,7 +94,7 @@ export function Reports() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-          운용보고서
+          문서
         </h1>
         {activeTab === 'columns' && (
           <Button onClick={() => navigate('/columns/new')}>
@@ -130,8 +130,8 @@ export function Reports() {
           ) : reports.length === 0 ? (
             <Card>
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                <p>아직 작성된 운용보고서가 없습니다.</p>
-                <p className="text-sm mt-2">포지션 상세에서 의사결정 노트를 작성하면 여기에 표시됩니다.</p>
+                <p>아직 작성된 보고서가 없습니다.</p>
+                <p className="text-sm mt-2">포지션 상세에서 AI 운용보고서를 생성하거나 의사결정 노트를 작성하면 여기에 표시됩니다.</p>
               </div>
             </Card>
           ) : (

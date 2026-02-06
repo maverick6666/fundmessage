@@ -1,13 +1,19 @@
-from datetime import date
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional, List
 from sqlalchemy.orm import Session
 import openai
+import json
 
 from app.config import settings
 from app.models.team_settings import TeamSettings
 from app.models.discussion import Discussion
 from app.models.message import Message
 from app.models.position import Position
+from app.models.request import Request
+from app.models.decision_note import DecisionNote
+from app.models.trading_plan import TradingPlan
+from app.models.user import User
 
 
 class AIService:
@@ -189,6 +195,262 @@ class AIService:
                 "content": content,
                 "remaining_uses": status["remaining_uses"],
                 "sessions_analyzed": len(session_ids)
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"AI 생성 중 오류가 발생했습니다: {str(e)}"
+            }
+
+    def _serialize_value(self, value):
+        """값을 JSON 직렬화 가능한 형태로 변환"""
+        if isinstance(value, Decimal):
+            return float(value)
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        return value
+
+    def collect_position_data(self, position_id: int) -> dict:
+        """포지션의 모든 관련 정보 수집"""
+        position = self.db.query(Position).filter(Position.id == position_id).first()
+        if not position:
+            return None
+
+        # 요청자/종료자 정보
+        opener = self.db.query(User).filter(User.id == position.opened_by).first() if position.opened_by else None
+        closer = self.db.query(User).filter(User.id == position.closed_by).first() if position.closed_by else None
+
+        # 관련 요청들
+        requests = self.db.query(Request).filter(Request.position_id == position_id).order_by(Request.created_at).all()
+        requests_data = []
+        for req in requests:
+            requester = self.db.query(User).filter(User.id == req.requested_by).first()
+            requests_data.append({
+                "type": req.request_type,
+                "status": req.status,
+                "requester": requester.full_name if requester else "알 수 없음",
+                "created_at": self._serialize_value(req.created_at),
+                "buy_price": self._serialize_value(req.buy_price),
+                "order_quantity": self._serialize_value(req.order_quantity),
+                "memo": req.memo
+            })
+
+        # 의사결정 노트
+        notes = self.db.query(DecisionNote).filter(DecisionNote.position_id == position_id).order_by(DecisionNote.created_at).all()
+        notes_data = []
+        for note in notes:
+            author = self.db.query(User).filter(User.id == note.author_id).first()
+            notes_data.append({
+                "title": note.title,
+                "content": note.content,
+                "author": author.full_name if author else "알 수 없음",
+                "created_at": self._serialize_value(note.created_at)
+            })
+
+        # 매매계획 이력
+        plans = self.db.query(TradingPlan).filter(TradingPlan.position_id == position_id).order_by(TradingPlan.created_at).all()
+        plans_data = []
+        for plan in plans:
+            author = self.db.query(User).filter(User.id == plan.user_id).first()
+            plans_data.append({
+                "version": plan.version,
+                "author": author.full_name if author else "알 수 없음",
+                "status": plan.status,
+                "buy_plan": plan.buy_plan,
+                "take_profit_targets": plan.take_profit_targets,
+                "stop_loss_targets": plan.stop_loss_targets,
+                "memo": plan.memo,
+                "created_at": self._serialize_value(plan.created_at),
+                "submitted_at": self._serialize_value(plan.submitted_at) if plan.submitted_at else None
+            })
+
+        # 토론 세션들
+        discussions = self.db.query(Discussion).filter(Discussion.position_id == position_id).all()
+        discussions_data = []
+        for disc in discussions:
+            messages = self.db.query(Message).filter(Message.discussion_id == disc.id).order_by(Message.created_at).all()
+            msg_data = []
+            for msg in messages:
+                author = msg.user.full_name if msg.user else "알 수 없음"
+                msg_data.append({
+                    "author": author,
+                    "content": msg.content,
+                    "created_at": self._serialize_value(msg.created_at)
+                })
+            discussions_data.append({
+                "title": disc.title,
+                "status": disc.status,
+                "messages": msg_data
+            })
+
+        # 현재 매매계획 상태
+        current_buy_plan = position.buy_plan or []
+        current_tp = position.take_profit_targets or []
+        current_sl = position.stop_loss_targets or []
+
+        return {
+            "position": {
+                "ticker": position.ticker,
+                "ticker_name": position.ticker_name,
+                "market": position.market,
+                "status": position.status,
+                "is_info_confirmed": position.is_info_confirmed,
+                "average_buy_price": self._serialize_value(position.average_buy_price),
+                "total_quantity": self._serialize_value(position.total_quantity),
+                "total_buy_amount": self._serialize_value(position.total_buy_amount),
+                "average_sell_price": self._serialize_value(position.average_sell_price),
+                "total_sell_amount": self._serialize_value(position.total_sell_amount),
+                "profit_loss": self._serialize_value(position.profit_loss),
+                "profit_rate": self._serialize_value(position.profit_rate),
+                "realized_profit_loss": self._serialize_value(position.realized_profit_loss),
+                "holding_period_hours": position.holding_period_hours,
+                "opened_at": self._serialize_value(position.opened_at),
+                "closed_at": self._serialize_value(position.closed_at),
+                "opened_by": opener.full_name if opener else None,
+                "closed_by": closer.full_name if closer else None
+            },
+            "current_trading_plan": {
+                "buy_plan": current_buy_plan,
+                "take_profit_targets": current_tp,
+                "stop_loss_targets": current_sl,
+                "completed_buys": len([b for b in current_buy_plan if b.get("completed")]),
+                "completed_take_profits": len([t for t in current_tp if t.get("completed")]),
+                "completed_stop_losses": len([s for s in current_sl if s.get("completed")])
+            },
+            "requests": requests_data,
+            "decision_notes": notes_data,
+            "trading_plan_history": plans_data,
+            "discussions": discussions_data
+        }
+
+    def generate_operation_report(self, position_id: int) -> dict:
+        """포지션의 모든 정보를 구조화한 운용보고서 생성"""
+        if not self.client:
+            return {
+                "success": False,
+                "error": "OpenAI API 키가 설정되지 않았습니다"
+            }
+
+        if not self.can_use_ai():
+            return {
+                "success": False,
+                "error": "오늘 AI 사용 횟수를 모두 소진했습니다"
+            }
+
+        # 모든 데이터 수집
+        data = self.collect_position_data(position_id)
+        if not data:
+            return {
+                "success": False,
+                "error": "포지션을 찾을 수 없습니다"
+            }
+
+        # 데이터를 JSON으로 변환
+        data_json = json.dumps(data, ensure_ascii=False, indent=2)
+
+        try:
+            prompt = f"""다음은 펀드팀의 포지션에 대한 모든 정보입니다. 이 데이터를 바탕으로 체계적인 운용보고서를 작성해주세요.
+
+**중요 규칙:**
+1. 주어진 데이터만 사용하세요. 절대로 없는 정보를 만들어내지 마세요.
+2. 숫자는 주어진 그대로 사용하세요. 계산이 필요하면 정확히 계산하세요.
+3. 날짜, 인물, 금액 등 사실 정보는 변경하지 마세요.
+4. 데이터가 없는 항목은 "해당 없음" 또는 "기록 없음"으로 표시하세요.
+
+포지션 데이터:
+```json
+{data_json}
+```
+
+다음 형식으로 운용보고서를 작성해주세요:
+
+# 운용보고서: [종목명] ([티커])
+
+## 1. 포지션 개요
+| 항목 | 내용 |
+|------|------|
+| 종목 | [종목명 (티커)] |
+| 시장 | [시장] |
+| 상태 | [진행중/종료] |
+| 진입일 | [날짜] |
+| 담당자 | [이름] |
+| 보유기간 | [기간] |
+
+## 2. 매매 현황
+### 진입
+| 항목 | 내용 |
+|------|------|
+| 평균 매수가 | [가격] |
+| 수량 | [수량] |
+| 총 매수금액 | [금액] |
+
+### 청산 (해당 시)
+| 항목 | 내용 |
+|------|------|
+| 평균 매도가 | [가격] |
+| 청산금액 | [금액] |
+| 실현손익 | [금액] |
+| 수익률 | [%] |
+
+## 3. 매매계획 및 실행
+### 매수 계획
+(완료된 계획과 미완료 계획 구분하여 정리)
+
+### 익절 계획
+(완료된 계획과 미완료 계획 구분하여 정리)
+
+### 손절 계획
+(완료된 계획과 미완료 계획 구분하여 정리)
+
+## 4. 요청 이력
+(누가 언제 어떤 요청을 했는지 시간순 정리)
+
+## 5. 의사결정 기록
+(의사결정 노트 내용 요약)
+
+## 6. 토론 요약
+(토론 세션별 핵심 논의 사항 정리)
+
+## 7. 종합 평가
+(전체 운용 과정에 대한 객관적 정리 - 창작하지 말고 데이터 기반으로만)
+"""
+
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """당신은 펀드팀의 운용보고서를 작성하는 전문가입니다.
+
+핵심 원칙:
+- 주어진 데이터만 사용합니다. 없는 정보는 절대 만들어내지 않습니다.
+- 숫자는 정확히 그대로 기재합니다.
+- 날짜, 인물, 금액은 변경하지 않습니다.
+- 객관적이고 사실에 기반한 보고서를 작성합니다.
+- 데이터가 없으면 "기록 없음"으로 표시합니다."""
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=4000,
+                temperature=0.1  # 낮은 temperature로 창의성 최소화
+            )
+
+            content = response.choices[0].message.content
+
+            # 사용량 증가
+            self._increment_usage()
+
+            # 남은 횟수 조회
+            status = self.get_ai_status()
+
+            return {
+                "success": True,
+                "content": content,
+                "remaining_uses": status["remaining_uses"],
+                "position_id": position_id
             }
 
         except Exception as e:

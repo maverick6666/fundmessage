@@ -425,7 +425,7 @@ export function Dashboard() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>최근 운용보고서</CardTitle>
+              <CardTitle>최근 보고서</CardTitle>
               <Link to="/reports" className="text-sm text-primary-600 hover:text-primary-700">
                 전체보기
               </Link>
@@ -433,7 +433,7 @@ export function Dashboard() {
           </CardHeader>
 
           {reports.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">운용보고서가 없습니다</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">보고서가 없습니다</div>
           ) : (
             <div className="space-y-3">
               {reports.map(report => (

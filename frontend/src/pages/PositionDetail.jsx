@@ -8,6 +8,7 @@ import { StockChart } from '../components/charts/StockChart';
 import { ProfitProgressBar, TargetProgressBar } from '../components/common/ProfitProgressBar';
 import ReactMarkdown from 'react-markdown';
 import { AIDecisionNoteModal } from '../components/ai/AIDecisionNoteModal';
+import { aiService } from '../services/aiService';
 import { positionService } from '../services/positionService';
 import { priceService } from '../services/priceService';
 import { discussionService } from '../services/discussionService';
@@ -69,6 +70,9 @@ export function PositionDetail() {
   const [noteContent, setNoteContent] = useState('');
   const [expandedNoteId, setExpandedNoteId] = useState(null);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showOperationReportModal, setShowOperationReportModal] = useState(false);
+  const [generatedReport, setGeneratedReport] = useState('');
+  const [reportGenerating, setReportGenerating] = useState(false);
 
   // 인라인 편집 상태
   const [editingInfo, setEditingInfo] = useState(false);
@@ -744,6 +748,22 @@ export function PositionDetail() {
             </Button>
           )}
 
+          {/* AI 운용보고서 버튼 (매니저만) */}
+          {isManagerOrAdmin() && (
+            <Button
+              variant="secondary"
+              onClick={() => setShowOperationReportModal(true)}
+              className="!bg-purple-50 !text-purple-600 hover:!bg-purple-100 dark:!bg-purple-900/20 dark:!text-purple-400"
+            >
+              <span className="flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI 보고서
+              </span>
+            </Button>
+          )}
+
           {position.status === 'open' && (
             <>
               {isManagerOrAdmin() ? (
@@ -1355,6 +1375,95 @@ export function PositionDetail() {
           setEditingNoteId(null);
         }}
       />
+
+      {/* AI 운용보고서 모달 */}
+      <Modal
+        isOpen={showOperationReportModal}
+        onClose={() => {
+          setShowOperationReportModal(false);
+          setGeneratedReport('');
+        }}
+        title="AI 운용보고서"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {!generatedReport ? (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                <svg className="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                AI 운용보고서 생성
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">
+                이 포지션의 모든 정보(요청, 매매계획, 의사결정서, 토론 등)를<br />
+                AI가 분석하여 구조화된 운용보고서를 생성합니다.
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
+                * AI는 주어진 데이터만 정리합니다. 정보를 창작하지 않습니다.
+              </p>
+              <Button
+                onClick={async () => {
+                  setReportGenerating(true);
+                  try {
+                    const result = await aiService.generateOperationReport(parseInt(id));
+                    if (result.success) {
+                      setGeneratedReport(result.data.content);
+                    } else {
+                      alert(result.message || '보고서 생성에 실패했습니다.');
+                    }
+                  } catch (error) {
+                    alert(error.response?.data?.detail || '보고서 생성 중 오류가 발생했습니다.');
+                  } finally {
+                    setReportGenerating(false);
+                  }
+                }}
+                loading={reportGenerating}
+                className="!bg-purple-600 hover:!bg-purple-700"
+              >
+                보고서 생성
+              </Button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-4 pb-4 border-b dark:border-gray-700">
+                <h3 className="font-medium text-gray-900 dark:text-gray-100">생성된 보고서</h3>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedReport);
+                      alert('클립보드에 복사되었습니다.');
+                    }}
+                  >
+                    복사
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setNoteTitle('운용보고서');
+                      setNoteContent(generatedReport);
+                      setShowNoteForm(true);
+                      setEditingNoteId(null);
+                      setShowOperationReportModal(false);
+                      setGeneratedReport('');
+                    }}
+                  >
+                    의사결정 노트로 저장
+                  </Button>
+                </div>
+              </div>
+              <div className="max-h-[60vh] overflow-y-auto prose dark:prose-invert prose-sm max-w-none">
+                <ReactMarkdown>{generatedReport}</ReactMarkdown>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -12,5 +12,17 @@ export const aiService = {
       position_id: positionId
     });
     return response.data;
+  },
+
+  async generateOperationReport(positionId) {
+    const response = await api.post('/ai/generate-operation-report', {
+      position_id: positionId
+    });
+    return response.data;
+  },
+
+  async getPositionData(positionId) {
+    const response = await api.get(`/ai/position-data/${positionId}`);
+    return response.data.data;
   }
 };
