@@ -42,13 +42,16 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
 
   // 종목 선택
   const handleSelectStock = async (stock) => {
+    console.log('handleSelectStock called with:', stock);
     setSelectedStock(stock);
     setSearchResults([]);
     setSearchQuery(stock.name);
     setLoading(true);
 
     try {
+      console.log('Loading candles for:', stock.ticker, stock.market);
       const data = await priceService.getCandles(stock.ticker, stock.market, '1d', 100);
+      console.log('Candles response:', data);
       setCandles(data.data || []);
     } catch (error) {
       console.error('Failed to load candles:', error);
