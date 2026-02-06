@@ -136,10 +136,10 @@ class AIService:
             if position:
                 position_context = f"""
 포지션 정보:
-- 종목: {position.name or position.ticker} ({position.ticker})
+- 종목: {position.ticker_name or position.ticker} ({position.ticker})
 - 시장: {position.market}
-- 평균 매수가: {position.avg_buy_price}
-- 수량: {position.quantity}
+- 평균 매수가: {position.average_buy_price}
+- 수량: {position.total_quantity}
 - 상태: {'보유중' if position.status == 'open' else '종료됨'}
 """
 
