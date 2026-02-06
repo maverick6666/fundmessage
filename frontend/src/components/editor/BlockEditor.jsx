@@ -543,25 +543,42 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
 
 /**
  * 블록 렌더러 (읽기 전용) - 프리미엄 뷰어용
+ * @param {boolean} isDark - 다크 테마 여부 (테마 연동)
+ * @param {boolean} premium - 프리미엄 에디터 모드 (항상 다크)
  */
-export function BlockRenderer({ blocks = [], premium = false }) {
+export function BlockRenderer({ blocks = [], isDark = false, premium = false }) {
   if (!blocks || blocks.length === 0) {
     return null;
   }
 
+  // 실제 다크 모드 적용 여부
+  const dark = premium || isDark;
+
+  // 테마별 스타일
+  const styles = {
+    paragraph: dark
+      ? 'text-gray-300 text-base leading-relaxed'
+      : 'text-gray-700 text-base leading-relaxed',
+    heading: dark ? 'text-white' : 'text-gray-900',
+    quote: dark
+      ? 'pl-4 border-l-2 border-emerald-500/50 text-gray-400 italic'
+      : 'pl-4 border-l-2 border-emerald-400 text-gray-600 italic',
+    caption: dark ? 'text-gray-500' : 'text-gray-500',
+    divider: dark
+      ? 'bg-gradient-to-r from-transparent via-white/20 to-transparent'
+      : 'bg-gradient-to-r from-transparent via-gray-300 to-transparent',
+    imageBorder: dark ? 'border border-white/10' : 'border border-gray-200',
+  };
+
   return (
-    <div className={premium ? 'space-y-4' : 'prose dark:prose-invert max-w-none'}>
+    <div className="space-y-3">
       {blocks.map((block) => {
         if (block.type === 'paragraph') {
           return (
             <p
               key={block.id}
-              className={`whitespace-pre-wrap ${
-                premium
-                  ? 'text-gray-300 text-lg leading-relaxed'
-                  : 'mb-3 text-gray-700 dark:text-gray-300'
-              }`}
-              style={premium ? { fontFamily: "'Crimson Pro', 'Noto Serif KR', serif" } : {}}
+              className={`whitespace-pre-wrap ${styles.paragraph}`}
+              style={{ fontFamily: "'Crimson Pro', 'Noto Serif KR', serif" }}
             >
               {block.data.text || '\u00A0'}
             </p>
@@ -570,42 +587,29 @@ export function BlockRenderer({ blocks = [], premium = false }) {
 
         if (block.type === 'heading') {
           const level = block.data.level || 2;
-          const sizeClass = premium
-            ? level === 1 ? 'text-3xl' : level === 2 ? 'text-2xl' : 'text-xl'
-            : '';
+          const sizeClass = level === 1 ? 'text-2xl' : level === 2 ? 'text-xl' : 'text-lg';
 
-          if (premium) {
-            return (
-              <h2
-                key={block.id}
-                className={`font-semibold text-white ${sizeClass} mt-8 mb-4`}
-                style={{ fontFamily: "'Noto Serif KR', serif" }}
-              >
-                {block.data.text}
-              </h2>
-            );
-          }
-
-          const Tag = `h${level}`;
           return (
-            <Tag key={block.id} className="font-bold text-gray-900 dark:text-gray-100 mb-3">
+            <h2
+              key={block.id}
+              className={`font-semibold ${styles.heading} ${sizeClass} mt-5 mb-2`}
+              style={{ fontFamily: "'Noto Serif KR', serif" }}
+            >
               {block.data.text}
-            </Tag>
+            </h2>
           );
         }
 
         if (block.type === 'image') {
           return (
-            <figure key={block.id} className={premium ? 'my-8' : 'my-4'}>
+            <figure key={block.id} className="my-5">
               <img
                 src={block.data.url}
                 alt={block.data.caption || ''}
-                className={`max-w-full rounded-lg ${premium ? 'border border-white/10' : ''}`}
+                className={`max-w-full rounded-lg ${styles.imageBorder}`}
               />
               {block.data.caption && (
-                <figcaption className={`text-center text-sm mt-3 ${
-                  premium ? 'text-gray-500' : 'text-gray-500 dark:text-gray-400'
-                }`}>
+                <figcaption className={`text-center text-sm mt-2 ${styles.caption}`}>
                   {block.data.caption}
                 </figcaption>
               )}
@@ -617,12 +621,8 @@ export function BlockRenderer({ blocks = [], premium = false }) {
           return (
             <blockquote
               key={block.id}
-              className={`my-6 ${
-                premium
-                  ? 'pl-5 border-l-2 border-emerald-500/50 text-gray-400 italic text-lg'
-                  : 'border-l-4 border-gray-300 dark:border-gray-600 pl-4 italic text-gray-600 dark:text-gray-400'
-              }`}
-              style={premium ? { fontFamily: "'Crimson Pro', serif" } : {}}
+              className={`my-4 ${styles.quote}`}
+              style={{ fontFamily: "'Crimson Pro', serif" }}
             >
               {block.data.text}
             </blockquote>
@@ -631,12 +631,8 @@ export function BlockRenderer({ blocks = [], premium = false }) {
 
         if (block.type === 'divider') {
           return (
-            <div key={block.id} className={premium ? 'py-6' : 'my-6'}>
-              <div className={`h-px ${
-                premium
-                  ? 'bg-gradient-to-r from-transparent via-white/20 to-transparent'
-                  : 'border-t border-gray-200 dark:border-gray-700'
-              }`} />
+            <div key={block.id} className="py-4">
+              <div className={`h-px ${styles.divider}`} />
             </div>
           );
         }

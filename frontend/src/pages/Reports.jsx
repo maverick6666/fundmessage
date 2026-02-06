@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/common/Button';
-import { DocumentViewer, PositionNotesViewer } from '../components/documents/DocumentViewer';
+import { PositionNotesModal } from '../components/documents/PositionNotesModal';
 import { reportService } from '../services/reportService';
 import { columnService } from '../services/columnService';
 import { aiService } from '../services/aiService';
 import { positionService } from '../services/positionService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
+import { useSidePanelStore } from '../stores/useSidePanelStore';
 import {
   formatPercent,
   formatRelativeTime,
@@ -38,6 +39,7 @@ export function Reports() {
   const toast = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { openDocument } = useSidePanelStore();
 
   // Tab state from URL
   const activeTab = searchParams.get('tab') || 'operations';
@@ -51,11 +53,7 @@ export function Reports() {
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal states
-  const [showDocumentViewer, setShowDocumentViewer] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState(null);
-  const [documentType, setDocumentType] = useState('column');
-
+  // Position notes modal (운용보고서 탭에서 사용)
   const [showPositionNotes, setShowPositionNotes] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [positionNotes, setPositionNotes] = useState([]);
@@ -103,29 +101,22 @@ export function Reports() {
     }
   };
 
-  // Note click from position modal - show document viewer
+  // Note click from position modal - open side panel
   const handleNoteClick = (note) => {
     setShowPositionNotes(false);
-    setSelectedDocument(note);
-    setDocumentType('decision-note');
-    setShowDocumentViewer(true);
+    openDocument(note, 'decision-note');
   };
 
-  // Decision note click - show document viewer
-  const handleDecisionNoteClick = async (note) => {
-    // Fetch full note content if needed
-    setSelectedDocument(note);
-    setDocumentType('decision-note');
-    setShowDocumentViewer(true);
+  // Decision note click - open side panel
+  const handleDecisionNoteClick = (note) => {
+    openDocument(note, 'decision-note');
   };
 
-  // Column click - show document viewer
+  // Column click - open side panel
   const handleColumnClick = async (column) => {
     try {
       const data = await columnService.getColumn(column.id);
-      setSelectedDocument(data);
-      setDocumentType('column');
-      setShowDocumentViewer(true);
+      openDocument(data, 'column');
     } catch (error) {
       console.error('Failed to fetch column:', error);
     }
@@ -153,8 +144,6 @@ export function Reports() {
     try {
       await columnService.deleteColumn(columnId);
       fetchData();
-      setShowDocumentViewer(false);
-      setSelectedDocument(null);
       toast.success('칼럼이 삭제되었습니다');
     } catch (error) {
       toast.error(error.response?.data?.detail || '삭제에 실패했습니다');
@@ -431,20 +420,8 @@ export function Reports() {
         </div>
       )}
 
-      {/* Document Viewer Modal */}
-      <DocumentViewer
-        isOpen={showDocumentViewer}
-        onClose={() => {
-          setShowDocumentViewer(false);
-          setSelectedDocument(null);
-        }}
-        doc={selectedDocument}
-        type={documentType}
-        onDelete={documentType === 'column' ? handleDeleteColumn : undefined}
-      />
-
-      {/* Position Notes Modal */}
-      <PositionNotesViewer
+      {/* Position Notes Modal (운용보고서 탭용) */}
+      <PositionNotesModal
         isOpen={showPositionNotes}
         onClose={() => {
           setShowPositionNotes(false);
