@@ -173,13 +173,12 @@ class AIService:
 """
 
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",  # 또는 gpt-4, gpt-3.5-turbo
+                model="gpt-5-mini",  # GPT-5 mini: 400k context, 정확한 프롬프트에 적합
                 messages=[
                     {"role": "system", "content": "당신은 펀드팀의 투자 의사결정을 정리하는 전문가입니다. 토론 내용을 분석하여 명확하고 체계적인 의사결정서를 작성합니다."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=2000,
-                temperature=0.3
+                max_tokens=4000
             )
 
             content = response.choices[0].message.content
@@ -419,23 +418,28 @@ class AIService:
 """
 
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-5-mini",  # GPT-5 mini: 400k context, 정확한 프롬프트에 적합
                 messages=[
                     {
                         "role": "system",
                         "content": """당신은 펀드팀의 운용보고서를 작성하는 전문가입니다.
 
-핵심 원칙:
-- 주어진 데이터만 사용합니다. 없는 정보는 절대 만들어내지 않습니다.
-- 숫자는 정확히 그대로 기재합니다.
-- 날짜, 인물, 금액은 변경하지 않습니다.
-- 객관적이고 사실에 기반한 보고서를 작성합니다.
-- 데이터가 없으면 "기록 없음"으로 표시합니다."""
+## 핵심 원칙 (반드시 준수)
+1. **데이터 무결성**: 주어진 데이터만 사용. 절대 정보를 창작하거나 추측하지 않음
+2. **숫자 정확성**: 모든 숫자(가격, 수량, 금액, 수익률)는 원본 그대로 기재
+3. **인용 정확성**: 날짜, 인물명, 종목명은 변경 없이 그대로 사용
+4. **결측 표시**: 데이터가 없는 항목은 "기록 없음" 또는 "-"로 표시
+5. **객관적 서술**: 주관적 평가나 예측 없이 사실만 기술
+
+## 작성 스타일
+- 명확하고 간결한 문장 사용
+- 마크다운 테이블로 수치 정보 정리
+- 시간순으로 이벤트 나열
+- 핵심 정보를 먼저 제시"""
                     },
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=4000,
-                temperature=0.1  # 낮은 temperature로 창의성 최소화
+                max_tokens=8000  # 충분한 출력 공간
             )
 
             content = response.choices[0].message.content
