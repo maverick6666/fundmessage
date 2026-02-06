@@ -33,7 +33,7 @@ function createBlock(type, data = {}) {
   };
 }
 
-export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, isDark = false }) {
+export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, isDark = false, containerRef = null }) {
   const toast = useToast();
   const [blocks, setBlocks] = useState(() => {
     if (initialBlocks.length === 0) {
@@ -48,6 +48,8 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
   const [menuFilter, setMenuFilter] = useState('');
   const fileInputRef = useRef(null);
   const menuRef = useRef(null);
+  const editorRef = useRef(null);
+  const menuInputRef = useRef(null);
 
   // Sync with initial blocks when they change
   useEffect(() => {
@@ -55,6 +57,23 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
       setBlocks(initialBlocks);
     }
   }, [initialBlocks]);
+
+  // 메뉴 위치 조정 (화면 하단 overflow 방지)
+  useEffect(() => {
+    if (showMenu && menuRef.current) {
+      const menuEl = menuRef.current;
+      const menuRect = menuEl.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+
+      // 메뉴가 화면 하단을 벗어나면 위로 조정
+      if (menuRect.bottom > viewportHeight - 20) {
+        const newTop = menuPosition.top - menuRect.height - 50;
+        if (newTop > 50) {
+          setMenuPosition(prev => ({ ...prev, top: newTop }));
+        }
+      }
+    }
+  }, [showMenu]);
 
   const updateBlocks = useCallback((newBlocks) => {
     setBlocks(newBlocks);
@@ -106,15 +125,37 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
     } else if (e.key === '/' && block.data.text === '') {
       e.preventDefault();
       const rect = e.target.getBoundingClientRect();
-      setMenuPosition({ top: rect.bottom + 8, left: rect.left });
+
+      // 컨테이너 기준으로 위치 계산 (사이드 패널 등)
+      const container = containerRef?.current || editorRef.current?.parentElement;
+      if (container) {
+        const containerRect = container.getBoundingClientRect();
+        // 메뉴가 컨테이너 우측 경계를 넘지 않도록 조정
+        const menuWidth = 240;
+        let left = rect.left;
+        if (left + menuWidth > containerRect.right - 20) {
+          left = containerRect.right - menuWidth - 20;
+        }
+        // 메뉴가 컨테이너 좌측 경계를 넘지 않도록 조정
+        if (left < containerRect.left + 10) {
+          left = containerRect.left + 10;
+        }
+        setMenuPosition({ top: rect.bottom + 8, left });
+      } else {
+        setMenuPosition({ top: rect.bottom + 8, left: rect.left });
+      }
+
       setShowMenu(true);
       setMenuFilter('');
       setFocusedBlockId(block.id);
+
+      // 메뉴 입력창에 포커스
+      setTimeout(() => menuInputRef.current?.focus(), 50);
     } else if (e.key === 'Escape' && showMenu) {
       setShowMenu(false);
       setMenuFilter('');
     }
-  }, [addBlockAfter, deleteBlock, showMenu]);
+  }, [addBlockAfter, deleteBlock, showMenu, containerRef]);
 
   const handleImageUpload = useCallback(async (blockId, file) => {
     if (!file) return;
@@ -143,25 +184,32 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
   const handleMenuSelect = useCallback((type) => {
     if (!focusedBlockId) return;
 
+    const targetBlockId = focusedBlockId;
+
     if (type === 'image') {
       const newBlocks = blocks.map(b =>
-        b.id === focusedBlockId ? { ...b, type: 'image', data: { url: '', caption: '' } } : b
+        b.id === targetBlockId ? { ...b, type: 'image', data: { url: '', caption: '' } } : b
       );
       updateBlocks(newBlocks);
       setShowMenu(false);
       setMenuFilter('');
+      // 파일 선택 다이얼로그 열기 (블록 ID 유지)
       setTimeout(() => {
-        fileInputRef.current?.click();
-      }, 100);
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+      }, 150);
     } else if (type === 'divider') {
       const newBlocks = blocks.map(b =>
-        b.id === focusedBlockId ? { ...b, type: 'divider', data: {} } : b
+        b.id === targetBlockId ? { ...b, type: 'divider', data: {} } : b
       );
       updateBlocks(newBlocks);
-      addBlockAfter(focusedBlockId);
+      setShowMenu(false);
+      setMenuFilter('');
+      addBlockAfter(targetBlockId);
     } else {
       const newBlocks = blocks.map(b =>
-        b.id === focusedBlockId ? { ...b, type, data: { ...b.data, level: type === 'heading' ? 2 : undefined } } : b
+        b.id === targetBlockId ? { ...b, type, data: { ...b.data, level: type === 'heading' ? 2 : undefined } } : b
       );
       updateBlocks(newBlocks);
       setShowMenu(false);
@@ -374,7 +422,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
   };
 
   return (
-    <div className="relative min-h-[400px]">
+    <div ref={editorRef} className="relative min-h-[200px]">
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -466,11 +514,11 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
             {/* Search input */}
             <div className={`px-3 py-2 border-b ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
               <input
+                ref={menuInputRef}
                 type="text"
                 value={menuFilter}
                 onChange={(e) => setMenuFilter(e.target.value)}
                 placeholder="블록 검색..."
-                autoFocus
                 className={`w-full text-sm bg-transparent border-0 outline-none ${
                   isDark
                     ? 'text-gray-200 placeholder-gray-600'
@@ -478,8 +526,10 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
                 }`}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && filteredBlockTypes.length > 0) {
+                    e.preventDefault();
                     handleMenuSelect(filteredBlockTypes[0].type);
                   } else if (e.key === 'Escape') {
+                    e.preventDefault();
                     setShowMenu(false);
                     setMenuFilter('');
                   }
