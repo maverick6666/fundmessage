@@ -1,6 +1,5 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { useLayoutStore } from '../../stores/useLayoutStore';
 
 const menuItems = [
   { path: '/', label: '대시보드', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
@@ -15,7 +14,6 @@ const menuItems = [
 
 export function Sidebar({ isOpen, onClose, collapsed = false }) {
   const { isManagerOrAdmin, adminMode, toggleAdminMode } = useAuth();
-  const { toggleSidebar } = useLayoutStore();
 
   const filteredItems = menuItems.filter(item => {
     if (item.managerOnly) return isManagerOrAdmin();
@@ -60,29 +58,7 @@ export function Sidebar({ isOpen, onClose, collapsed = false }) {
           </button>
         </div>
 
-        {/* Desktop collapse toggle */}
-        <div
-          className="hidden lg:flex h-12 items-center justify-end px-2"
-          style={{ borderBottom: '1px solid var(--color-border)' }}
-        >
-          <button
-            onClick={toggleSidebar}
-            className="p-2 rounded-lg transition-colors hover:opacity-80"
-            style={{ color: 'var(--color-text-muted)' }}
-            title={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
-          >
-            <svg
-              className={`w-5 h-5 transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-            </svg>
-          </button>
-        </div>
-
-        <nav className="flex-1 p-4 pt-16 lg:pt-2 overflow-y-auto">
+        <nav className="flex-1 p-4 pt-16 lg:pt-4 overflow-y-auto">
           <ul className="space-y-1">
             {filteredItems.map(item => (
               <li key={item.path}>

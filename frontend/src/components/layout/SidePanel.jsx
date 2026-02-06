@@ -3,6 +3,7 @@ import { useSidePanelStore } from '../../stores/useSidePanelStore';
 import { useLayoutStore } from '../../stores/useLayoutStore';
 import { useTheme } from '../../context/ThemeContext';
 import { DocumentPanel } from '../documents/DocumentPanel';
+import { ColumnEditorPanel } from '../editor/ColumnEditorPanel';
 
 /**
  * 노션 스타일 사이드 패널
@@ -107,59 +108,67 @@ export function SidePanel() {
           />
         </div>
 
-        {/* 패널 헤더 */}
-        <header
-          className={`
-            flex items-center justify-between px-5 py-4
-            border-b shrink-0
-            ${isCurrentThemeDark ? 'border-white/10' : 'border-gray-200'}
-          `}
-        >
-          <div className="flex items-center gap-3">
-            {/* 패널 타입 표시 */}
-            {panelType === 'document' && panelData?.documentType && (
-              <span
-                className={`
-                  px-2.5 py-1 text-xs font-medium rounded-md
-                  ${panelData.documentType === 'column'
-                    ? isCurrentThemeDark
-                      ? 'bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20'
-                      : 'bg-purple-50 text-purple-600 ring-1 ring-purple-200'
-                    : isCurrentThemeDark
-                      ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20'
-                      : 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200'
-                  }
-                `}
-              >
-                {panelData.documentType === 'column' ? '칼럼' : '의사결정서'}
-              </span>
-            )}
-          </div>
-
-          {/* 닫기 버튼 */}
-          <button
-            onClick={closePanel}
+        {/* 칼럼 에디터는 자체 헤더를 가짐 */}
+        {panelType !== 'column-editor' && (
+          <header
             className={`
-              p-2 rounded-lg transition-colors
-              ${isCurrentThemeDark
-                ? 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-              }
+              flex items-center justify-between px-5 py-4
+              border-b shrink-0
+              ${isCurrentThemeDark ? 'border-white/10' : 'border-gray-200'}
             `}
-            title="닫기 (ESC)"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </header>
+            <div className="flex items-center gap-3">
+              {/* 패널 타입 표시 */}
+              {panelType === 'document' && panelData?.documentType && (
+                <span
+                  className={`
+                    px-2.5 py-1 text-xs font-medium rounded-md
+                    ${panelData.documentType === 'column'
+                      ? isCurrentThemeDark
+                        ? 'bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20'
+                        : 'bg-purple-50 text-purple-600 ring-1 ring-purple-200'
+                      : isCurrentThemeDark
+                        ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20'
+                        : 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200'
+                    }
+                  `}
+                >
+                  {panelData.documentType === 'column' ? '칼럼' : '의사결정서'}
+                </span>
+              )}
+            </div>
+
+            {/* 닫기 버튼 */}
+            <button
+              onClick={closePanel}
+              className={`
+                p-2 rounded-lg transition-colors
+                ${isCurrentThemeDark
+                  ? 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }
+              `}
+              title="닫기 (ESC)"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </header>
+        )}
 
         {/* 패널 컨텐츠 */}
-        <div className="flex-1 overflow-y-auto">
+        <div className={`flex-1 ${panelType === 'column-editor' ? '' : 'overflow-y-auto'}`}>
           {panelType === 'document' && panelData?.document && (
             <DocumentPanel
               document={panelData.document}
               type={panelData.documentType}
+            />
+          )}
+          {panelType === 'column-editor' && (
+            <ColumnEditorPanel
+              columnId={panelData?.columnId}
+              onSaved={panelData?.onSaved}
             />
           )}
         </div>

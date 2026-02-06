@@ -39,7 +39,7 @@ export function Reports() {
   const toast = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { openDocument } = useSidePanelStore();
+  const { openDocument, openColumnEditor } = useSidePanelStore();
 
   // Tab state from URL
   const activeTab = searchParams.get('tab') || 'operations';
@@ -193,7 +193,7 @@ export function Reports() {
           </p>
         </div>
         {activeTab === 'columns' && (
-          <Button onClick={() => navigate('/columns/new')} className="gap-2">
+          <Button onClick={() => openColumnEditor(null, fetchData)} className="gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
             </svg>

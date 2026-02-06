@@ -55,11 +55,11 @@ export const useSidePanelStore = create((set, get) => ({
   },
 
   // 칼럼 에디터 열기 헬퍼
-  openColumnEditor: (columnId = null) => {
+  openColumnEditor: (columnId = null, onSaved = null) => {
     const { openPanel } = get();
     openPanel({
       type: 'column-editor',
-      data: { columnId },
+      data: { columnId, onSaved },
     });
   },
 }));

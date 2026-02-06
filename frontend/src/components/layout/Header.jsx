@@ -4,8 +4,10 @@ import { useWebSocket } from '../../hooks/useWebSocket';
 import { useTheme, THEMES } from '../../context/ThemeContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { notificationService } from '../../services/notificationService';
+import { useLayoutStore } from '../../stores/useLayoutStore';
 
 export function Header({ onMenuClick }) {
+  const { sidebarCollapsed, toggleSidebar } = useLayoutStore();
   const { user, logout } = useAuth();
   const { subscribe, isConnected } = useWebSocket();
   const { appTheme, isCurrentThemeDark } = useTheme();
@@ -113,12 +115,25 @@ export function Header({ onMenuClick }) {
           borderBottom: '1px solid var(--color-border)',
         }}
       >
+        {/* 모바일 메뉴 버튼 */}
         <button
           onClick={onMenuClick}
           className="lg:hidden p-2 rounded-lg mr-2 transition-colors"
           style={{ color: 'var(--color-text-secondary)' }}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+
+        {/* 데스크탑 사이드바 토글 */}
+        <button
+          onClick={toggleSidebar}
+          className="hidden lg:block p-2 rounded-lg mr-3 transition-colors hover:opacity-80"
+          style={{ color: 'var(--color-text-secondary)' }}
+          title={sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
