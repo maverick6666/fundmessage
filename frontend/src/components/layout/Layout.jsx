@@ -5,12 +5,14 @@ import { SidePanel } from './SidePanel';
 import { useAuth } from '../../hooks/useAuth';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useSidePanelStore } from '../../stores/useSidePanelStore';
+import { useLayoutStore } from '../../stores/useLayoutStore';
 
 export function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isAuthenticated } = useAuth();
   const { connect, isConnected } = useWebSocket();
   const { isOpen: sidePanelOpen } = useSidePanelStore();
+  const { sidebarCollapsed, sidePanelWidth } = useLayoutStore();
 
   useEffect(() => {
     if (isAuthenticated && !isConnected) {
@@ -26,14 +28,18 @@ export function Layout({ children }) {
       <Header onMenuClick={() => setSidebarOpen(true)} />
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          collapsed={sidebarCollapsed}
+        />
 
         <main
-          className={`
-            flex-1 overflow-y-auto p-4 lg:p-6 animate-fade-in
-            transition-all duration-300
-            ${sidePanelOpen ? 'lg:mr-[520px] xl:mr-[580px]' : ''}
-          `}
+          className="flex-1 overflow-y-auto p-4 lg:p-6 animate-fade-in transition-all duration-300"
+          style={{
+            // 사이드 패널이 열렸을 때 margin-right 적용
+            marginRight: sidePanelOpen ? `${sidePanelWidth}px` : 0,
+          }}
         >
           {children}
         </main>

@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSidePanelStore } from '../../stores/useSidePanelStore';
+import { useLayoutStore } from '../../stores/useLayoutStore';
 import { useTheme } from '../../context/ThemeContext';
 import { DocumentPanel } from '../documents/DocumentPanel';
 
@@ -10,11 +11,14 @@ import { DocumentPanel } from '../documents/DocumentPanel';
  * - 테마 연동
  * - 메인 콘텐츠와 동시 상호작용 가능
  * - ESC로 닫기
+ * - 드래그로 너비 조절
  */
 export function SidePanel() {
   const { isOpen, panelType, panelData, closePanel } = useSidePanelStore();
+  const { sidePanelWidth, setSidePanelWidth } = useLayoutStore();
   const { isCurrentThemeDark } = useTheme();
   const panelRef = useRef(null);
+  const [isResizing, setIsResizing] = useState(false);
 
   // ESC 키로 닫기
   useEffect(() => {
@@ -28,14 +32,35 @@ export function SidePanel() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, closePanel]);
 
-  // 패널 외부 클릭 감지 (선택적 - 현재는 비활성화)
-  // 메인 콘텐츠와 상호작용이 가능해야 하므로 외부 클릭으로 닫지 않음
+  // 리사이즈 핸들러
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault();
+    setIsResizing(true);
+
+    const startX = e.clientX;
+    const startWidth = sidePanelWidth;
+
+    const handleMouseMove = (e) => {
+      const delta = startX - e.clientX;
+      const newWidth = startWidth + delta;
+      setSidePanelWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [sidePanelWidth, setSidePanelWidth]);
 
   if (!isOpen) return null;
 
   return (
     <>
-      {/* 반투명 오버레이 - 클릭해도 닫히지 않고 메인 콘텐츠 상호작용 가능 */}
+      {/* 반투명 오버레이 - 모바일에서만 클릭으로 닫기 */}
       <div
         className="fixed inset-0 bg-black/20 z-40 lg:hidden"
         onClick={closePanel}
@@ -46,7 +71,6 @@ export function SidePanel() {
         ref={panelRef}
         className={`
           fixed top-0 right-0 h-full z-50
-          w-full sm:w-[480px] lg:w-[520px] xl:w-[580px]
           transform transition-transform duration-300 ease-out
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
           flex flex-col
@@ -57,9 +81,32 @@ export function SidePanel() {
           }
         `}
         style={{
-          // 데스크탑에서는 메인 콘텐츠가 축소되지 않고 패널이 위에 떠있음
+          width: `${sidePanelWidth}px`,
+          maxWidth: '90vw',
         }}
       >
+        {/* 리사이즈 핸들 */}
+        <div
+          className={`
+            absolute left-0 top-0 h-full w-1 cursor-ew-resize z-10
+            group transition-colors
+            ${isResizing
+              ? isCurrentThemeDark ? 'bg-emerald-500' : 'bg-emerald-400'
+              : 'hover:bg-emerald-500/50'
+            }
+          `}
+          onMouseDown={handleMouseDown}
+        >
+          {/* 핸들 시각적 표시 */}
+          <div
+            className={`
+              absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+              w-1 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity
+              ${isCurrentThemeDark ? 'bg-white/30' : 'bg-gray-400'}
+            `}
+          />
+        </div>
+
         {/* 패널 헤더 */}
         <header
           className={`
@@ -117,6 +164,13 @@ export function SidePanel() {
           )}
         </div>
       </aside>
+
+      {/* 리사이즈 중 커서 스타일 */}
+      {isResizing && (
+        <style>{`
+          * { cursor: ew-resize !important; user-select: none !important; }
+        `}</style>
+      )}
     </>
   );
 }
