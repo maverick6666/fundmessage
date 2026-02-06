@@ -244,9 +244,11 @@ class AIService:
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
-                ],
-                "temperature": settings.openai_temperature
+                ]
             }
+            # gpt-5-mini는 temperature 미지원
+            if "gpt-5-mini" not in settings.openai_model:
+                api_params["temperature"] = settings.openai_temperature
             # max_tokens가 0보다 크면 설정
             if settings.openai_max_tokens > 0:
                 api_params["max_tokens"] = settings.openai_max_tokens
@@ -511,9 +513,11 @@ class AIService:
 - 핵심 정보를 먼저 제시"""
                     },
                     {"role": "user", "content": prompt}
-                ],
-                "temperature": settings.openai_temperature
+                ]
             }
+            # gpt-5-mini는 temperature 미지원
+            if "gpt-5-mini" not in settings.openai_model:
+                api_params["temperature"] = settings.openai_temperature
             # max_tokens가 0보다 크면 설정
             if settings.openai_max_tokens_report > 0:
                 api_params["max_tokens"] = settings.openai_max_tokens_report
