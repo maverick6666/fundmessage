@@ -1295,7 +1295,7 @@
 
 | # | 시나리오 | 문제 설명 | 파일/위치 | 해결 상태 |
 |---|----------|----------|-----------|-----------|
-| 1 | 전역 | **alert() 대화상자가 toast 대신 사용됨** - ToastContext 추가 및 toast 변환 완료. git push 완료 (commit 67ef8a5) | frontend/src/pages/*.jsx, frontend/src/context/ToastContext.jsx | 배포됨 - 재테스트 필요 |
+| 1 | 전역 | **alert() 대화상자가 toast 대신 사용됨** - ToastContext 추가 및 toast 변환 완료. | frontend/src/pages/*.jsx, frontend/src/context/ToastContext.jsx | ✅ 해결됨 (매매계획 저장 시 toast 정상 표시 확인) |
 | 2 | 2.2 팀 설정 | **팀 설정 API 실패** - `positions/settings/team` 엔드포인트가 CORS 또는 서버 오류로 실패. 대시보드에서 자본금이 "-"로 표시됨 | backend/app/api/positions.py | 미해결 - 백엔드 조사 필요 |
 | 3 | 9.2 AI 보고서 | **AI 운용보고서 생성 실패** - "보고서 생성 중 오류가 발생했습니다." OpenAI API 키 미설정 또는 서버 오류 | backend/app/services/ai_service.py | 미해결 - API 키 설정 필요 |
 
