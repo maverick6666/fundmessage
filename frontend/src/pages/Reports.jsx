@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Card } from '../components/common/Card';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/common/Button';
-import { Modal } from '../components/common/Modal';
-import { BlockRenderer } from '../components/editor/BlockEditor';
+import { DocumentViewer, PositionNotesViewer } from '../components/documents/DocumentViewer';
 import { reportService } from '../services/reportService';
 import { columnService } from '../services/columnService';
 import { aiService } from '../services/aiService';
+import { positionService } from '../services/positionService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import {
@@ -38,7 +37,13 @@ export function Reports() {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('operations');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Tab state from URL
+  const activeTab = searchParams.get('tab') || 'operations';
+  const setActiveTab = (tab) => {
+    setSearchParams({ tab });
+  };
 
   // Data states
   const [positions, setPositions] = useState([]);
@@ -47,8 +52,15 @@ export function Reports() {
   const [loading, setLoading] = useState(true);
 
   // Modal states
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedColumn, setSelectedColumn] = useState(null);
+  const [showDocumentViewer, setShowDocumentViewer] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [documentType, setDocumentType] = useState('column');
+
+  const [showPositionNotes, setShowPositionNotes] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState(null);
+  const [positionNotes, setPositionNotes] = useState([]);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+
   const [generatingReportId, setGeneratingReportId] = useState(null);
 
   useEffect(() => {
@@ -75,15 +87,59 @@ export function Reports() {
     }
   };
 
-  const handleGenerateReport = async (e, positionId) => {
-    e.preventDefault();
-    e.stopPropagation();
+  // Position click - show notes modal
+  const handlePositionClick = async (position) => {
+    setSelectedPosition(position);
+    setShowPositionNotes(true);
+    setLoadingNotes(true);
+    try {
+      const data = await positionService.getDecisionNotes(position.id);
+      setPositionNotes(data || []);
+    } catch (error) {
+      console.error('Failed to fetch notes:', error);
+      setPositionNotes([]);
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
+
+  // Note click from position modal - show document viewer
+  const handleNoteClick = (note) => {
+    setShowPositionNotes(false);
+    setSelectedDocument(note);
+    setDocumentType('decision-note');
+    setShowDocumentViewer(true);
+  };
+
+  // Decision note click - show document viewer
+  const handleDecisionNoteClick = async (note) => {
+    // Fetch full note content if needed
+    setSelectedDocument(note);
+    setDocumentType('decision-note');
+    setShowDocumentViewer(true);
+  };
+
+  // Column click - show document viewer
+  const handleColumnClick = async (column) => {
+    try {
+      const data = await columnService.getColumn(column.id);
+      setSelectedDocument(data);
+      setDocumentType('column');
+      setShowDocumentViewer(true);
+    } catch (error) {
+      console.error('Failed to fetch column:', error);
+    }
+  };
+
+  const handleGenerateReport = async (positionId) => {
     setGeneratingReportId(positionId);
     try {
       const result = await aiService.generateOperationReport(positionId);
       if (result.data?.content) {
         toast.success('운용보고서가 생성되었습니다');
-        navigate(`/positions/${positionId}`);
+        // Refresh notes for this position
+        const data = await positionService.getDecisionNotes(positionId);
+        setPositionNotes(data || []);
       }
     } catch (error) {
       toast.error(error.response?.data?.detail || 'AI 보고서 생성에 실패했습니다');
@@ -92,32 +148,16 @@ export function Reports() {
     }
   };
 
-  const handleEditColumn = (column) => {
-    navigate(`/columns/${column.id}/edit`);
-  };
-
   const handleDeleteColumn = async (columnId) => {
     if (!confirm('정말 이 칼럼을 삭제하시겠습니까?')) return;
     try {
       await columnService.deleteColumn(columnId);
       fetchData();
-      if (showViewModal && selectedColumn?.id === columnId) {
-        setShowViewModal(false);
-        setSelectedColumn(null);
-      }
+      setShowDocumentViewer(false);
+      setSelectedDocument(null);
       toast.success('칼럼이 삭제되었습니다');
     } catch (error) {
       toast.error(error.response?.data?.detail || '삭제에 실패했습니다');
-    }
-  };
-
-  const handleViewColumn = async (column) => {
-    try {
-      const data = await columnService.getColumn(column.id);
-      setSelectedColumn(data);
-      setShowViewModal(true);
-    } catch (error) {
-      console.error('Failed to fetch column:', error);
     }
   };
 
@@ -130,12 +170,24 @@ export function Reports() {
   ];
 
   const renderEmptyState = (message, subMessage, icon) => (
-    <div className="flex flex-col items-center justify-center py-16 px-4">
+    <div className="flex flex-col items-center justify-center py-20 px-4">
       <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center mb-4 shadow-inner">
         {icon}
       </div>
       <p className="text-gray-600 dark:text-gray-300 font-medium text-center">{message}</p>
       <p className="text-sm text-gray-400 dark:text-gray-500 mt-2 text-center max-w-md">{subMessage}</p>
+    </div>
+  );
+
+  const renderLoading = () => (
+    <div className="flex items-center justify-center py-20">
+      <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+        <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+        <span>불러오는 중...</span>
+      </div>
     </div>
   );
 
@@ -182,17 +234,7 @@ export function Reports() {
       {/* Operations Tab */}
       {activeTab === 'operations' && (
         <div>
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
-                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>불러오는 중...</span>
-              </div>
-            </div>
-          ) : positions.length === 0 ? (
+          {loading ? renderLoading() : positions.length === 0 ? (
             renderEmptyState(
               '포지션이 없습니다',
               '포지션을 개설하면 여기에서 운용보고서를 관리할 수 있습니다',
@@ -203,10 +245,10 @@ export function Reports() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {positions.map((position) => (
-                <Link
+                <button
                   key={position.id}
-                  to={`/positions/${position.id}`}
-                  className="group block"
+                  onClick={() => handlePositionClick(position)}
+                  className="group text-left"
                 >
                   <div className="relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 hover:-translate-y-0.5">
                     {/* Status indicator */}
@@ -222,7 +264,7 @@ export function Reports() {
 
                     {/* Header */}
                     <div className="mb-4">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg leading-tight pr-20">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg leading-tight pr-20 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                         {position.ticker_name || position.ticker}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-mono">
@@ -263,33 +305,17 @@ export function Reports() {
                         <span />
                       )}
 
-                      {isManager && position.has_data && (
-                        <button
-                          onClick={(e) => handleGenerateReport(e, position.id)}
-                          disabled={generatingReportId === position.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors disabled:opacity-50"
-                        >
-                          {generatingReportId === position.id ? (
-                            <>
-                              <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              생성 중...
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                              </svg>
-                              AI 보고서
-                            </>
-                          )}
-                        </button>
+                      {position.has_data && (
+                        <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          데이터 있음
+                        </span>
                       )}
                     </div>
                   </div>
-                </Link>
+                </button>
               ))}
             </div>
           )}
@@ -299,17 +325,7 @@ export function Reports() {
       {/* Decision Notes Tab */}
       {activeTab === 'decisions' && (
         <div>
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
-                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>불러오는 중...</span>
-              </div>
-            </div>
-          ) : decisionNotes.length === 0 ? (
+          {loading ? renderLoading() : decisionNotes.length === 0 ? (
             renderEmptyState(
               '작성된 의사결정서가 없습니다',
               '포지션 상세에서 AI 의사결정서를 생성하거나 직접 작성할 수 있습니다',
@@ -320,10 +336,10 @@ export function Reports() {
           ) : (
             <div className="space-y-3">
               {decisionNotes.map((note) => (
-                <Link
+                <button
                   key={note.id}
-                  to={`/positions/${note.position?.id}`}
-                  className="group block"
+                  onClick={() => handleDecisionNoteClick(note)}
+                  className="group block w-full text-left"
                 >
                   <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 transition-all duration-200 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600">
                     <div className="flex items-start justify-between gap-4">
@@ -363,7 +379,7 @@ export function Reports() {
                       </div>
                     </div>
                   </div>
-                </Link>
+                </button>
               ))}
             </div>
           )}
@@ -373,17 +389,7 @@ export function Reports() {
       {/* Columns Tab */}
       {activeTab === 'columns' && (
         <div>
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
-                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>불러오는 중...</span>
-              </div>
-            </div>
-          ) : columns.length === 0 ? (
+          {loading ? renderLoading() : columns.length === 0 ? (
             renderEmptyState(
               '아직 작성된 칼럼이 없습니다',
               '팀원 누구나 자유롭게 칼럼을 작성할 수 있습니다. 시장 분석, 투자 아이디어 등을 공유해보세요.',
@@ -394,140 +400,63 @@ export function Reports() {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {columns.map((column) => (
-                <div
+                <button
                   key={column.id}
-                  className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600"
+                  onClick={() => handleColumnClick(column)}
+                  className="group text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600"
                 >
-                  <div
-                    className="p-5 cursor-pointer"
-                    onClick={() => handleViewColumn(column)}
-                  >
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-2">
-                        {column.title}
-                      </h3>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
-                        {formatRelativeTime(column.created_at)}
-                      </span>
-                    </div>
-
-                    {column.author && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-xs font-medium">
-                          {column.author.full_name?.charAt(0) || '?'}
-                        </div>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {column.author.full_name}
-                        </span>
-                      </div>
-                    )}
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-2">
+                      {column.title}
+                    </h3>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
+                      {formatRelativeTime(column.created_at)}
+                    </span>
                   </div>
 
-                  {(column.author_id === user?.id || isManager) && (
-                    <div className="flex items-center gap-1 px-5 py-3 bg-gray-50 dark:bg-gray-750 border-t border-gray-100 dark:border-gray-700">
-                      {column.author_id === user?.id && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditColumn(column);
-                          }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-md transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          수정
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteColumn(column.id);
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        삭제
-                      </button>
+                  {column.author && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-xs font-medium">
+                        {column.author.full_name?.charAt(0) || '?'}
+                      </div>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {column.author.full_name}
+                      </span>
                     </div>
                   )}
-                </div>
+                </button>
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* View Column Modal */}
-      <Modal
-        isOpen={showViewModal}
+      {/* Document Viewer Modal */}
+      <DocumentViewer
+        isOpen={showDocumentViewer}
         onClose={() => {
-          setShowViewModal(false);
-          setSelectedColumn(null);
+          setShowDocumentViewer(false);
+          setSelectedDocument(null);
         }}
-        title={selectedColumn?.title || ''}
-      >
-        {selectedColumn && (
-          <div>
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-medium">
-                  {selectedColumn.author?.full_name?.charAt(0) || '?'}
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">
-                    {selectedColumn.author?.full_name}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {formatRelativeTime(selectedColumn.created_at)}
-                  </p>
-                </div>
-              </div>
-            </div>
+        doc={selectedDocument}
+        type={documentType}
+        onDelete={documentType === 'column' ? handleDeleteColumn : undefined}
+      />
 
-            <div className="prose dark:prose-invert max-w-none">
-              {selectedColumn.blocks && selectedColumn.blocks.length > 0 ? (
-                <BlockRenderer blocks={selectedColumn.blocks} />
-              ) : selectedColumn.content ? (
-                selectedColumn.content.split('\n').map((line, i) => (
-                  <p key={i} className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {line || '\u00A0'}
-                  </p>
-                ))
-              ) : null}
-            </div>
-
-            {(selectedColumn.author_id === user?.id || isManager) && (
-              <div className="flex gap-3 mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
-                {selectedColumn.author_id === user?.id && (
-                  <Button
-                    variant="secondary"
-                    onClick={() => navigate(`/columns/${selectedColumn.id}/edit`)}
-                    className="gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    수정
-                  </Button>
-                )}
-                <Button
-                  variant="danger"
-                  onClick={() => handleDeleteColumn(selectedColumn.id)}
-                  className="gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  삭제
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
+      {/* Position Notes Modal */}
+      <PositionNotesViewer
+        isOpen={showPositionNotes}
+        onClose={() => {
+          setShowPositionNotes(false);
+          setSelectedPosition(null);
+          setPositionNotes([]);
+        }}
+        position={selectedPosition}
+        notes={positionNotes}
+        onNoteClick={handleNoteClick}
+        onGenerateReport={handleGenerateReport}
+        isGenerating={generatingReportId === selectedPosition?.id}
+      />
     </div>
   );
 }

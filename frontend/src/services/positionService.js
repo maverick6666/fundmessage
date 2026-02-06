@@ -100,5 +100,11 @@ export const positionService = {
   async deletePosition(id) {
     const response = await api.delete(`/positions/${id}`);
     return response.data;
+  },
+
+  // 의사결정 노트 조회
+  async getDecisionNotes(positionId) {
+    const response = await api.get(`/positions/${positionId}/notes`);
+    return response.data.data?.notes || [];
   }
 };
