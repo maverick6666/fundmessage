@@ -25,6 +25,10 @@ class Settings(BaseSettings):
 
     # OpenAI API
     openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+    openai_temperature: float = 0.7
+    openai_max_tokens: int = 4000
+    openai_max_tokens_report: int = 8000  # 운용보고서용 (더 긴 출력)
 
     # Environment
     environment: str = "development"

@@ -173,12 +173,13 @@ class AIService:
 """
 
             response = self.client.chat.completions.create(
-                model="gpt-5-mini",  # GPT-5 mini: 400k context, 정확한 프롬프트에 적합
+                model=settings.openai_model,
                 messages=[
                     {"role": "system", "content": "당신은 펀드팀의 투자 의사결정을 정리하는 전문가입니다. 토론 내용을 분석하여 명확하고 체계적인 의사결정서를 작성합니다."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=4000
+                max_tokens=settings.openai_max_tokens,
+                temperature=settings.openai_temperature
             )
 
             content = response.choices[0].message.content
@@ -418,7 +419,7 @@ class AIService:
 """
 
             response = self.client.chat.completions.create(
-                model="gpt-5-mini",  # GPT-5 mini: 400k context, 정확한 프롬프트에 적합
+                model=settings.openai_model,
                 messages=[
                     {
                         "role": "system",
@@ -439,7 +440,8 @@ class AIService:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=8000  # 충분한 출력 공간
+                max_tokens=settings.openai_max_tokens_report,
+                temperature=settings.openai_temperature
             )
 
             content = response.choices[0].message.content
