@@ -155,32 +155,56 @@ class AIService:
 다음 형식으로 의사결정서를 작성해주세요:
 
 ## 요약
-(핵심 논의 사항 2-3문장)
+(핵심 논의 사항과 최종 결론 2-3문장)
 
-## 주요 논점
-1. (첫 번째 논점)
-2. (두 번째 논점)
-...
+## 참여자별 주장 정리
+각 참여자가 어떤 입장과 근거를 제시했는지 정리합니다.
 
-## 결론 및 투자 의견
-(최종 의사결정 내용)
+### [참여자 이름]
+- 주요 주장:
+- 제시한 근거:
+
+(모든 참여자에 대해 반복)
+
+## 토론 흐름
+대화가 어떻게 전개되어 결론에 도달했는지 시간순으로 정리합니다.
+
+1. **초기 논의**: (어떻게 시작되었는지)
+2. **쟁점 부각**: (어떤 의견 차이가 있었는지)
+3. **합의 과정**: (어떻게 의견이 수렴되었는지)
+4. **최종 결론**: (무엇으로 결정되었는지)
+
+## 핵심 의사결정
+토론을 통해 도출된 구체적인 결정 사항들:
+- 매수/매도 여부:
+- 목표가/손절가:
+- 기타 결정 사항:
 
 ## 리스크 요인
-(논의된 리스크 사항)
+토론 중 언급된 위험 요소들:
+1.
+2.
 
 ## 후속 조치
-(필요한 후속 조치 사항)
+결정된 사항을 실행하기 위해 필요한 조치:
+1.
+2.
 """
 
-            response = self.client.chat.completions.create(
-                model=settings.openai_model,
-                messages=[
-                    {"role": "system", "content": "당신은 펀드팀의 투자 의사결정을 정리하는 전문가입니다. 토론 내용을 분석하여 명확하고 체계적인 의사결정서를 작성합니다."},
+            # API 호출 파라미터 구성
+            api_params = {
+                "model": settings.openai_model,
+                "messages": [
+                    {"role": "system", "content": "당신은 펀드팀의 투자 의사결정을 정리하는 전문가입니다. 토론에서 누가 어떤 주장을 했는지, 대화가 어떻게 흘러 결론에 도달했는지를 명확히 분석합니다. 실제 대화 내용만 사용하고, 없는 내용을 창작하지 않습니다."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=settings.openai_max_tokens,
-                temperature=settings.openai_temperature
-            )
+                "temperature": settings.openai_temperature
+            }
+            # max_tokens가 0보다 크면 설정
+            if settings.openai_max_tokens > 0:
+                api_params["max_tokens"] = settings.openai_max_tokens
+
+            response = self.client.chat.completions.create(**api_params)
 
             content = response.choices[0].message.content
 
@@ -418,9 +442,10 @@ class AIService:
 (전체 운용 과정에 대한 객관적 정리 - 창작하지 말고 데이터 기반으로만)
 """
 
-            response = self.client.chat.completions.create(
-                model=settings.openai_model,
-                messages=[
+            # API 호출 파라미터 구성
+            api_params = {
+                "model": settings.openai_model,
+                "messages": [
                     {
                         "role": "system",
                         "content": """당신은 펀드팀의 운용보고서를 작성하는 전문가입니다.
@@ -440,9 +465,13 @@ class AIService:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=settings.openai_max_tokens_report,
-                temperature=settings.openai_temperature
-            )
+                "temperature": settings.openai_temperature
+            }
+            # max_tokens가 0보다 크면 설정
+            if settings.openai_max_tokens_report > 0:
+                api_params["max_tokens"] = settings.openai_max_tokens_report
+
+            response = self.client.chat.completions.create(**api_params)
 
             content = response.choices[0].message.content
 
