@@ -20,6 +20,8 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const candlestickSeriesRef = useRef(null);
+  const isSelectingRef = useRef(false);
+  const startTimeRef = useRef(null);
 
   // 종목 검색 (디바운싱 적용)
   useEffect(() => {
@@ -115,27 +117,28 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
     chartRef.current = chart;
     candlestickSeriesRef.current = candlestickSeries;
 
-    // 범위 선택 핸들러
-    let startTime = null;
-
+    // 범위 선택 핸들러 (ref 사용으로 클로저 문제 해결)
     chart.subscribeClick((param) => {
       if (param.time) {
-        if (!isSelecting) {
+        if (!isSelectingRef.current) {
           // 시작점 설정
+          isSelectingRef.current = true;
+          startTimeRef.current = param.time;
           setIsSelecting(true);
-          startTime = param.time;
           setSelectedRange({ from: param.time, to: null });
         } else {
           // 끝점 설정
-          setIsSelecting(false);
+          isSelectingRef.current = false;
           const endTime = param.time;
+          const startTime = startTimeRef.current;
           // 시간 순서 정렬
           if (startTime < endTime) {
             setSelectedRange({ from: startTime, to: endTime });
           } else {
             setSelectedRange({ from: endTime, to: startTime });
           }
-          startTime = null;
+          startTimeRef.current = null;
+          setIsSelecting(false);
         }
       }
     });
@@ -215,6 +218,8 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
     setCandles([]);
     setSelectedRange({ from: null, to: null });
     setIsSelecting(false);
+    isSelectingRef.current = false;
+    startTimeRef.current = null;
     onClose();
   };
 
@@ -318,6 +323,8 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
               onClick={() => {
                 setSelectedRange({ from: null, to: null });
                 setIsSelecting(false);
+                isSelectingRef.current = false;
+                startTimeRef.current = null;
                 if (candlestickSeriesRef.current) {
                   candlestickSeriesRef.current.setMarkers([]);
                 }
