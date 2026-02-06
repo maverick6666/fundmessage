@@ -9,7 +9,8 @@ from app.schemas.position import PriceTarget, PositionBrief
 
 class BuyOrder(BaseModel):
     price: Decimal
-    ratio: Decimal = Field(..., ge=0, le=1)
+    quantity: Optional[Decimal] = None  # 매수 수량
+    ratio: Optional[Decimal] = Field(None, ge=0, le=1)  # Legacy - 비율 방식
 
 
 class BuyRequestCreate(BaseModel):
