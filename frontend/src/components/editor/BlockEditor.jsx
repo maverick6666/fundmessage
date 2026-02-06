@@ -46,6 +46,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [uploadingBlockId, setUploadingBlockId] = useState(null);
   const [menuFilter, setMenuFilter] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
   const menuRef = useRef(null);
   const editorRef = useRef(null);
@@ -125,26 +126,23 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
     } else if (e.key === '/' && block.data.text === '') {
       e.preventDefault();
       const rect = e.target.getBoundingClientRect();
+      const menuWidth = 240;
+      const viewportWidth = window.innerWidth;
 
-      // 컨테이너 기준으로 위치 계산 (사이드 패널 등)
-      const container = containerRef?.current || editorRef.current?.parentElement;
-      if (container) {
-        const containerRect = container.getBoundingClientRect();
-        // 메뉴가 컨테이너 우측 경계를 넘지 않도록 조정
-        const menuWidth = 240;
-        let left = rect.left;
-        if (left + menuWidth > containerRect.right - 20) {
-          left = containerRect.right - menuWidth - 20;
-        }
-        // 메뉴가 컨테이너 좌측 경계를 넘지 않도록 조정
-        if (left < containerRect.left + 10) {
-          left = containerRect.left + 10;
-        }
-        setMenuPosition({ top: rect.bottom + 8, left });
-      } else {
-        setMenuPosition({ top: rect.bottom + 8, left: rect.left });
+      // 메뉴를 입력창 왼쪽 기준으로 표시, 화면 밖으로 나가지 않게 조정
+      let left = rect.left;
+
+      // 오른쪽 overflow 방지: 메뉴가 화면 우측을 넘으면 왼쪽으로 이동
+      if (left + menuWidth > viewportWidth - 20) {
+        left = viewportWidth - menuWidth - 20;
       }
 
+      // 왼쪽 overflow 방지
+      if (left < 10) {
+        left = 10;
+      }
+
+      setMenuPosition({ top: rect.bottom + 8, left });
       setShowMenu(true);
       setMenuFilter('');
       setFocusedBlockId(block.id);
@@ -155,14 +153,34 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
       setShowMenu(false);
       setMenuFilter('');
     }
-  }, [addBlockAfter, deleteBlock, showMenu, containerRef]);
+  }, [addBlockAfter, deleteBlock, showMenu]);
 
-  const handleImageUpload = useCallback(async (blockId, file) => {
-    if (!file) return;
+  // 이미지를 현재 블록 또는 새 블록에 추가
+  const insertImageFromFile = useCallback(async (file, targetBlockId = null) => {
+    if (!file || !file.type.startsWith('image/')) return;
 
-    if (file.size > 200 * 1024) {
-      toast.warning('이미지 크기는 200KB 이하여야 합니다.');
+    if (file.size > 5 * 1024 * 1024) {
+      toast.warning('이미지 크기는 5MB 이하여야 합니다.');
       return;
+    }
+
+    // 타겟 블록이 없으면 현재 포커스된 블록 사용
+    let blockId = targetBlockId || focusedBlockId;
+
+    // 블록이 없거나 이미 이미지가 있으면 새 블록 생성
+    if (!blockId) {
+      const lastBlock = blocks[blocks.length - 1];
+      const newBlock = addBlockAfter(lastBlock.id, 'image');
+      blockId = newBlock.id;
+    } else {
+      // 현재 블록을 이미지 블록으로 변환
+      const currentBlock = blocks.find(b => b.id === blockId);
+      if (currentBlock && currentBlock.type !== 'image') {
+        const newBlocks = blocks.map(b =>
+          b.id === blockId ? { ...b, type: 'image', data: { url: '', caption: '' } } : b
+        );
+        updateBlocks(newBlocks);
+      }
     }
 
     setUploadingBlockId(blockId);
@@ -173,13 +191,58 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
         caption: '',
         filename: result.filename
       });
+      toast.success('이미지가 업로드되었습니다');
     } catch (error) {
       console.error('이미지 업로드 실패:', error);
       toast.error(error.response?.data?.detail || '이미지 업로드에 실패했습니다.');
     } finally {
       setUploadingBlockId(null);
     }
-  }, [updateBlock, toast]);
+  }, [focusedBlockId, blocks, addBlockAfter, updateBlocks, updateBlock, toast]);
+
+  // 클립보드 붙여넣기 핸들러 (이미지 지원)
+  const handlePaste = useCallback((e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          insertImageFromFile(file);
+        }
+        return;
+      }
+    }
+  }, [insertImageFromFile]);
+
+  // 드래그 앤 드롭 핸들러
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragging) setIsDragging(true);
+  }, [isDragging]);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        insertImageFromFile(file);
+      }
+    }
+  }, [insertImageFromFile]);
 
   const handleMenuSelect = useCallback((type) => {
     if (!focusedBlockId) return;
@@ -328,7 +391,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
             </div>
           ) : (
             <div
-              className={`group border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all duration-200 ${
+              className={`group border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 ${
                 isUploading
                   ? isDark
                     ? 'border-emerald-500/50 bg-emerald-500/5'
@@ -337,9 +400,16 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
                     ? 'border-white/10 hover:border-white/20 hover:bg-white/[0.02]'
                     : 'border-gray-300 hover:border-emerald-400 hover:bg-gray-50'
               }`}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
+                // 먼저 블록 ID 설정 후 파일 선택 열기
                 setFocusedBlockId(block.id);
-                fileInputRef.current?.click();
+                // 약간의 딜레이 후 파일 선택기 열기
+                setTimeout(() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.click();
+                  }
+                }, 50);
               }}
             >
               {isUploading ? (
@@ -362,10 +432,10 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
                     </svg>
                   </div>
                   <p className={`text-sm font-medium mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    클릭하여 이미지 업로드
+                    클릭, 드래그 또는 Ctrl+V로 업로드
                   </p>
                   <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                    최대 200KB
+                    최대 5MB
                   </p>
                 </>
               )}
@@ -422,7 +492,28 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
   };
 
   return (
-    <div ref={editorRef} className="relative min-h-[200px]">
+    <div
+      ref={editorRef}
+      className={`relative min-h-[200px] ${isDragging ? 'ring-2 ring-emerald-500/50 ring-inset rounded-lg' : ''}`}
+      onPaste={handlePaste}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* 드래그 오버레이 */}
+      {isDragging && (
+        <div className={`absolute inset-0 z-30 flex items-center justify-center rounded-lg pointer-events-none ${
+          isDark ? 'bg-emerald-500/10' : 'bg-emerald-50/80'
+        }`}>
+          <div className={`flex flex-col items-center gap-2 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm font-medium">이미지를 놓으세요</span>
+          </div>
+        </div>
+      )}
+
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -430,8 +521,8 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
         accept="image/*"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file && focusedBlockId) {
-            handleImageUpload(focusedBlockId, file);
+          if (file) {
+            insertImageFromFile(file, focusedBlockId);
           }
           e.target.value = '';
         }}
