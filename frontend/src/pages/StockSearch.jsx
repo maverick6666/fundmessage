@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
+import { QuickNumberButtons } from '../components/common/NumberInputWithQuickButtons';
 import { StockChart } from '../components/charts/StockChart';
 import { BuyRequestForm } from '../components/forms/BuyRequestForm';
 import { priceService } from '../services/priceService';
@@ -532,10 +533,11 @@ export default function StockSearch() {
 function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, existingPosition, onSuccess, onCancel }) {
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [formData, setFormData] = useState({
     buy_orders: [{ price: currentPrice ? String(Math.round(currentPrice * 1000) / 1000) : '', quantity: '' }],
-    take_profit_targets: [{ price: '', quantity: '' }],
-    stop_loss_targets: [{ price: '', quantity: '' }],
+    take_profit_targets: [],  // 초기값 빈 배열 (고급 옵션)
+    stop_loss_targets: [],    // 초기값 빈 배열 (고급 옵션)
     memo: '',
   });
 
@@ -576,10 +578,8 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
 
   // 익절 타겟 삭제
   const removeTakeProfitTarget = (index) => {
-    if (formData.take_profit_targets.length > 1) {
-      const newTargets = formData.take_profit_targets.filter((_, i) => i !== index);
-      setFormData({ ...formData, take_profit_targets: newTargets });
-    }
+    const newTargets = formData.take_profit_targets.filter((_, i) => i !== index);
+    setFormData({ ...formData, take_profit_targets: newTargets });
   };
 
   // 익절 타겟 업데이트
@@ -601,10 +601,8 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
 
   // 손절 타겟 삭제
   const removeStopLossTarget = (index) => {
-    if (formData.stop_loss_targets.length > 1) {
-      const newTargets = formData.stop_loss_targets.filter((_, i) => i !== index);
-      setFormData({ ...formData, stop_loss_targets: newTargets });
-    }
+    const newTargets = formData.stop_loss_targets.filter((_, i) => i !== index);
+    setFormData({ ...formData, stop_loss_targets: newTargets });
   };
 
   // 손절 타겟 업데이트
@@ -879,35 +877,47 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
         </div>
         <div className="space-y-2">
           {formData.buy_orders.map((order, index) => (
-            <div key={index} className="flex gap-2 items-center">
-              <input
-                type="number"
-                step="any"
-                placeholder="매수가"
-                value={order.price}
-                onChange={(e) => updateBuyOrder(index, 'price', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-              />
-              <input
-                type="number"
-                step="any"
-                min="0"
-                placeholder="수량"
-                value={order.quantity}
-                onChange={(e) => updateBuyOrder(index, 'quantity', e.target.value)}
-                className="w-28 px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-              />
-              {formData.buy_orders.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeBuyOrder(index)}
-                  className="p-1 text-gray-400 hover:text-red-500"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
+            <div key={index} className="space-y-1">
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="매수가"
+                  value={order.price}
+                  onChange={(e) => updateBuyOrder(index, 'price', e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  placeholder="수량"
+                  value={order.quantity}
+                  onChange={(e) => updateBuyOrder(index, 'quantity', e.target.value)}
+                  className="w-28 px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+                {formData.buy_orders.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeBuyOrder(index)}
+                    className="p-1 text-gray-400 hover:text-red-500"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              {/* 수량 빠른 입력 버튼 */}
+              <div className="ml-auto" style={{ width: '7rem' }}>
+                <QuickNumberButtons
+                  onAdd={(num) => {
+                    const currentQty = parseFloat(order.quantity) || 0;
+                    updateBuyOrder(index, 'quantity', String(currentQty + num));
+                  }}
+                  quickValues={[1, 5, 10, 50, 100]}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -931,104 +941,136 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
         </div>
       )}
 
-      {/* 익절 */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">익절</label>
-          {formData.take_profit_targets.length < 4 && (
-            <button
-              type="button"
-              onClick={addTakeProfitTarget}
-              className="text-xs text-primary-600 hover:text-primary-700"
-            >
-              + 추가
-            </button>
+      {/* 고급 옵션 (익절/손절) */}
+      <div className="border-t dark:border-gray-700 pt-4">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+        >
+          <svg
+            className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+          </svg>
+          고급 옵션 (익절/손절)
+          {(formData.take_profit_targets.length > 0 || formData.stop_loss_targets.length > 0) && (
+            <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded">
+              {formData.take_profit_targets.length + formData.stop_loss_targets.length}
+            </span>
           )}
-        </div>
-        <div className="space-y-2">
-          {formData.take_profit_targets.map((target, index) => (
-            <div key={index} className="flex gap-2 items-center">
-              <input
-                type="number"
-                step="any"
-                placeholder="익절가"
-                value={target.price}
-                onChange={(e) => updateTakeProfitTarget(index, 'price', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-              />
-              <input
-                type="number"
-                step="any"
-                min="0"
-                placeholder="수량"
-                value={target.quantity}
-                onChange={(e) => updateTakeProfitTarget(index, 'quantity', e.target.value)}
-                className="w-28 px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-              />
-              {formData.take_profit_targets.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeTakeProfitTarget(index)}
-                  className="p-1 text-gray-400 hover:text-red-500"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+        </button>
 
-      {/* 손절 */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">손절</label>
-          {formData.stop_loss_targets.length < 4 && (
-            <button
-              type="button"
-              onClick={addStopLossTarget}
-              className="text-xs text-primary-600 hover:text-primary-700"
-            >
-              + 추가
-            </button>
-          )}
-        </div>
-        <div className="space-y-2">
-          {formData.stop_loss_targets.map((target, index) => (
-            <div key={index} className="flex gap-2 items-center">
-              <input
-                type="number"
-                step="any"
-                placeholder="손절가"
-                value={target.price}
-                onChange={(e) => updateStopLossTarget(index, 'price', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-              />
-              <input
-                type="number"
-                step="any"
-                min="0"
-                placeholder="수량"
-                value={target.quantity}
-                onChange={(e) => updateStopLossTarget(index, 'quantity', e.target.value)}
-                className="w-28 px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-              />
-              {formData.stop_loss_targets.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeStopLossTarget(index)}
-                  className="p-1 text-gray-400 hover:text-red-500"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+        {showAdvanced && (
+          <div className="mt-4 space-y-4 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+            {/* 익절 */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">익절</label>
+                {formData.take_profit_targets.length < 4 && (
+                  <button
+                    type="button"
+                    onClick={addTakeProfitTarget}
+                    className="text-xs text-primary-600 hover:text-primary-700"
+                  >
+                    + 추가
+                  </button>
+                )}
+              </div>
+              {formData.take_profit_targets.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">익절 타겟이 없습니다. + 추가 버튼을 눌러 추가하세요.</p>
+              ) : (
+                <div className="space-y-2">
+                  {formData.take_profit_targets.map((target, index) => (
+                    <div key={index} className="flex gap-2 items-center">
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="익절가"
+                        value={target.price}
+                        onChange={(e) => updateTakeProfitTarget(index, 'price', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                      />
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        placeholder="수량"
+                        value={target.quantity}
+                        onChange={(e) => updateTakeProfitTarget(index, 'quantity', e.target.value)}
+                        className="w-28 px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeTakeProfitTarget(index)}
+                        className="p-1 text-gray-400 hover:text-red-500"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-          ))}
-        </div>
+
+            {/* 손절 */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">손절</label>
+                {formData.stop_loss_targets.length < 4 && (
+                  <button
+                    type="button"
+                    onClick={addStopLossTarget}
+                    className="text-xs text-primary-600 hover:text-primary-700"
+                  >
+                    + 추가
+                  </button>
+                )}
+              </div>
+              {formData.stop_loss_targets.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">손절 타겟이 없습니다. + 추가 버튼을 눌러 추가하세요.</p>
+              ) : (
+                <div className="space-y-2">
+                  {formData.stop_loss_targets.map((target, index) => (
+                    <div key={index} className="flex gap-2 items-center">
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="손절가"
+                        value={target.price}
+                        onChange={(e) => updateStopLossTarget(index, 'price', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                      />
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        placeholder="수량"
+                        value={target.quantity}
+                        onChange={(e) => updateStopLossTarget(index, 'quantity', e.target.value)}
+                        className="w-28 px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeStopLossTarget(index)}
+                        className="p-1 text-gray-400 hover:text-red-500"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 메모 */}

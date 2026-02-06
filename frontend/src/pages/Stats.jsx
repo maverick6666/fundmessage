@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle } from '../components/common/Card';
+import { ProfitProgressBar } from '../components/common/ProfitProgressBar';
 import { statsService } from '../services/statsService';
 import { positionService } from '../services/positionService';
 import { useAuth } from '../hooks/useAuth';
@@ -447,10 +448,8 @@ export function Stats() {
               </p>
             </Card>
             <Card>
-              <p className="text-sm text-gray-500 dark:text-gray-400">평균 수익률</p>
-              <p className={`text-2xl font-bold ${getProfitLossClass(myStats.overall.avg_profit_rate)}`}>
-                {formatPercent(myStats.overall.avg_profit_rate)}
-              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">평균 수익률</p>
+              <ProfitProgressBar value={myStats.overall.avg_profit_rate} size="lg" />
             </Card>
           </div>
 

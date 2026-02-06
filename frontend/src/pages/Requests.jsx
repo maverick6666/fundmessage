@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import {
   formatCurrency,
   formatPercent,
+  formatPriceQuantity,
   formatRelativeTime,
   getStatusBadgeClass,
   getStatusLabel,
@@ -294,7 +295,7 @@ export function Requests() {
                             <span className="text-gray-500 dark:text-gray-400">익절: </span>
                             {request.take_profit_targets.map((t, i) => (
                               <span key={i} className="text-red-600 dark:text-red-400 mr-2">
-                                {formatCurrency(t.price, request.target_market)} x {t.quantity ?? formatPercent(t.ratio)}
+                                {formatPriceQuantity(t.price, t.quantity, request.target_market, t.ratio)}
                               </span>
                             ))}
                           </div>
@@ -306,7 +307,7 @@ export function Requests() {
                             <span className="text-gray-500 dark:text-gray-400">손절: </span>
                             {request.stop_loss_targets.map((t, i) => (
                               <span key={i} className="text-blue-600 dark:text-blue-400 mr-2">
-                                {formatCurrency(t.price, request.target_market)} x {t.quantity ?? formatPercent(t.ratio)}
+                                {formatPriceQuantity(t.price, t.quantity, request.target_market, t.ratio)}
                               </span>
                             ))}
                           </div>

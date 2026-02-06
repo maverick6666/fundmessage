@@ -15,6 +15,7 @@ import {
   formatDate,
   formatHours,
   formatQuantity,
+  formatPriceQuantity,
   calcHoldingHours,
   getStatusBadgeClass,
   getStatusLabel,
@@ -495,7 +496,7 @@ export function PositionDetail() {
             className={`${item.completed ? 'text-gray-500 line-through' : isCancelled ? 'text-gray-400 line-through' : ''} ${!isClosed ? 'cursor-pointer hover:underline' : ''}`}
             onClick={() => !isClosed && startEditPlanItem(planType, index, item)}
           >
-            {formatCurrency(item.price, position.market)} × {formatQuantity(item.quantity)}
+            {formatPriceQuantity(item.price, item.quantity, position.market)}
           </span>
         </div>
         <div className="flex items-center gap-2">

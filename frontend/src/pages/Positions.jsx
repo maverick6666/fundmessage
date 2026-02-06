@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/common/Button';
+import { ProfitProgressBar } from '../components/common/ProfitProgressBar';
 import { usePositions } from '../hooks/usePositions';
 import { priceService } from '../services/priceService';
 import { positionService } from '../services/positionService';
@@ -200,16 +201,8 @@ export function Positions() {
                         {/* Right: P&L highlight */}
                         <div className="flex items-center gap-3">
                           <div className="text-right">
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">{isOpen ? '수익률' : '실현 수익률'}</p>
-                            <p className={`text-xl font-bold ${
-                              isProfit ? 'text-red-500' : isLoss ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'
-                            }`}>
-                              {profitRate != null ? (
-                                <>
-                                  {profitRate > 0 ? '+' : ''}{formatPercent(profitRate)}
-                                </>
-                              ) : '-'}
-                            </p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">{isOpen ? '수익률' : '실현 수익률'}</p>
+                            <ProfitProgressBar value={profitRate} size="lg" />
                           </div>
                           {/* Expand Arrow */}
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${

@@ -150,3 +150,35 @@ export function getProfitLossClass(value) {
   if (value == null || value === 0) return 'text-gray-600';
   return value > 0 ? 'text-red-600' : 'text-blue-600';
 }
+
+// 가격과 수량을 명확하게 표시
+// 예: "₩20,000 (50주)" 또는 "$150.00 (10 shares)"
+// ratio가 있으면 percentage로 표시 (legacy 데이터 지원)
+export function formatPriceQuantity(price, quantity, market = 'KRX', ratio = null) {
+  if (price == null) return '-';
+
+  const formattedPrice = formatCurrency(price, market);
+
+  // quantity 또는 ratio 중 하나 사용
+  if (quantity != null) {
+    const formattedQty = formatQuantity(quantity);
+
+    // 시장별 단위 결정
+    const isKorean = market === 'KOSPI' || market === 'KOSDAQ' || market === 'KRX';
+    const isCrypto = market === 'CRYPTO' || market === 'USDT';
+
+    let unit = '';
+    if (isKorean) {
+      unit = '주';
+    } else if (!isCrypto) {
+      unit = ' shares';
+    }
+
+    return `${formattedPrice} (${formattedQty}${unit})`;
+  } else if (ratio != null) {
+    // legacy: ratio로 표시
+    return `${formattedPrice} (${formatPercent(ratio)})`;
+  }
+
+  return formattedPrice;
+}
