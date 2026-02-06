@@ -163,6 +163,7 @@ export function SidePanel() {
             <DocumentPanel
               document={panelData.document}
               type={panelData.documentType}
+              onSaved={panelData?.onSaved}
             />
           )}
           {panelType === 'column-editor' && (

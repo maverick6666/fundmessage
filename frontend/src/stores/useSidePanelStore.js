@@ -45,12 +45,12 @@ export const useSidePanelStore = create((set, get) => ({
   },
 
   // 문서 열기 헬퍼
-  openDocument: (document, documentType = 'decision-note') => {
+  openDocument: (document, documentType = 'decision-note', onSaved = null) => {
     const { isOpen, openPanel, replacePanel } = get();
     const action = isOpen ? replacePanel : openPanel;
     action({
       type: 'document',
-      data: { document, documentType },
+      data: { document, documentType, onSaved },
     });
   },
 

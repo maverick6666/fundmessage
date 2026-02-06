@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { BlockRenderer } from '../editor/BlockEditor';
@@ -13,12 +12,12 @@ import { useSidePanelStore } from '../../stores/useSidePanelStore';
  * - 테마 연동 (라이트/다크)
  * - 스크롤 가능
  * - 마크다운 및 블록 콘텐츠 지원
+ * - 인라인 편집 지원 (칼럼)
  */
-export function DocumentPanel({ document: doc, type = 'decision-note', onDelete }) {
-  const navigate = useNavigate();
+export function DocumentPanel({ document: doc, type = 'decision-note', onDelete, onSaved }) {
   const { user } = useAuth();
   const { isCurrentThemeDark } = useTheme();
-  const { closePanel } = useSidePanelStore();
+  const { openColumnEditor } = useSidePanelStore();
 
   if (!doc) return null;
 
@@ -29,8 +28,8 @@ export function DocumentPanel({ document: doc, type = 'decision-note', onDelete 
 
   const handleEdit = () => {
     if (type === 'column' && doc?.id) {
-      closePanel();
-      navigate(`/columns/${doc.id}/edit`);
+      // 사이드 패널 내에서 편집 모드로 전환
+      openColumnEditor(doc.id, onSaved);
     }
   };
 

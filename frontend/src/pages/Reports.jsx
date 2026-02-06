@@ -104,19 +104,19 @@ export function Reports() {
   // Note click from position modal - open side panel
   const handleNoteClick = (note) => {
     setShowPositionNotes(false);
-    openDocument(note, 'decision-note');
+    openDocument(note, 'decision-note', fetchData);
   };
 
   // Decision note click - open side panel
   const handleDecisionNoteClick = (note) => {
-    openDocument(note, 'decision-note');
+    openDocument(note, 'decision-note', fetchData);
   };
 
   // Column click - open side panel
   const handleColumnClick = async (column) => {
     try {
       const data = await columnService.getColumn(column.id);
-      openDocument(data, 'column');
+      openDocument(data, 'column', fetchData);
     } catch (error) {
       console.error('Failed to fetch column:', error);
     }
