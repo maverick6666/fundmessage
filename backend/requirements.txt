@@ -33,3 +33,6 @@ yfinance>=0.2.36
 aiohttp>=3.9.0
 pykrx>=1.0.45
 rapidfuzz>=3.6.0
+
+# AI
+openai>=1.0.0
