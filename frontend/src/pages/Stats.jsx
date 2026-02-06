@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle } from '../components/common/Card';
 import { ProfitProgressBar } from '../components/common/ProfitProgressBar';
 import { statsService } from '../services/statsService';
 import { positionService } from '../services/positionService';
+import { userService } from '../services/userService';
 import { useAuth } from '../hooks/useAuth';
 import {
   formatCurrency,
@@ -19,6 +20,9 @@ export function Stats() {
   const [teamStats, setTeamStats] = useState(null);
   const [teamSettings, setTeamSettings] = useState(null);
   const [exchangeRate, setExchangeRate] = useState(null);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const [selectedMemberStats, setSelectedMemberStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tickerFilter, setTickerFilter] = useState('open'); // open, closed, all
 
@@ -30,16 +34,18 @@ export function Stats() {
     if (!user) return;
     setLoading(true);
     try {
-      const [my, team, rate, settings] = await Promise.all([
+      const [my, team, rate, settings, members] = await Promise.all([
         statsService.getUserStats(user.id),
         statsService.getTeamStats(),
         statsService.getExchangeRate().catch(() => ({ usd_krw: null })),
-        positionService.getTeamSettings().catch(() => null)
+        positionService.getTeamSettings().catch(() => null),
+        userService.getTeamMembers().catch(() => ({ members: [] }))
       ]);
       setMyStats(my);
       setTeamStats(team);
       setExchangeRate(rate.usd_krw);
       setTeamSettings(settings);
+      setTeamMembers(members.members || []);
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     } finally {
@@ -68,18 +74,24 @@ export function Stats() {
       <h1 className="text-2xl font-bold dark:text-gray-100">통계</h1>
 
       {/* Tabs */}
-      <div className="flex gap-2">
-        {['team', 'my', 'leaderboard'].map(tab => (
+      <div className="flex gap-2 flex-wrap">
+        {['team', 'my', 'members', 'leaderboard'].map(tab => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setActiveTab(tab);
+              if (tab !== 'members') {
+                setSelectedMemberId(null);
+                setSelectedMemberStats(null);
+              }
+            }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeTab === tab
                 ? 'bg-primary-600 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
             }`}
           >
-            {tab === 'team' ? '팀 전체' : tab === 'my' ? '내 성과' : '리더보드'}
+            {tab === 'team' ? '팀 전체' : tab === 'my' ? '내 성과' : tab === 'members' ? '팀원' : '리더보드'}
           </button>
         ))}
       </div>
@@ -495,6 +507,117 @@ export function Stats() {
                 )}
               </div>
             </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Team Members */}
+      {activeTab === 'members' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* 팀원 목록 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>팀원 목록</CardTitle>
+            </CardHeader>
+            <div className="space-y-1">
+              {teamMembers.map((member) => (
+                <button
+                  key={member.id}
+                  onClick={async () => {
+                    setSelectedMemberId(member.id);
+                    try {
+                      const stats = await statsService.getUserStats(member.id);
+                      setSelectedMemberStats(stats);
+                    } catch (error) {
+                      console.error('Failed to fetch member stats:', error);
+                      setSelectedMemberStats(null);
+                    }
+                  }}
+                  className={`w-full px-3 py-2 text-left rounded-lg transition-colors ${
+                    selectedMemberId === member.id
+                      ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium dark:text-gray-200">{member.full_name || member.username}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      member.role === 'manager'
+                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                        : member.role === 'admin'
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                    }`}>
+                      {member.role === 'manager' ? '팀장' : member.role === 'admin' ? '관리자' : '팀원'}
+                    </span>
+                  </div>
+                </button>
+              ))}
+              {teamMembers.length === 0 && (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-4">팀원이 없습니다</p>
+              )}
+            </div>
+          </Card>
+
+          {/* 선택된 팀원 통계 */}
+          <div className="lg:col-span-2 space-y-4">
+            {selectedMemberStats ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      {teamMembers.find(m => m.id === selectedMemberId)?.full_name || '팀원'} 통계
+                    </CardTitle>
+                  </CardHeader>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">총 거래</p>
+                      <p className="text-xl font-bold dark:text-gray-100">{selectedMemberStats.overall?.total_trades || 0}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">승률</p>
+                      <p className="text-xl font-bold dark:text-gray-100">{formatPercent(selectedMemberStats.overall?.win_rate || 0)}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">총 손익</p>
+                      <p className={`text-xl font-bold ${getProfitLossClass(selectedMemberStats.overall?.total_profit_loss)}`}>
+                        {formatCurrency(selectedMemberStats.overall?.total_profit_loss || 0)}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">평균 수익률</p>
+                      <ProfitProgressBar value={selectedMemberStats.overall?.avg_profit_rate || 0} size="md" />
+                    </div>
+                  </div>
+                </Card>
+
+                {selectedMemberStats.best_trade && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">최고 거래</p>
+                      <p className="font-medium dark:text-gray-200">{selectedMemberStats.best_trade.ticker}</p>
+                      <ProfitProgressBar value={selectedMemberStats.best_trade.profit_rate} size="sm" />
+                    </Card>
+                    {selectedMemberStats.worst_trade && (
+                      <Card>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">최악 거래</p>
+                        <p className="font-medium dark:text-gray-200">{selectedMemberStats.worst_trade.ticker}</p>
+                        <ProfitProgressBar value={selectedMemberStats.worst_trade.profit_rate} size="sm" />
+                      </Card>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <Card>
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <p>팀원을 선택하면 통계를 볼 수 있습니다</p>
+                </div>
+              </Card>
+            )}
           </div>
         </div>
       )}

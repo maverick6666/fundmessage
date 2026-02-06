@@ -27,6 +27,38 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     )
 
 
+@router.get("/team-members", response_model=APIResponse)
+async def get_team_members(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get team member list (all authenticated users can access)
+
+    Returns basic info for all active team members
+    """
+    auth_service = AuthService(db)
+    users = auth_service.get_all_users(is_active=True)
+
+    # Return limited info (no email for non-managers)
+    members = []
+    for u in users:
+        member_data = {
+            "id": u.id,
+            "username": u.username,
+            "full_name": u.full_name,
+            "role": u.role,
+        }
+        members.append(member_data)
+
+    return APIResponse(
+        success=True,
+        data={
+            "members": members,
+            "total": len(members)
+        }
+    )
+
+
 @router.get("", response_model=APIResponse)
 async def get_users(
     role: Optional[str] = None,
@@ -34,7 +66,7 @@ async def get_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_manager_or_admin)
 ):
-    """Get all users (admin/manager only)"""
+    """Get all users with full details (admin/manager only)"""
     auth_service = AuthService(db)
     users = auth_service.get_all_users(role=role, is_active=is_active)
 

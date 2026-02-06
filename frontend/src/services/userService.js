@@ -1,6 +1,13 @@
 import api from './api';
 
 export const userService = {
+  // 팀원 목록 조회 (모든 인증된 사용자 접근 가능)
+  async getTeamMembers() {
+    const response = await api.get('/users/team-members');
+    return response.data.data;
+  },
+
+  // 사용자 목록 조회 (관리자/팀장만)
   async getUsers({ role, is_active } = {}) {
     const params = new URLSearchParams();
     if (role) params.append('role', role);
