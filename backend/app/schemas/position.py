@@ -62,6 +62,12 @@ class PositionConfirmInfo(BaseModel):
     ticker_name: Optional[str] = None  # 종목명
 
 
+class PositionStatusInfo(BaseModel):
+    status: str  # 'normal', 'needs_close', 'no_plan'
+    alert: Optional[str] = None  # 'warning', 'danger', None
+    message: Optional[str] = None
+
+
 class PositionResponse(BaseModel):
     id: int
     ticker: str
@@ -83,12 +89,14 @@ class PositionResponse(BaseModel):
     total_sell_amount: Optional[Decimal]
     profit_loss: Optional[Decimal]
     profit_rate: Optional[Decimal]
+    realized_profit_loss: Optional[Decimal] = 0  # 실현손익
     holding_period_hours: Optional[int]
     opened_at: Optional[datetime]
     closed_at: Optional[datetime]
     opened_by: Optional[UserBrief]
     closed_by: Optional[UserBrief]
     created_at: datetime
+    status_info: Optional[PositionStatusInfo] = None  # 포지션 상태 정보
 
     class Config:
         from_attributes = True
@@ -106,10 +114,12 @@ class PositionBrief(BaseModel):
     total_buy_amount: Optional[Decimal]
     profit_loss: Optional[Decimal] = None
     profit_rate: Optional[Decimal] = None
+    realized_profit_loss: Optional[Decimal] = 0  # 실현손익
     # 남은 계획 수
     remaining_buys: int = 0
     remaining_take_profits: int = 0
     remaining_stop_losses: int = 0
+    status_info: Optional[PositionStatusInfo] = None  # 포지션 상태 정보
 
     class Config:
         from_attributes = True

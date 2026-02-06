@@ -267,7 +267,7 @@ class PositionService:
         completed: bool,
         user_id: int = None
     ) -> Position:
-        """계획 항목의 완료 상태 토글"""
+        """계획 항목의 완료 상태 토글 - 실제 포지션에 영향을 줌"""
         position = self.get_position_by_id(position_id)
         if not position:
             raise HTTPException(
@@ -275,31 +275,110 @@ class PositionService:
                 detail="Position not found"
             )
 
+        if position.status == PositionStatus.CLOSED.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="종료된 포지션은 수정할 수 없습니다"
+            )
+
         old_value = None
         new_value = None
         field_name = None
+        changes = {}
 
         if plan_type == 'buy':
             if position.buy_plan and index < len(position.buy_plan):
-                old_value = position.buy_plan[index].get('completed', False)
+                item = position.buy_plan[index]
+                old_completed = item.get('completed', False)
+
+                # 이미 같은 상태면 무시
+                if old_completed == completed:
+                    return position
+
+                # 매수 체크: 수량 증가, 평균단가 재계산
+                if completed and not old_completed:
+                    buy_price = Decimal(str(item.get('price', 0)))
+                    buy_quantity = Decimal(str(item.get('quantity', 0)))
+
+                    if buy_price > 0 and buy_quantity > 0:
+                        old_qty = position.total_quantity or Decimal(0)
+                        old_amount = position.total_buy_amount or Decimal(0)
+                        new_amount = buy_price * buy_quantity
+
+                        position.total_quantity = old_qty + buy_quantity
+                        position.total_buy_amount = old_amount + new_amount
+
+                        if position.total_quantity > 0:
+                            position.average_buy_price = position.total_buy_amount / position.total_quantity
+
+                        changes['total_quantity'] = {'old': float(old_qty), 'new': float(position.total_quantity)}
+                        changes['average_buy_price'] = {'old': float(position.average_buy_price or 0), 'new': float(position.average_buy_price)}
+
+                # 매수 체크 해제: 수량 감소 (체크 해제는 허용하지 않음)
+                elif not completed and old_completed:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="체결된 매수는 취소할 수 없습니다. 매도 계획을 사용하세요."
+                    )
+
                 position.buy_plan[index]['completed'] = completed
+                old_value = old_completed
                 new_value = completed
                 field_name = f"buy_plan[{index}].completed"
                 flag_modified(position, 'buy_plan')
-        elif plan_type == 'take_profit':
-            if position.take_profit_targets and index < len(position.take_profit_targets):
-                old_value = position.take_profit_targets[index].get('completed', False)
-                position.take_profit_targets[index]['completed'] = completed
+
+        elif plan_type in ['take_profit', 'stop_loss']:
+            targets = position.take_profit_targets if plan_type == 'take_profit' else position.stop_loss_targets
+            target_name = 'take_profit_targets' if plan_type == 'take_profit' else 'stop_loss_targets'
+            label = '익절' if plan_type == 'take_profit' else '손절'
+
+            if targets and index < len(targets):
+                item = targets[index]
+                old_completed = item.get('completed', False)
+
+                if old_completed == completed:
+                    return position
+
+                # 익절/손절 체크: 수량 감소, 실현손익 계산
+                if completed and not old_completed:
+                    sell_price = Decimal(str(item.get('price', 0)))
+                    sell_quantity = Decimal(str(item.get('quantity', 0)))
+
+                    if sell_price > 0 and sell_quantity > 0:
+                        current_qty = position.total_quantity or Decimal(0)
+
+                        if sell_quantity > current_qty:
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=f"{label} 수량({sell_quantity})이 보유 수량({current_qty})보다 많습니다"
+                            )
+
+                        # 실현손익 계산
+                        avg_buy = position.average_buy_price or Decimal(0)
+                        realized_pnl = (sell_price - avg_buy) * sell_quantity
+
+                        old_qty = float(current_qty)
+                        old_realized = float(position.realized_profit_loss or 0)
+
+                        position.total_quantity = current_qty - sell_quantity
+                        position.total_buy_amount = position.total_quantity * avg_buy
+                        position.realized_profit_loss = (position.realized_profit_loss or Decimal(0)) + realized_pnl
+
+                        changes['total_quantity'] = {'old': old_qty, 'new': float(position.total_quantity)}
+                        changes['realized_profit_loss'] = {'old': old_realized, 'new': float(position.realized_profit_loss)}
+
+                # 익절/손절 체크 해제는 허용하지 않음
+                elif not completed and old_completed:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"체결된 {label}은 취소할 수 없습니다"
+                    )
+
+                targets[index]['completed'] = completed
+                old_value = old_completed
                 new_value = completed
-                field_name = f"take_profit_targets[{index}].completed"
-                flag_modified(position, 'take_profit_targets')
-        elif plan_type == 'stop_loss':
-            if position.stop_loss_targets and index < len(position.stop_loss_targets):
-                old_value = position.stop_loss_targets[index].get('completed', False)
-                position.stop_loss_targets[index]['completed'] = completed
-                new_value = completed
-                field_name = f"stop_loss_targets[{index}].completed"
-                flag_modified(position, 'stop_loss_targets')
+                field_name = f"{target_name}[{index}].completed"
+                flag_modified(position, target_name)
 
         self.db.commit()
         self.db.refresh(position)
@@ -307,17 +386,82 @@ class PositionService:
         # Audit log
         if user_id and field_name:
             audit_service = AuditService(self.db)
-            audit_service.log_change(
-                entity_type='position',
-                entity_id=position_id,
-                action='toggle',
-                user_id=user_id,
-                field_name=field_name,
-                old_value=old_value,
-                new_value=new_value
-            )
+            if changes:
+                audit_service.log_multiple_changes(
+                    entity_type='position',
+                    entity_id=position_id,
+                    user_id=user_id,
+                    changes=changes
+                )
+            else:
+                audit_service.log_change(
+                    entity_type='position',
+                    entity_id=position_id,
+                    action='toggle',
+                    user_id=user_id,
+                    field_name=field_name,
+                    old_value=old_value,
+                    new_value=new_value
+                )
 
         return position
+
+    def get_position_status_info(self, position: Position) -> dict:
+        """포지션의 상태 정보 계산 (팀장 주의 필요 여부 등)"""
+        if position.status == PositionStatus.CLOSED.value:
+            return {'status': 'closed', 'alert': None}
+
+        current_qty = float(position.total_quantity or 0)
+
+        # 유효한 계획 항목 수 계산 (가격과 수량이 있는 것만)
+        def count_valid_items(items, completed_only=False):
+            if not items:
+                return 0
+            return sum(1 for i in items
+                      if i.get('price') and i.get('quantity') and
+                      (not completed_only or i.get('completed', False)))
+
+        def count_pending_items(items):
+            if not items:
+                return 0
+            return sum(1 for i in items
+                      if i.get('price') and i.get('quantity') and not i.get('completed', False))
+
+        pending_tp = count_pending_items(position.take_profit_targets)
+        pending_sl = count_pending_items(position.stop_loss_targets)
+        pending_buy = count_pending_items(position.buy_plan)
+
+        completed_tp = count_valid_items(position.take_profit_targets, completed_only=True)
+        completed_sl = count_valid_items(position.stop_loss_targets, completed_only=True)
+
+        # 케이스 1: 잔량이 0인데 포지션이 열려있음 → 종료 필요
+        if current_qty <= 0:
+            return {
+                'status': 'needs_close',
+                'alert': 'danger',
+                'message': '잔량 0 - 포지션 종료 필요'
+            }
+
+        # 케이스 2: 잔량이 있는데 모든 매도 계획이 완료됨 → 계획 필요
+        if pending_tp == 0 and pending_sl == 0 and (completed_tp > 0 or completed_sl > 0):
+            return {
+                'status': 'no_plan',
+                'alert': 'warning',
+                'message': '매도 계획 없음'
+            }
+
+        # 케이스 3: 잔량이 있는데 매도 계획 자체가 없음 → 계획 필요
+        total_valid_tp = count_valid_items(position.take_profit_targets)
+        total_valid_sl = count_valid_items(position.stop_loss_targets)
+        if total_valid_tp == 0 and total_valid_sl == 0:
+            return {
+                'status': 'no_plan',
+                'alert': 'warning',
+                'message': '매도 계획 없음'
+            }
+
+        # 정상
+        return {'status': 'normal', 'alert': None}
 
     def _normalize_plan_item(self, item: dict) -> dict:
         """계획 항목을 정규화 (비교용)"""

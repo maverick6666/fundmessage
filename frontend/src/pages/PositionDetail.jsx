@@ -334,10 +334,44 @@ export function PositionDetail() {
 
   // 체크박스 토글 (팀장만)
   const handleTogglePlan = async (planType, index, completed) => {
+    // 완료 체크 시 확인 (실제 포지션에 영향을 주므로)
+    if (completed) {
+      let confirmMsg = '';
+      let item = null;
+
+      if (planType === 'buy') {
+        item = position.buy_plan?.[index];
+        if (item?.price && item?.quantity) {
+          confirmMsg = `매수 체결: ${formatPriceQuantity(item.price, item.quantity, position.market)}\n\n이 작업은 보유 수량과 평균단가에 반영됩니다.\n체결 처리하시겠습니까?`;
+        }
+      } else if (planType === 'take_profit') {
+        item = position.take_profit_targets?.[index];
+        if (item?.price && item?.quantity) {
+          const pnl = (parseFloat(item.price) - parseFloat(position.average_buy_price)) * parseFloat(item.quantity);
+          confirmMsg = `익절 체결: ${formatPriceQuantity(item.price, item.quantity, position.market)}\n예상 실현손익: ${formatCurrency(pnl, position.market)}\n\n이 작업은 보유 수량에서 차감되고 실현손익에 반영됩니다.\n체결 처리하시겠습니까?`;
+        }
+      } else if (planType === 'stop_loss') {
+        item = position.stop_loss_targets?.[index];
+        if (item?.price && item?.quantity) {
+          const pnl = (parseFloat(item.price) - parseFloat(position.average_buy_price)) * parseFloat(item.quantity);
+          confirmMsg = `손절 체결: ${formatPriceQuantity(item.price, item.quantity, position.market)}\n예상 실현손익: ${formatCurrency(pnl, position.market)}\n\n이 작업은 보유 수량에서 차감되고 실현손익에 반영됩니다.\n체결 처리하시겠습니까?`;
+        }
+      }
+
+      if (confirmMsg && !window.confirm(confirmMsg)) {
+        return;
+      }
+    }
+
     try {
       const updatedPosition = await positionService.togglePlanItem(id, planType, index, completed);
       setPosition(updatedPosition);
       if (showAuditLogs) fetchAuditLogs();
+
+      // 잔량이 0이 되면 포지션 종료 안내
+      if (updatedPosition.total_quantity <= 0) {
+        alert('모든 수량이 체결되었습니다.\n포지션 종료 버튼을 눌러 마무리하세요.');
+      }
     } catch (error) {
       alert(error.response?.data?.detail || '상태 변경에 실패했습니다.');
     }
@@ -748,6 +782,43 @@ export function PositionDetail() {
         </div>
       </div>
 
+      {/* 포지션 상태 알림 */}
+      {position.status_info?.alert && (
+        <div className={`border rounded-lg p-4 ${
+          position.status_info.alert === 'danger'
+            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+            : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+        }`}>
+          <div className="flex items-start gap-3">
+            <svg className={`w-5 h-5 mt-0.5 ${
+              position.status_info.alert === 'danger'
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-yellow-600 dark:text-yellow-400'
+            }`} fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <h3 className={`font-medium ${
+                position.status_info.alert === 'danger'
+                  ? 'text-red-800 dark:text-red-300'
+                  : 'text-yellow-800 dark:text-yellow-300'
+              }`}>
+                {position.status_info.status === 'needs_close' ? '포지션 종료가 필요합니다' : '매매 계획이 필요합니다'}
+              </h3>
+              <p className={`text-sm mt-1 ${
+                position.status_info.alert === 'danger'
+                  ? 'text-red-700 dark:text-red-400'
+                  : 'text-yellow-700 dark:text-yellow-400'
+              }`}>
+                {position.status_info.status === 'needs_close'
+                  ? '잔여 수량이 0입니다. 포지션 종료 버튼을 눌러 마무리하세요.'
+                  : '보유 중인 수량에 대한 익절/손절 계획을 추가하세요.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 잔량 경고 */}
       {quantityWarning && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
@@ -811,7 +882,7 @@ export function PositionDetail() {
                     <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(currentPrice, position.market)}</p>
                   </div>
                   <div className="min-w-[160px]">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">수익률</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">평가손익</p>
                     <TargetProgressBar
                       currentPrice={currentPrice}
                       averagePrice={position.average_buy_price}
@@ -825,6 +896,15 @@ export function PositionDetail() {
                       <ProfitProgressBar value={profitInfo.profitRate / 100} size="lg" />
                     )}
                   </div>
+                  {/* 실현손익 (부분 익절/손절 시) */}
+                  {position.realized_profit_loss != null && parseFloat(position.realized_profit_loss) !== 0 && (
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">실현손익</p>
+                      <p className={`text-lg font-bold ${getProfitLossClass(parseFloat(position.realized_profit_loss))}`}>
+                        {formatCurrency(position.realized_profit_loss, position.market)}
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
               {position.status === 'closed' && (

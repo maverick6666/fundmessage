@@ -513,6 +513,19 @@ export function Positions() {
                         <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getStatusBadgeClass(position.status)}`}>
                           {getStatusLabel(position.status)}
                         </span>
+                        {/* 포지션 상태 알림 */}
+                        {position.status_info?.alert && (
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1 ${
+                            position.status_info.alert === 'danger'
+                              ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                              : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                          }`}>
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {position.status_info.message}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -610,6 +623,19 @@ export function Positions() {
                                     : '-'}
                                 </p>
                               </div>
+                              {/* 실현손익 (부분 익절/손절 시) */}
+                              {position.realized_profit_loss != null && parseFloat(position.realized_profit_loss) !== 0 && (
+                                <div className={`rounded-lg p-3 border ${
+                                  parseFloat(position.realized_profit_loss) > 0
+                                    ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800'
+                                    : 'bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800'
+                                }`}>
+                                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">실현손익</p>
+                                  <p className={`text-sm font-bold ${getProfitLossClass(parseFloat(position.realized_profit_loss))}`}>
+                                    {formatCurrency(position.realized_profit_loss, position.market)}
+                                  </p>
+                                </div>
+                              )}
                             </>
                           )}
                           {!isOpen && (

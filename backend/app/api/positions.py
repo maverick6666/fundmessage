@@ -21,13 +21,68 @@ router = APIRouter()
 
 
 def _count_remaining(items: list) -> int:
-    """미완료 항목 수 계산"""
+    """미완료이고 유효한 항목 수 계산 (가격과 수량이 있는 것만)"""
     if not items:
         return 0
-    return sum(1 for item in items if not item.get('completed', False))
+    return sum(1 for item in items
+               if item.get('price') and item.get('quantity') and not item.get('completed', False))
+
+
+def _count_valid_items(items: list) -> int:
+    """유효한 항목 수 계산 (가격과 수량이 있는 것만)"""
+    if not items:
+        return 0
+    return sum(1 for item in items if item.get('price') and item.get('quantity'))
+
+
+def _get_status_info(position) -> dict:
+    """포지션 상태 정보 계산"""
+    from app.schemas.position import PositionStatusInfo
+
+    if position.status == 'closed':
+        return None
+
+    current_qty = float(position.total_quantity or 0)
+
+    pending_tp = _count_remaining(position.take_profit_targets)
+    pending_sl = _count_remaining(position.stop_loss_targets)
+
+    valid_tp = _count_valid_items(position.take_profit_targets)
+    valid_sl = _count_valid_items(position.stop_loss_targets)
+
+    completed_tp = valid_tp - pending_tp
+    completed_sl = valid_sl - pending_sl
+
+    # 케이스 1: 잔량이 0인데 포지션이 열려있음
+    if current_qty <= 0:
+        return PositionStatusInfo(
+            status='needs_close',
+            alert='danger',
+            message='종료 필요'
+        )
+
+    # 케이스 2: 잔량이 있는데 모든 매도 계획이 완료됨 (추가 계획 필요)
+    if pending_tp == 0 and pending_sl == 0 and (completed_tp > 0 or completed_sl > 0):
+        return PositionStatusInfo(
+            status='no_plan',
+            alert='warning',
+            message='계획 필요'
+        )
+
+    # 케이스 3: 잔량이 있는데 매도 계획 자체가 없음
+    if valid_tp == 0 and valid_sl == 0:
+        return PositionStatusInfo(
+            status='no_plan',
+            alert='warning',
+            message='계획 없음'
+        )
+
+    return None
 
 
 def position_to_response(position) -> PositionResponse:
+    status_info = _get_status_info(position)
+
     return PositionResponse(
         id=position.id,
         ticker=position.ticker,
@@ -48,12 +103,14 @@ def position_to_response(position) -> PositionResponse:
         total_sell_amount=position.total_sell_amount,
         profit_loss=position.profit_loss,
         profit_rate=position.profit_rate,
+        realized_profit_loss=position.realized_profit_loss or 0,
         holding_period_hours=position.holding_period_hours,
         opened_at=position.opened_at,
         closed_at=position.closed_at,
         opened_by=UserBrief.model_validate(position.opener) if position.opener else None,
         closed_by=UserBrief.model_validate(position.closer) if position.closer else None,
-        created_at=position.created_at
+        created_at=position.created_at,
+        status_info=status_info
     )
 
 

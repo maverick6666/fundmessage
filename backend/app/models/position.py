@@ -41,9 +41,12 @@ class Position(Base):
     total_sell_amount = Column(Numeric(20, 2))
 
     # Performance
-    profit_loss = Column(Numeric(20, 2))
-    profit_rate = Column(Numeric(10, 4))
+    profit_loss = Column(Numeric(20, 2))  # 최종 손익 (종료 시)
+    profit_rate = Column(Numeric(10, 4))  # 최종 수익률 (종료 시)
     holding_period_hours = Column(Integer)
+
+    # 실현손익 (진행 중 익절/손절 체결 시 누적)
+    realized_profit_loss = Column(Numeric(20, 2), default=0)
 
     # Audit info
     opened_at = Column(DateTime(timezone=True))
