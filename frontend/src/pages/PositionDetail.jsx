@@ -5,7 +5,7 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
 import { StockChart } from '../components/charts/StockChart';
-import { ProfitProgressBar } from '../components/common/ProfitProgressBar';
+import { ProfitProgressBar, TargetProgressBar } from '../components/common/ProfitProgressBar';
 import ReactMarkdown from 'react-markdown';
 import { AIDecisionNoteModal } from '../components/ai/AIDecisionNoteModal';
 import { positionService } from '../services/positionService';
@@ -810,12 +810,21 @@ export function PositionDetail() {
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">현재가</p>
                     <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(currentPrice, position.market)}</p>
                   </div>
-                  {profitInfo && (
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">수익률</p>
-                      <ProfitProgressBar value={profitInfo.profitRate} size="lg" />
-                    </div>
-                  )}
+                  <div className="min-w-[160px]">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">수익률</p>
+                    <TargetProgressBar
+                      currentPrice={currentPrice}
+                      averagePrice={position.average_buy_price}
+                      takeProfitTargets={position.take_profit_targets}
+                      stopLossTargets={position.stop_loss_targets}
+                      market={position.market}
+                      size="md"
+                    />
+                    {/* 타겟이 없으면 단순 프로그레스바 표시 */}
+                    {!(position.take_profit_targets?.some(t => t.price && !t.completed) || position.stop_loss_targets?.some(t => t.price && !t.completed)) && profitInfo && (
+                      <ProfitProgressBar value={profitInfo.profitRate / 100} size="lg" />
+                    )}
+                  </div>
                 </>
               )}
               {position.status === 'closed' && (

@@ -39,20 +39,20 @@
   --color-bg-primary: #0a0a0a;
   --color-bg-secondary: #121212;
   --color-bg-tertiary: #1a1a1a;
-  --color-text-primary: #00ff88;
-  --color-text-secondary: #cccccc;
-  --color-text-muted: #666666;
+  --color-text-primary: #00cc70;
+  --color-text-secondary: #a0a0a0;
+  --color-text-muted: #555555;
   --color-border: #2a2a2a;
-  --color-accent: #00ff88;
-  --color-accent-hover: #00cc6a;
-  --color-success: #00ff88;
-  --color-danger: #ff4444;
-  --color-warning: #ffaa00;
+  --color-accent: #00cc70;
+  --color-accent-hover: #00a858;
+  --color-success: #00cc70;
+  --color-danger: #e03030;
+  --color-warning: #e09000;
   --font-sans: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
   --font-display: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
   --border-radius: 0.25rem;
-  --shadow-sm: 0 0 0 1px rgba(0, 255, 136, 0.1);
-  --shadow-md: 0 0 20px rgba(0, 255, 136, 0.1);
+  --shadow-sm: 0 0 0 1px rgba(0, 204, 112, 0.1);
+  --shadow-md: 0 0 20px rgba(0, 204, 112, 0.1);
 }
 
 /* ============================================
@@ -268,16 +268,16 @@
     border-radius: 0;
   }
   & ::-webkit-scrollbar-thumb:hover {
-    background: #00ff88;
+    background: #00cc70;
   }
 
   /* Glowing effects */
   & .card {
-    border: 1px solid rgba(0, 255, 136, 0.2);
+    border: 1px solid rgba(0, 204, 112, 0.15);
   }
   & .card:hover {
-    border-color: rgba(0, 255, 136, 0.4);
-    box-shadow: 0 0 30px rgba(0, 255, 136, 0.1);
+    border-color: rgba(0, 204, 112, 0.3);
+    box-shadow: 0 0 20px rgba(0, 204, 112, 0.08);
   }
 
   /* Terminal cursor blink */
@@ -288,12 +288,12 @@
     font-size: 0.65rem;
   }
 
-  /* Profit/Loss colors */
+  /* Profit/Loss colors - muted */
   & .text-green-500, & .text-green-600 {
-    color: #00ff88 !important;
+    color: #00cc70 !important;
   }
   & .text-red-500, & .text-red-600 {
-    color: #ff4444 !important;
+    color: #e03030 !important;
   }
 }
 

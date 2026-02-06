@@ -9,7 +9,6 @@ import { Dashboard } from './pages/Dashboard';
 import { Positions } from './pages/Positions';
 import { PositionDetail } from './pages/PositionDetail';
 import { Requests } from './pages/Requests';
-import { MyRequests } from './pages/MyRequests';
 import { Discussion } from './pages/Discussion';
 import { Discussions } from './pages/Discussions';
 import { Stats } from './pages/Stats';
@@ -136,11 +135,7 @@ function AppRoutes() {
 
       <Route
         path="/my-requests"
-        element={
-          <PrivateRoute>
-            <MyRequests />
-          </PrivateRoute>
-        }
+        element={<Navigate to="/requests" replace />}
       />
 
       <Route

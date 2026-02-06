@@ -7,6 +7,8 @@ import { Input } from '../components/common/Input';
 import { positionService } from '../services/positionService';
 import { requestService } from '../services/requestService';
 import { priceService } from '../services/priceService';
+import { reportService } from '../services/reportService';
+import { columnService } from '../services/columnService';
 import { useAuth } from '../hooks/useAuth';
 import {
   formatCurrency,
@@ -25,6 +27,8 @@ export function Dashboard() {
   const [positions, setPositions] = useState([]);
   const [requests, setRequests] = useState([]);
   const [teamSettings, setTeamSettings] = useState(null);
+  const [reports, setReports] = useState([]);
+  const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showExchangeModal, setShowExchangeModal] = useState(false);
@@ -44,13 +48,17 @@ export function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const [positionData, requestData, settings] = await Promise.all([
+      const [positionData, requestData, settings, reportsData, columnsData] = await Promise.all([
         priceService.getPositionsWithPrices().catch(() => ({ positions: [] })),
         requestService.getRequests({ limit: 3 }),
-        positionService.getTeamSettings().catch(() => null)
+        positionService.getTeamSettings().catch(() => null),
+        reportService.getReports({ limit: 3 }).catch(() => ({ reports: [] })),
+        columnService.getColumns({ limit: 3 }).catch(() => ({ columns: [] }))
       ]);
       setPositions(positionData.positions || []);
       setRequests(requestData.requests);
+      setReports(reportsData.reports || []);
+      setColumns(columnsData.columns || []);
       if (settings) {
         setTeamSettings(settings);
         setSettingsData({
@@ -179,18 +187,26 @@ export function Dashboard() {
   const unconfirmedCount = positions.filter(p => !p.is_info_confirmed).length;
 
   // 시장별 투자금액 계산
-  const krwInvested = positions
-    .filter(p => p.market === 'KOSPI' || p.market === 'KOSDAQ' || p.market === 'KRX')
-    .reduce((sum, p) => sum + (Number(p.total_buy_amount) || 0), 0);
-  const usdInvested = positions
-    .filter(p => p.market === 'NASDAQ' || p.market === 'NYSE')
-    .reduce((sum, p) => sum + (Number(p.total_buy_amount) || 0), 0);
-  const usdtInvested = positions
-    .filter(p => p.market === 'CRYPTO')
-    .reduce((sum, p) => sum + (Number(p.total_buy_amount) || 0), 0);
+  const krwPositions = positions.filter(p => p.market === 'KOSPI' || p.market === 'KOSDAQ' || p.market === 'KRX');
+  const usdPositions = positions.filter(p => p.market === 'NASDAQ' || p.market === 'NYSE' || p.market === 'CRYPTO');
+
+  const krwInvested = krwPositions.reduce((sum, p) => sum + (Number(p.total_buy_amount) || 0), 0);
+  const usdInvested = usdPositions.reduce((sum, p) => sum + (Number(p.total_buy_amount) || 0), 0);
+
+  // 평가금액 계산
+  const krwEvaluation = krwPositions.reduce((sum, p) => sum + (Number(p.evaluation_amount) || Number(p.total_buy_amount) || 0), 0);
+  const usdEvaluation = usdPositions.reduce((sum, p) => sum + (Number(p.evaluation_amount) || Number(p.total_buy_amount) || 0), 0);
 
   const initialCapitalKrw = Number(teamSettings?.initial_capital_krw) || 0;
   const initialCapitalUsd = Number(teamSettings?.initial_capital_usd) || 0;
+
+  // 현금 잔액 (자본금 - 투자금액)
+  const krwCash = Math.max(0, initialCapitalKrw - krwInvested);
+  const usdCash = Math.max(0, initialCapitalUsd - usdInvested);
+
+  // 총 자산 (현금 + 평가금액)
+  const krwTotalAssets = krwCash + krwEvaluation;
+  const usdTotalAssets = usdCash + usdEvaluation;
 
   return (
     <div className="space-y-6">
@@ -253,36 +269,38 @@ export function Dashboard() {
           <p className="text-2xl font-bold mt-1 dark:text-gray-100">
             {initialCapitalUsd > 0 ? formatCurrency(initialCapitalUsd, 'USD') : '-'}
           </p>
-          {initialCapitalUsd > 0 && (usdInvested > 0 || usdtInvested > 0) && (
+          {initialCapitalUsd > 0 && usdInvested > 0 && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              투자: {formatCurrency(usdInvested + usdtInvested, 'USD')} ({formatPercent((usdInvested + usdtInvested) / initialCapitalUsd)})
+              투자: {formatCurrency(usdInvested, 'USD')} ({formatPercent(usdInvested / initialCapitalUsd)})
             </p>
           )}
         </Card>
 
-        {/* 열린 포지션 */}
+        {/* 원화 평가가치 */}
         <Card>
-          <p className="text-sm text-gray-500 dark:text-gray-400">열린 포지션</p>
-          <div className="flex items-center gap-2 mt-1">
-            <p className="text-2xl font-bold dark:text-gray-100">{positions.length}</p>
-            {unconfirmedCount > 0 && (
-              <span className="text-yellow-500 text-sm flex items-center gap-1">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                {unconfirmedCount}
-              </span>
-            )}
-          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">원화 평가가치</p>
+          <p className={`text-2xl font-bold mt-1 ${krwTotalAssets > initialCapitalKrw ? 'text-red-600 dark:text-red-400' : krwTotalAssets < initialCapitalKrw ? 'text-blue-600 dark:text-blue-400' : 'dark:text-gray-100'}`}>
+            {krwTotalAssets > 0 ? formatCurrency(krwTotalAssets, 'KRX') : '-'}
+          </p>
+          {initialCapitalKrw > 0 && krwTotalAssets > 0 && (
+            <p className={`text-sm mt-1 ${krwTotalAssets >= initialCapitalKrw ? 'text-red-500' : 'text-blue-500'}`}>
+              {krwTotalAssets >= initialCapitalKrw ? '+' : ''}{formatCurrency(krwTotalAssets - initialCapitalKrw, 'KRX')} ({formatPercent((krwTotalAssets - initialCapitalKrw) / initialCapitalKrw)})
+            </p>
+          )}
         </Card>
 
-        {/* 대기중 요청 (매니저만) */}
-        {isManagerOrAdmin() && (
-          <Card>
-            <p className="text-sm text-gray-500 dark:text-gray-400">대기중 요청</p>
-            <p className="text-2xl font-bold mt-1 text-yellow-600 dark:text-yellow-400">{pendingCount}</p>
-          </Card>
-        )}
+        {/* 달러 평가가치 */}
+        <Card>
+          <p className="text-sm text-gray-500 dark:text-gray-400">달러 평가가치</p>
+          <p className={`text-2xl font-bold mt-1 ${usdTotalAssets > initialCapitalUsd ? 'text-red-600 dark:text-red-400' : usdTotalAssets < initialCapitalUsd ? 'text-blue-600 dark:text-blue-400' : 'dark:text-gray-100'}`}>
+            {usdTotalAssets > 0 ? formatCurrency(usdTotalAssets, 'USD') : '-'}
+          </p>
+          {initialCapitalUsd > 0 && usdTotalAssets > 0 && (
+            <p className={`text-sm mt-1 ${usdTotalAssets >= initialCapitalUsd ? 'text-red-500' : 'text-blue-500'}`}>
+              {usdTotalAssets >= initialCapitalUsd ? '+' : ''}{formatCurrency(usdTotalAssets - initialCapitalUsd, 'USD')} ({formatPercent((usdTotalAssets - initialCapitalUsd) / initialCapitalUsd)})
+            </p>
+          )}
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -389,6 +407,76 @@ export function Dashboard() {
                   <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
                     <span>{request.requester.full_name}</span>
                     <span>{formatRelativeTime(request.created_at)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Recent Reports and Columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Reports */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>최근 운용보고서</CardTitle>
+              <Link to="/reports" className="text-sm text-primary-600 hover:text-primary-700">
+                전체보기
+              </Link>
+            </div>
+          </CardHeader>
+
+          {reports.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">운용보고서가 없습니다</div>
+          ) : (
+            <div className="space-y-3">
+              {reports.map(report => (
+                <Link
+                  key={report.position_id}
+                  to={`/positions/${report.position_id}`}
+                  className="block p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium dark:text-gray-100">{report.ticker_name || report.ticker}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{report.note_count}개 노트</span>
+                  </div>
+                  {report.latest_note && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                      {report.latest_note.title}
+                    </p>
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Recent Columns */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>최근 칼럼</CardTitle>
+              <Link to="/reports?tab=columns" className="text-sm text-primary-600 hover:text-primary-700">
+                전체보기
+              </Link>
+            </div>
+          </CardHeader>
+
+          {columns.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">작성된 칼럼이 없습니다</div>
+          ) : (
+            <div className="space-y-3">
+              {columns.map(column => (
+                <div
+                  key={column.id}
+                  className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                >
+                  <p className="font-medium dark:text-gray-100 mb-1 line-clamp-1">{column.title}</p>
+                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+                    <span>{column.author?.full_name}</span>
+                    <span>{formatRelativeTime(column.created_at)}</span>
                   </div>
                 </div>
               ))}

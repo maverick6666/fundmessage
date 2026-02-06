@@ -18,11 +18,12 @@ import {
 
 export function Requests() {
   const navigate = useNavigate();
-  const { adminMode, isManagerOrAdmin } = useAuth();
+  const { user, adminMode, isManagerOrAdmin } = useAuth();
   const canManage = isManagerOrAdmin();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState('team'); // 'team', 'rejected', 'mine'
+  const [statusFilter, setStatusFilter] = useState('pending');
   const [expandedId, setExpandedId] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -44,15 +45,28 @@ export function Requests() {
 
   useEffect(() => {
     fetchRequests();
-  }, [statusFilter]);
+  }, [activeTab, statusFilter, user]);
 
   const fetchRequests = async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const data = await requestService.getRequests({
-        status: statusFilter === 'all' ? null : statusFilter,
-        limit: 50
-      });
+      let params = { limit: 50 };
+
+      if (activeTab === 'mine') {
+        // 내 요청 탭
+        params.requester_id = user.id;
+      } else if (activeTab === 'rejected') {
+        // 거부됨 탭
+        params.status = 'rejected';
+      } else {
+        // 팀 요청 탭 - 상태 필터 적용
+        if (statusFilter !== 'all') {
+          params.status = statusFilter;
+        }
+      }
+
+      const data = await requestService.getRequests(params);
       setRequests(data.requests);
     } catch (error) {
       console.error('Failed to fetch requests:', error);
@@ -115,24 +129,60 @@ export function Requests() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold dark:text-gray-100">{canManage ? '요청 관리' : '팀 요청 현황'}</h1>
+      <h1 className="text-2xl font-bold dark:text-gray-100">요청</h1>
 
-      {/* Filters */}
-      <div className="flex gap-2 flex-wrap">
-        {['all', 'pending', 'discussion', 'approved', 'rejected'].map(status => (
-          <button
-            key={status}
-            onClick={() => setStatusFilter(status)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              statusFilter === status
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-            }`}
-          >
-            {status === 'all' ? '전체' : getStatusLabel(status)}
-          </button>
-        ))}
+      {/* Tabs */}
+      <div className="flex gap-1 border-b dark:border-gray-700">
+        <button
+          onClick={() => { setActiveTab('team'); setStatusFilter('pending'); }}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'team'
+              ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+          }`}
+        >
+          팀 요청 현황
+        </button>
+        <button
+          onClick={() => setActiveTab('rejected')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'rejected'
+              ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+          }`}
+        >
+          거부됨
+        </button>
+        <button
+          onClick={() => setActiveTab('mine')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'mine'
+              ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+          }`}
+        >
+          내 요청
+        </button>
       </div>
+
+      {/* Status Filters (only for team tab) */}
+      {activeTab === 'team' && (
+        <div className="flex gap-2 flex-wrap">
+          {['all', 'pending', 'discussion', 'approved'].map(status => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                statusFilter === status
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              {status === 'all' ? '전체' : getStatusLabel(status)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Requests List */}
       {loading ? (
