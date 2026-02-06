@@ -33,7 +33,7 @@ function createBlock(type, data = {}) {
   };
 }
 
-export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, premium = false }) {
+export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, isDark = false }) {
   const toast = useToast();
   const [blocks, setBlocks] = useState(() => {
     if (initialBlocks.length === 0) {
@@ -178,8 +178,8 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
     const isUploading = uploadingBlockId === block.id;
     const isFocused = focusedBlockId === block.id;
 
-    // Premium styling
-    const textStyle = premium ? {
+    // 테마별 스타일
+    const textStyle = isDark ? {
       fontFamily: "'Crimson Pro', 'Noto Serif KR', serif",
       fontSize: '1.125rem',
       lineHeight: '1.8',
@@ -194,13 +194,13 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
           onKeyDown={(e) => handleKeyDown(e, block)}
           onFocus={() => setFocusedBlockId(block.id)}
-          placeholder={index === 0 ? (premium ? "여기에 내용을 작성하세요..." : "내용을 입력하세요... ('/' 입력으로 블록 추가)") : ""}
+          placeholder={index === 0 ? "여기에 내용을 작성하세요..." : ""}
           readOnly={readOnly}
           style={textStyle}
           className={`w-full bg-transparent border-0 outline-none resize-none leading-relaxed ${
-            premium
+            isDark
               ? 'text-gray-200 placeholder-gray-600'
-              : 'text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 text-base'
+              : 'text-gray-800 placeholder-gray-400 text-base'
           }`}
           rows={1}
           ref={(el) => {
@@ -215,9 +215,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
 
     if (block.type === 'heading') {
       const level = block.data.level || 2;
-      const sizeClass = premium
-        ? level === 1 ? 'text-3xl' : level === 2 ? 'text-2xl' : 'text-xl'
-        : level === 1 ? 'text-2xl' : level === 2 ? 'text-xl' : 'text-lg';
+      const sizeClass = level === 1 ? 'text-3xl' : level === 2 ? 'text-2xl' : 'text-xl';
 
       return (
         <div key={block.id} className="flex items-center gap-3">
@@ -226,7 +224,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
               value={level}
               onChange={(e) => updateBlock(block.id, { level: parseInt(e.target.value) })}
               className={`bg-transparent border-0 text-xs cursor-pointer ${
-                premium ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400'
+                isDark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'
               }`}
             >
               <option value={1}>H1</option>
@@ -242,9 +240,9 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
             onFocus={() => setFocusedBlockId(block.id)}
             placeholder="제목"
             readOnly={readOnly}
-            style={premium ? { fontFamily: "'Noto Serif KR', 'Crimson Pro', serif" } : {}}
+            style={{ fontFamily: "'Noto Serif KR', 'Crimson Pro', serif" }}
             className={`flex-1 bg-transparent border-0 outline-none font-semibold ${sizeClass} ${
-              premium ? 'text-white placeholder-gray-600' : 'text-gray-900 dark:text-gray-100'
+              isDark ? 'text-white placeholder-gray-600' : 'text-gray-900 placeholder-gray-400'
             }`}
           />
         </div>
@@ -260,7 +258,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
                 src={block.data.url}
                 alt={block.data.caption || ''}
                 className={`max-w-full rounded-lg ${
-                  premium ? 'border border-white/10' : 'border dark:border-gray-700'
+                  isDark ? 'border border-white/10' : 'border border-gray-200'
                 }`}
               />
               {!readOnly && (
@@ -269,14 +267,13 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
                   value={block.data.caption || ''}
                   onChange={(e) => updateBlock(block.id, { caption: e.target.value })}
                   placeholder="이미지 설명 추가..."
-                  style={premium ? { fontFamily: "'DM Sans', sans-serif" } : {}}
                   className={`w-full bg-transparent border-0 outline-none text-sm text-center ${
-                    premium ? 'text-gray-500 placeholder-gray-700' : 'text-gray-500 dark:text-gray-400 placeholder-gray-400'
+                    isDark ? 'text-gray-500 placeholder-gray-700' : 'text-gray-500 placeholder-gray-400'
                   }`}
                 />
               )}
               {readOnly && block.data.caption && (
-                <p className={`text-sm text-center ${premium ? 'text-gray-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                <p className={`text-sm text-center ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                   {block.data.caption}
                 </p>
               )}
@@ -285,12 +282,12 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
             <div
               className={`group border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all duration-200 ${
                 isUploading
-                  ? premium
+                  ? isDark
                     ? 'border-emerald-500/50 bg-emerald-500/5'
-                    : 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/20'
-                  : premium
+                    : 'border-emerald-300 bg-emerald-50'
+                  : isDark
                     ? 'border-white/10 hover:border-white/20 hover:bg-white/[0.02]'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    : 'border-gray-300 hover:border-emerald-400 hover:bg-gray-50'
               }`}
               onClick={() => {
                 setFocusedBlockId(block.id);
@@ -298,7 +295,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
               }}
             >
               {isUploading ? (
-                <div className={`flex flex-col items-center gap-3 ${premium ? 'text-emerald-400' : 'text-primary-600 dark:text-primary-400'}`}>
+                <div className={`flex flex-col items-center gap-3 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
                   <svg className="animate-spin h-8 w-8" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -308,18 +305,18 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
               ) : (
                 <>
                   <div className={`w-12 h-12 mx-auto mb-3 rounded-xl flex items-center justify-center transition-colors ${
-                    premium
+                    isDark
                       ? 'bg-white/5 group-hover:bg-white/10'
-                      : 'bg-gray-100 dark:bg-gray-700 group-hover:bg-gray-200 dark:group-hover:bg-gray-600'
+                      : 'bg-gray-100 group-hover:bg-gray-200'
                   }`}>
-                    <svg className={`w-6 h-6 ${premium ? 'text-gray-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className={`w-6 h-6 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <p className={`text-sm font-medium mb-1 ${premium ? 'text-gray-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                  <p className={`text-sm font-medium mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     클릭하여 이미지 업로드
                   </p>
-                  <p className={`text-xs ${premium ? 'text-gray-600' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
                     최대 200KB
                   </p>
                 </>
@@ -333,11 +330,9 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
     if (block.type === 'quote') {
       return (
         <div key={block.id} className={`relative pl-5 py-2 ${
-          premium ? 'border-l-2 border-emerald-500/50' : 'border-l-4 border-gray-300 dark:border-gray-600'
+          isDark ? 'border-l-2 border-emerald-500/50' : 'border-l-2 border-emerald-400'
         }`}>
-          {premium && (
-            <div className="absolute -left-3 top-2 text-2xl text-emerald-500/30 font-serif">"</div>
-          )}
+          <div className={`absolute -left-3 top-2 text-2xl font-serif ${isDark ? 'text-emerald-500/30' : 'text-emerald-400/50'}`}>"</div>
           <textarea
             value={block.data.text || ''}
             onChange={(e) => updateBlock(block.id, { text: e.target.value })}
@@ -345,11 +340,11 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
             onFocus={() => setFocusedBlockId(block.id)}
             placeholder="인용문..."
             readOnly={readOnly}
-            style={premium ? { fontFamily: "'Crimson Pro', serif", fontStyle: 'italic' } : {}}
-            className={`w-full bg-transparent border-0 outline-none resize-none ${
-              premium
-                ? 'text-gray-400 placeholder-gray-600 text-lg'
-                : 'text-gray-600 dark:text-gray-400 italic'
+            style={{ fontFamily: "'Crimson Pro', serif", fontStyle: 'italic' }}
+            className={`w-full bg-transparent border-0 outline-none resize-none text-lg ${
+              isDark
+                ? 'text-gray-400 placeholder-gray-600'
+                : 'text-gray-600 placeholder-gray-400'
             }`}
             rows={1}
             ref={(el) => {
@@ -367,9 +362,9 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
       return (
         <div key={block.id} className="py-6">
           <div className={`h-px ${
-            premium
+            isDark
               ? 'bg-gradient-to-r from-transparent via-white/20 to-transparent'
-              : 'border-t border-gray-200 dark:border-gray-700'
+              : 'bg-gradient-to-r from-transparent via-gray-300 to-transparent'
           }`} />
         </div>
       );
@@ -379,7 +374,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
   };
 
   return (
-    <div className={`relative ${premium ? 'min-h-[400px]' : 'min-h-[300px]'}`}>
+    <div className="relative min-h-[400px]">
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -396,31 +391,25 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
       />
 
       {/* Block list */}
-      <div className={premium ? 'space-y-4' : 'space-y-2'}>
+      <div className="space-y-4">
         {blocks.map((block, index) => (
           <div
             key={block.id}
-            className={`group relative rounded-lg transition-all duration-150 ${
-              premium
-                ? focusedBlockId === block.id
-                  ? 'bg-white/[0.02]'
-                  : ''
-                : focusedBlockId === block.id
-                  ? 'bg-gray-50 dark:bg-gray-800/50'
-                  : ''
-            } ${premium ? 'px-3 py-2 -mx-3' : 'px-2 py-1 -mx-2'}`}
+            className={`group relative rounded-lg transition-all duration-150 px-3 py-2 -mx-3 ${
+              focusedBlockId === block.id
+                ? isDark ? 'bg-white/[0.02]' : 'bg-gray-50'
+                : ''
+            }`}
           >
             {/* Delete button */}
             {!readOnly && (
-              <div className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 ${
-                premium ? '-left-10' : 'left-0 -translate-x-full pr-2'
-              }`}>
+              <div className="absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 -left-10">
                 <button
                   onClick={() => deleteBlock(block.id)}
                   className={`p-1.5 rounded-md transition-colors ${
-                    premium
+                    isDark
                       ? 'text-gray-600 hover:text-red-400 hover:bg-red-500/10'
-                      : 'text-gray-400 hover:text-red-500'
+                      : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
                   }`}
                   title="블록 삭제"
                 >
@@ -443,9 +432,9 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
             addBlockAfter(lastBlock.id);
           }}
           className={`mt-6 flex items-center gap-2 transition-colors ${
-            premium
+            isDark
               ? 'text-gray-600 hover:text-gray-400'
-              : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              : 'text-gray-400 hover:text-gray-600'
           }`}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -467,15 +456,15 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
           />
           <div
             ref={menuRef}
-            className={`fixed z-50 rounded-xl shadow-2xl overflow-hidden ${
-              premium
-                ? 'bg-[#1a1a1c] border border-white/10 min-w-[220px]'
-                : 'bg-white dark:bg-gray-800 border dark:border-gray-700 min-w-[200px]'
+            className={`fixed z-50 rounded-xl shadow-2xl overflow-hidden min-w-[220px] ${
+              isDark
+                ? 'bg-[#1a1a1c] border border-white/10'
+                : 'bg-white border border-gray-200'
             }`}
             style={{ top: menuPosition.top, left: menuPosition.left }}
           >
             {/* Search input */}
-            <div className={`px-3 py-2 border-b ${premium ? 'border-white/5' : 'border-gray-100 dark:border-gray-700'}`}>
+            <div className={`px-3 py-2 border-b ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
               <input
                 type="text"
                 value={menuFilter}
@@ -483,9 +472,9 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
                 placeholder="블록 검색..."
                 autoFocus
                 className={`w-full text-sm bg-transparent border-0 outline-none ${
-                  premium
+                  isDark
                     ? 'text-gray-200 placeholder-gray-600'
-                    : 'text-gray-700 dark:text-gray-300 placeholder-gray-400'
+                    : 'text-gray-700 placeholder-gray-400'
                 }`}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && filteredBlockTypes.length > 0) {
@@ -501,7 +490,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
             {/* Block type list */}
             <div className="py-1 max-h-[280px] overflow-y-auto">
               {filteredBlockTypes.length === 0 ? (
-                <div className={`px-4 py-3 text-sm ${premium ? 'text-gray-500' : 'text-gray-400'}`}>
+                <div className={`px-4 py-3 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                   결과 없음
                 </div>
               ) : (
@@ -510,23 +499,23 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
                     key={bt.type}
                     onClick={() => handleMenuSelect(bt.type)}
                     className={`w-full px-3 py-2.5 text-left flex items-center gap-3 transition-colors ${
-                      premium
+                      isDark
                         ? 'hover:bg-white/5'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                        : 'hover:bg-gray-100'
                     }`}
                   >
                     <span className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm ${
-                      premium
+                      isDark
                         ? 'bg-white/5 text-gray-400'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                        : 'bg-gray-100 text-gray-500'
                     }`}>
                       {bt.icon}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-medium ${premium ? 'text-gray-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                      <div className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
                         {bt.label}
                       </div>
-                      <div className={`text-xs truncate ${premium ? 'text-gray-600' : 'text-gray-400 dark:text-gray-500'}`}>
+                      <div className={`text-xs truncate ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
                         {bt.description}
                       </div>
                     </div>
@@ -542,17 +531,15 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, pr
 }
 
 /**
- * 블록 렌더러 (읽기 전용) - 프리미엄 뷰어용
+ * 블록 렌더러 (읽기 전용)
  * @param {boolean} isDark - 다크 테마 여부 (테마 연동)
- * @param {boolean} premium - 프리미엄 에디터 모드 (항상 다크)
  */
-export function BlockRenderer({ blocks = [], isDark = false, premium = false }) {
+export function BlockRenderer({ blocks = [], isDark = false }) {
   if (!blocks || blocks.length === 0) {
     return null;
   }
 
-  // 실제 다크 모드 적용 여부
-  const dark = premium || isDark;
+  const dark = isDark;
 
   // 테마별 스타일
   const styles = {
