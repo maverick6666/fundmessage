@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -23,6 +23,7 @@ const TIMEFRAMES = [
 
 export default function StockSearch() {
   const [market, setMarket] = useState('KOSPI');
+  const [searchQuery, setSearchQuery] = useState('');
   const [ticker, setTicker] = useState('');
   const [timeframe, setTimeframe] = useState('1d');
 
@@ -34,12 +35,84 @@ export default function StockSearch() {
 
   const [showBuyForm, setShowBuyForm] = useState(false);
 
-  // 종목 검색
-  const handleSearch = useCallback(async () => {
-    if (!ticker.trim()) {
-      setError('종목코드를 입력하세요');
-      return;
-    }
+  // 검색 자동완성
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  // 검색어 변경 시 자동완성 검색
+  useEffect(() => {
+    const searchStocks = async () => {
+      if (!searchQuery || searchQuery.length < 1) {
+        setSearchResults([]);
+        setShowDropdown(false);
+        return;
+      }
+
+      setSearchLoading(true);
+      try {
+        // 시장 필터: KOSPI/KOSDAQ는 합쳐서, 나머지는 개별
+        let marketFilter = null;
+        if (market === 'KOSPI' || market === 'KOSDAQ') {
+          marketFilter = null; // 둘 다 검색
+        } else {
+          marketFilter = market;
+        }
+
+        const result = await priceService.searchStocks(searchQuery, marketFilter, 15);
+        if (result.success) {
+          // 시장 필터 적용 (KOSPI/KOSDAQ 중 선택된 것만)
+          let filtered = result.data.results;
+          if (market === 'KOSPI' || market === 'KOSDAQ') {
+            filtered = filtered.filter(s => s.market === 'KOSPI' || s.market === 'KOSDAQ');
+          }
+          setSearchResults(filtered);
+          setShowDropdown(filtered.length > 0);
+        }
+      } catch (err) {
+        console.error('Search error:', err);
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+
+    const debounce = setTimeout(searchStocks, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery, market]);
+
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target) &&
+        searchRef.current &&
+        !searchRef.current.contains(e.target)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // 검색 결과 선택
+  const handleSelectStock = (stock) => {
+    setTicker(stock.ticker);
+    setSearchQuery(stock.name);
+    setMarket(stock.market);
+    setShowDropdown(false);
+
+    // 선택 후 자동 검색
+    handleSearchWithTicker(stock.ticker, stock.market);
+  };
+
+  // 종목 검색 (티커 직접 지정)
+  const handleSearchWithTicker = useCallback(async (searchTicker, searchMarket) => {
+    if (!searchTicker) return;
 
     setLoading(true);
     setError(null);
@@ -48,15 +121,10 @@ export default function StockSearch() {
     setExistingPosition(null);
 
     try {
-      // 캔들 데이터 조회 (종목 정보 포함)
-      const result = await priceService.getCandles(ticker.trim(), market, timeframe, 200);
-
-      console.log('API Response:', result);
+      // 캔들 데이터 조회 (종목 정보 포함) - 더 많은 데이터 요청
+      const result = await priceService.getCandles(searchTicker, searchMarket, timeframe, 500);
 
       if (result.success && result.data) {
-        console.log('Candles count:', result.data.candles?.length);
-        console.log('First candle:', result.data.candles?.[0]);
-
         setStockInfo({
           ticker: result.data.ticker,
           name: result.data.name,
@@ -66,7 +134,7 @@ export default function StockSearch() {
 
         // 현재가 조회
         try {
-          const quoteResult = await priceService.lookupTicker(ticker.trim(), market);
+          const quoteResult = await priceService.lookupTicker(searchTicker, searchMarket);
           if (quoteResult.success && quoteResult.data) {
             setStockInfo(prev => ({
               ...prev,
@@ -80,7 +148,7 @@ export default function StockSearch() {
 
         // 열린 포지션 확인
         try {
-          const positionsResult = await positionService.getPositions({ status: 'open', ticker: ticker.trim().toUpperCase() });
+          const positionsResult = await positionService.getPositions({ status: 'open', ticker: searchTicker.toUpperCase() });
           if (positionsResult.positions?.length > 0) {
             setExistingPosition(positionsResult.positions[0]);
           }
@@ -95,7 +163,32 @@ export default function StockSearch() {
     } finally {
       setLoading(false);
     }
-  }, [ticker, market, timeframe]);
+  }, [timeframe]);
+
+  // 종목 검색 (입력값으로)
+  const handleSearch = useCallback(async () => {
+    // 티커가 있으면 티커로 검색
+    if (ticker) {
+      handleSearchWithTicker(ticker, market);
+      return;
+    }
+
+    // 검색어가 있으면 검색어로 검색 시도
+    if (searchQuery.trim()) {
+      // 검색어가 티커 코드 형식인지 확인 (숫자 6자리 또는 알파벳)
+      const isTickerFormat = /^[0-9]{6}$/.test(searchQuery) || /^[A-Za-z]+$/.test(searchQuery);
+
+      if (isTickerFormat) {
+        setTicker(searchQuery.trim().toUpperCase());
+        handleSearchWithTicker(searchQuery.trim().toUpperCase(), market);
+      } else {
+        setError('검색 결과에서 종목을 선택하세요');
+      }
+      return;
+    }
+
+    setError('종목명 또는 종목코드를 입력하세요');
+  }, [ticker, searchQuery, market, handleSearchWithTicker]);
 
   // 타임프레임 변경 시 다시 조회
   const handleTimeframeChange = useCallback(async (newTimeframe) => {
@@ -104,7 +197,7 @@ export default function StockSearch() {
     if (stockInfo) {
       setLoading(true);
       try {
-        const result = await priceService.getCandles(stockInfo.ticker, market, newTimeframe, 200);
+        const result = await priceService.getCandles(stockInfo.ticker, stockInfo.market || market, newTimeframe, 500);
         if (result.success && result.data) {
           setCandles(result.data.candles || []);
         }
@@ -119,8 +212,20 @@ export default function StockSearch() {
   // 엔터 키로 검색
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
+      setShowDropdown(false);
       handleSearch();
+    } else if (e.key === 'Escape') {
+      setShowDropdown(false);
     }
+  };
+
+  // 시장 선택 변경 시 검색어 초기화
+  const handleMarketChange = (newMarket) => {
+    setMarket(newMarket);
+    setSearchQuery('');
+    setTicker('');
+    setSearchResults([]);
+    setShowDropdown(false);
   };
 
   // 금액 포맷
@@ -155,7 +260,7 @@ export default function StockSearch() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">시장</label>
             <select
               value={market}
-              onChange={(e) => setMarket(e.target.value)}
+              onChange={(e) => handleMarketChange(e.target.value)}
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               {MARKETS.map(m => (
@@ -164,17 +269,76 @@ export default function StockSearch() {
             </select>
           </div>
 
-          {/* 종목코드 입력 */}
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">종목코드</label>
-            <input
-              type="text"
-              value={ticker}
-              onChange={(e) => setTicker(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={market === 'CRYPTO' ? '예: BTC, ETH' : '예: 005930, AAPL'}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
+          {/* 종목명/종목코드 검색 */}
+          <div className="flex-1 min-w-[250px] relative" ref={searchRef}>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              종목 검색
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setTicker(''); // 직접 입력 시 선택된 티커 초기화
+                }}
+                onKeyDown={handleKeyDown}
+                onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+                placeholder={
+                  market === 'CRYPTO'
+                    ? '비트코인, BTC 등'
+                    : market === 'NASDAQ' || market === 'NYSE'
+                    ? 'Apple, AAPL 등'
+                    : '삼성전자, 005930 등'
+                }
+                className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              {searchLoading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* 검색 결과 드롭다운 */}
+            {showDropdown && searchResults.length > 0 && (
+              <div
+                ref={dropdownRef}
+                className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-80 overflow-y-auto"
+              >
+                {searchResults.map((stock, index) => (
+                  <button
+                    key={`${stock.ticker}-${index}`}
+                    type="button"
+                    onClick={() => handleSelectStock(stock)}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">
+                          {stock.name}
+                        </span>
+                        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                          {stock.ticker}
+                        </span>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        stock.market === 'KOSPI' || stock.market === 'KOSDAQ'
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                          : stock.market === 'CRYPTO'
+                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                          : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                      }`}>
+                        {stock.market}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 검색 버튼 */}
@@ -182,6 +346,16 @@ export default function StockSearch() {
             검색
           </Button>
         </div>
+
+        {/* 선택된 종목 표시 */}
+        {ticker && (
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400">선택된 종목:</span>
+            <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded text-sm font-medium">
+              {ticker}
+            </span>
+          </div>
+        )}
 
         {error && (
           <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>

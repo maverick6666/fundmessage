@@ -7,11 +7,32 @@ from decimal import Decimal
 from app.database import get_db
 from app.schemas.common import APIResponse
 from app.services.price_service import price_service
+from app.services.stock_search_service import stock_search_service
 from app.services.position_service import PositionService
 from app.dependencies import get_current_user
 from app.models.user import User
 
 router = APIRouter()
+
+
+@router.get("/search", response_model=APIResponse)
+async def search_stocks(
+    q: str = Query(..., min_length=1, description="검색어 (종목명 또는 티커)"),
+    market: Optional[str] = Query(None, description="KOSPI, KOSDAQ, NASDAQ, NYSE, CRYPTO"),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_user)
+):
+    """종목 검색 (종목명 또는 티커로 검색)"""
+    results = await stock_search_service.search_stocks(q, market, limit)
+
+    return APIResponse(
+        success=True,
+        data={
+            "query": q,
+            "results": results,
+            "count": len(results)
+        }
+    )
 
 
 @router.get("/quote", response_model=APIResponse)
@@ -65,10 +86,14 @@ async def get_candles(
     ticker: str,
     market: str = Query(..., description="KOSPI, KOSDAQ, NASDAQ, NYSE, CRYPTO"),
     timeframe: str = Query("1d", description="1d, 1w, 1M, 1h 등"),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(300, ge=1, le=1000),
     current_user: User = Depends(get_current_user)
 ):
-    """캔들(OHLCV) 데이터 조회"""
+    """캔들(OHLCV) 데이터 조회
+
+    - limit 기본값: 300 (약 1년치 일봉)
+    - 최대 1000개까지 요청 가능
+    """
     result = await price_service.get_candles(ticker, market, timeframe, limit)
 
     if result is None:

@@ -327,21 +327,29 @@ class PriceService:
         try:
             stock = yf.Ticker(ticker)
 
-            # 타임프레임에 따른 기간 설정
+            # 타임프레임에 따른 기간 설정 (더 많은 데이터 요청)
             if timeframe in ["1d", "day"]:
-                period = "1y" if limit > 100 else "6mo"
+                # limit에 따라 기간 조정
+                if limit > 500:
+                    period = "5y"
+                elif limit > 250:
+                    period = "2y"
+                elif limit > 100:
+                    period = "1y"
+                else:
+                    period = "6mo"
                 interval = "1d"
             elif timeframe in ["1w", "week"]:
-                period = "5y"
+                period = "10y" if limit > 200 else "5y"
                 interval = "1wk"
             elif timeframe in ["1M", "month"]:
                 period = "max"
                 interval = "1mo"
             elif timeframe in ["1h", "hour"]:
-                period = "1mo"
+                period = "2mo" if limit > 200 else "1mo"
                 interval = "1h"
             else:
-                period = "6mo"
+                period = "1y"
                 interval = "1d"
 
             hist = stock.history(period=period, interval=interval)
