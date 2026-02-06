@@ -18,20 +18,27 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
   const chartRef = useRef(null);
   const candlestickSeriesRef = useRef(null);
 
-  // 종목 검색
-  const handleSearch = async (query) => {
-    setSearchQuery(query);
-    if (query.length < 1) {
+  // 종목 검색 (디바운싱 적용)
+  useEffect(() => {
+    if (searchQuery.length < 1) {
       setSearchResults([]);
       return;
     }
-    try {
-      const results = await priceService.searchStocks(query, null, 10);
-      setSearchResults(results.data || []);
-    } catch (error) {
-      console.error('Search failed:', error);
-    }
-  };
+
+    const searchStocks = async () => {
+      try {
+        const result = await priceService.searchStocks(searchQuery, null, 10);
+        // API 응답: { success: true, data: [...] }
+        setSearchResults(result.data || result || []);
+      } catch (error) {
+        console.error('Search failed:', error);
+        setSearchResults([]);
+      }
+    };
+
+    const debounce = setTimeout(searchStocks, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery]);
 
   // 종목 선택
   const handleSelectStock = async (stock) => {
@@ -218,7 +225,7 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
             label="종목 검색"
             placeholder="종목명 또는 코드 입력..."
             value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
           {searchResults.length > 0 && (
             <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
