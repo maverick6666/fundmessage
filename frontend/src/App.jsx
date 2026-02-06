@@ -15,6 +15,7 @@ import { Discussions } from './pages/Discussions';
 import { Stats } from './pages/Stats';
 import { TeamManagement } from './pages/TeamManagement';
 import { Notifications } from './pages/Notifications';
+import { Settings } from './pages/Settings';
 import StockSearch from './pages/StockSearch';
 
 function PrivateRoute({ children }) {
@@ -173,6 +174,15 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Notifications />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/settings"
+        element={
+          <PrivateRoute>
+            <Settings />
           </PrivateRoute>
         }
       />

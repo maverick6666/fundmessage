@@ -1,20 +1,165 @@
+/* Google Fonts Import - must be first */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&family=Source+Serif+4:wght@300;400;500;600&family=Cormorant+Garamond:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   THEME CSS VARIABLES
+   ============================================ */
+
+:root {
+  /* Default Theme Variables */
+  --color-bg-primary: #f9fafb;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f3f4f6;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #9ca3af;
+  --color-border: #e5e7eb;
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --sidebar-width: 16rem;
+  --header-height: 4rem;
+  --border-radius: 0.75rem;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* ============================================
+   THEME: Dark Premium (Bloomberg Terminal)
+   ============================================ */
+.theme-dark-premium {
+  --color-bg-primary: #0a0a0a;
+  --color-bg-secondary: #121212;
+  --color-bg-tertiary: #1a1a1a;
+  --color-text-primary: #00ff88;
+  --color-text-secondary: #cccccc;
+  --color-text-muted: #666666;
+  --color-border: #2a2a2a;
+  --color-accent: #00ff88;
+  --color-accent-hover: #00cc6a;
+  --color-success: #00ff88;
+  --color-danger: #ff4444;
+  --color-warning: #ffaa00;
+  --font-sans: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --font-display: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --border-radius: 0.25rem;
+  --shadow-sm: 0 0 0 1px rgba(0, 255, 136, 0.1);
+  --shadow-md: 0 0 20px rgba(0, 255, 136, 0.1);
+}
+
+/* ============================================
+   THEME: Modern Finance (Robinhood/Coinbase)
+   ============================================ */
+.theme-modern-finance {
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f7f9fc;
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #5d5d5d;
+  --color-text-muted: #8c8c8c;
+  --color-border: #e8e8e8;
+  --color-accent: #00c805;
+  --color-accent-hover: #00a804;
+  --color-success: #00c805;
+  --color-danger: #ff5000;
+  --color-warning: #ffb800;
+  --font-sans: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --border-radius: 1rem;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* ============================================
+   THEME: Minimal Luxury (Private Banking)
+   ============================================ */
+.theme-minimal-luxury {
+  --color-bg-primary: #faf9f7;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f5f3ef;
+  --color-text-primary: #1c1917;
+  --color-text-secondary: #44403c;
+  --color-text-muted: #78716c;
+  --color-border: #e7e5e4;
+  --color-accent: #a3824a;
+  --color-accent-hover: #8b6d3c;
+  --color-success: #166534;
+  --color-danger: #991b1b;
+  --color-warning: #a16207;
+  --font-sans: 'Source Serif 4', 'Georgia', 'Times New Roman', serif;
+  --font-display: 'Cormorant Garamond', 'Georgia', serif;
+  --border-radius: 0.25rem;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* ============================================
+   THEME: Tech Enterprise (Stripe/Linear)
+   ============================================ */
+.theme-tech-enterprise {
+  --color-bg-primary: #0f0f10;
+  --color-bg-secondary: #17171a;
+  --color-bg-tertiary: #1f1f23;
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
+  --color-border: #27272a;
+  --color-accent: #8b5cf6;
+  --color-accent-hover: #7c3aed;
+  --color-success: #22c55e;
+  --color-danger: #f43f5e;
+  --color-warning: #eab308;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --border-radius: 0.5rem;
+  --shadow-sm: 0 0 0 1px rgba(139, 92, 246, 0.1);
+  --shadow-md: 0 8px 32px rgba(139, 92, 246, 0.15);
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
 @layer base {
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200;
+    font-family: var(--font-sans);
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    @apply transition-colors duration-200;
+  }
+
+  /* Default theme uses Tailwind's dark mode */
+  .theme-default body {
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
   }
 }
 
+/* ============================================
+   COMPONENT STYLES
+   ============================================ */
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-900;
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    border-radius: var(--border-radius);
   }
 
   .btn-primary {
+    background-color: var(--color-accent);
+    color: white;
+  }
+  .btn-primary:hover {
+    background-color: var(--color-accent-hover);
+  }
+
+  /* Default theme primary button */
+  .theme-default .btn-primary {
     @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 shadow-sm hover:shadow-md;
   }
 
@@ -24,25 +169,55 @@
   }
 
   .btn-danger {
-    @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm;
+    background-color: var(--color-danger);
+    @apply text-white focus:ring-red-500 shadow-sm;
+  }
+  .btn-danger:hover {
+    filter: brightness(0.9);
   }
 
   .btn-success {
-    @apply bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 shadow-sm;
+    background-color: var(--color-success);
+    @apply text-white focus:ring-green-500 shadow-sm;
+  }
+  .btn-success:hover {
+    filter: brightness(0.9);
   }
 
   .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg
-           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
-           bg-white text-gray-900 placeholder-gray-400
-           dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500
+    @apply w-full px-3 py-2 border rounded-lg
+           focus:outline-none focus:ring-2 focus:border-transparent
            transition-colors duration-200;
+    background-color: var(--color-bg-secondary);
+    border-color: var(--color-border);
+    color: var(--color-text-primary);
+    border-radius: var(--border-radius);
+  }
+  .input:focus {
+    --tw-ring-color: var(--color-accent);
+  }
+  .input::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  /* Default theme input */
+  .theme-default .input {
+    @apply bg-white text-gray-900 placeholder-gray-400 border-gray-300 focus:ring-primary-500
+           dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500;
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-4
-           dark:bg-gray-800 dark:border-gray-700 dark:shadow-gray-900/30
-           transition-colors duration-200;
+    background-color: var(--color-bg-secondary);
+    border-color: var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    @apply border p-4 transition-colors duration-200;
+  }
+
+  /* Default theme card */
+  .theme-default .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100
+           dark:bg-gray-800 dark:border-gray-700 dark:shadow-gray-900/30;
   }
 
   .badge {
@@ -74,7 +249,179 @@
   }
 }
 
-/* Toast animation */
+/* ============================================
+   THEME-SPECIFIC OVERRIDES
+   ============================================ */
+
+/* Dark Premium Theme Specifics */
+.theme-dark-premium {
+  /* Terminal-style scrollbar */
+  & ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  & ::-webkit-scrollbar-track {
+    background: #0a0a0a;
+  }
+  & ::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 0;
+  }
+  & ::-webkit-scrollbar-thumb:hover {
+    background: #00ff88;
+  }
+
+  /* Glowing effects */
+  & .card {
+    border: 1px solid rgba(0, 255, 136, 0.2);
+  }
+  & .card:hover {
+    border-color: rgba(0, 255, 136, 0.4);
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.1);
+  }
+
+  /* Terminal cursor blink */
+  & .badge {
+    border-radius: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.65rem;
+  }
+
+  /* Profit/Loss colors */
+  & .text-green-500, & .text-green-600 {
+    color: #00ff88 !important;
+  }
+  & .text-red-500, & .text-red-600 {
+    color: #ff4444 !important;
+  }
+}
+
+/* Modern Finance Theme Specifics */
+.theme-modern-finance {
+  /* Smooth corners everywhere */
+  & .card {
+    border: none;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+  & .card:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
+
+  /* Clean badges */
+  & .badge {
+    font-weight: 600;
+    border-radius: 9999px;
+  }
+
+  /* Vibrant accent buttons */
+  & .btn-primary {
+    background: linear-gradient(135deg, #00c805 0%, #00a804 100%);
+    border: none;
+  }
+  & .btn-primary:hover {
+    background: linear-gradient(135deg, #00a804 0%, #008803 100%);
+    box-shadow: 0 4px 12px rgba(0, 200, 5, 0.3);
+  }
+}
+
+/* Minimal Luxury Theme Specifics */
+.theme-minimal-luxury {
+  /* Refined typography */
+  & h1, & h2, & h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  /* Elegant cards */
+  & .card {
+    border: 1px solid var(--color-border);
+    box-shadow: none;
+  }
+  & .card:hover {
+    border-color: var(--color-accent);
+  }
+
+  /* Understated badges */
+  & .badge {
+    border-radius: 0.125rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.625rem;
+    background: transparent;
+    border: 1px solid currentColor;
+  }
+
+  /* Gold accent touches */
+  & .btn-primary {
+    background: linear-gradient(135deg, #a3824a 0%, #c9a55c 100%);
+    border: none;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+
+  /* Refined inputs */
+  & .input {
+    border-width: 1px;
+    border-bottom-width: 2px;
+  }
+  & .input:focus {
+    border-bottom-color: var(--color-accent);
+  }
+}
+
+/* Tech Enterprise Theme Specifics */
+.theme-tech-enterprise {
+  /* Subtle gradient backgrounds */
+  & .card {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.03) 0%, transparent 100%);
+    border: 1px solid rgba(139, 92, 246, 0.1);
+  }
+  & .card:hover {
+    border-color: rgba(139, 92, 246, 0.3);
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.06) 0%, transparent 100%);
+  }
+
+  /* Modern scrollbar */
+  & ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  & ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  & ::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    border-radius: 4px;
+  }
+  & ::-webkit-scrollbar-thumb:hover {
+    background: #8b5cf6;
+  }
+
+  /* Gradient accent buttons */
+  & .btn-primary {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+    border: none;
+  }
+  & .btn-primary:hover {
+    background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+  }
+
+  /* Clean badges */
+  & .badge {
+    background: rgba(139, 92, 246, 0.1);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+  }
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
 @keyframes slideInRight {
   from {
     transform: translateX(100%);
@@ -86,7 +433,6 @@
   }
 }
 
-/* Smooth page transitions */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
@@ -94,4 +440,17 @@
 
 .animate-fade-in {
   animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--color-accent);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--color-accent);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
 }

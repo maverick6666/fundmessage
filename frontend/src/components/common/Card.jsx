@@ -8,7 +8,10 @@ export function Card({ children, className = '', ...props }) {
 
 export function CardHeader({ children, className = '' }) {
   return (
-    <div className={`pb-3 border-b border-gray-200 dark:border-gray-700 mb-4 ${className}`}>
+    <div
+      className={`pb-3 mb-4 ${className}`}
+      style={{ borderBottom: '1px solid var(--color-border)' }}
+    >
       {children}
     </div>
   );
@@ -16,7 +19,10 @@ export function CardHeader({ children, className = '' }) {
 
 export function CardTitle({ children, className = '' }) {
   return (
-    <h3 className={`text-lg font-semibold text-gray-900 dark:text-gray-100 ${className}`}>
+    <h3
+      className={`text-lg font-semibold ${className}`}
+      style={{ color: 'var(--color-text-primary)' }}
+    >
       {children}
     </h3>
   );

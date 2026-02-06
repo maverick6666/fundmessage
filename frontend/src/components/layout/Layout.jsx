@@ -16,7 +16,10 @@ export function Layout({ children }) {
   }, [isAuthenticated, isConnected, connect]);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <div
+      className="h-screen flex flex-col transition-colors duration-200"
+      style={{ backgroundColor: 'var(--color-bg-primary)' }}
+    >
       <Header onMenuClick={() => setSidebarOpen(true)} />
 
       <div className="flex flex-1 overflow-hidden">

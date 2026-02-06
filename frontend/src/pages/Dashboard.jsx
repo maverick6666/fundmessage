@@ -195,7 +195,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold dark:text-gray-100">대시보드</h1>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>대시보드</h1>
         {isManager() && (
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setShowExchangeModal(true)}>
