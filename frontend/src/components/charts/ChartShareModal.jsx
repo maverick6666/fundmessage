@@ -10,6 +10,7 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
   const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [selectedStock, setSelectedStock] = useState(null);
   const [candles, setCandles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -28,6 +29,7 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
     }
 
     const searchStocks = async () => {
+      setSearchLoading(true);
       try {
         const result = await priceService.searchStocks(searchQuery, null, 10);
         // API 응답: { success: true, data: { results: [...] } }
@@ -35,6 +37,8 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
       } catch (error) {
         console.error('Search failed:', error);
         setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
       }
     };
 
@@ -224,13 +228,23 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
       <div className="space-y-4">
         {/* 종목 검색 */}
         <div className="relative">
-          <Input
-            label="종목 검색"
-            placeholder="종목명 또는 코드 입력..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchResults.length > 0 && (
+          <div className="relative">
+            <Input
+              label="종목 검색"
+              placeholder="종목명 또는 코드 입력..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchLoading && (
+              <div className="absolute right-3 top-[38px]">
+                <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+            )}
+          </div>
+          {searchResults.length > 0 && !selectedStock && (
             <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
               {searchResults.map((stock) => (
                 <button
