@@ -159,8 +159,8 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
   const insertImageFromFile = useCallback(async (file, targetBlockId = null) => {
     if (!file || !file.type.startsWith('image/')) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.warning('이미지 크기는 5MB 이하여야 합니다.');
+    if (file.size > 2 * 1024 * 1024) {
+      toast.warning('이미지 크기는 2MB 이하여야 합니다.');
       return;
     }
 
@@ -435,7 +435,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
                     클릭, 드래그 또는 Ctrl+V로 업로드
                   </p>
                   <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                    최대 5MB
+                    최대 2MB
                   </p>
                 </>
               )}

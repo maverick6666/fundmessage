@@ -1,5 +1,7 @@
 import api from './api';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 export const uploadService = {
   async uploadImage(file) {
     const formData = new FormData();
@@ -10,7 +12,13 @@ export const uploadService = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data.data;
+
+    // 상대 URL을 절대 URL로 변환
+    const data = response.data.data;
+    if (data.url && data.url.startsWith('/')) {
+      data.url = `${API_URL}${data.url}`;
+    }
+    return data;
   },
 
   async getDiskUsage() {
