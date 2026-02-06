@@ -132,10 +132,11 @@ export function NumberInputWithQuickButtons({
 
 /**
  * 간단한 빠른 버튼 (인라인용)
+ * 한 줄에 숫자 버튼 + 천/만 단위 버튼 배치
  */
 export function QuickNumberButtons({
   onAdd,
-  quickValues = [5, 10, 50, 100, 500, 1000],
+  quickValues = [1, 5, 10, 50, 100],
   showUnits = true,
   className = ''
 }) {
@@ -148,31 +149,32 @@ export function QuickNumberButtons({
   };
 
   return (
-    <div className={`space-y-1 ${className}`}>
-      <div className="flex flex-wrap gap-1">
-        {quickValues.map((num) => (
-          <button
-            key={num}
-            type="button"
-            onClick={() => onAdd(num * unitMultiplier)}
-            className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
-          >
-            +{num}{getUnitLabel()}
-          </button>
-        ))}
-      </div>
+    <div className={`flex items-center gap-1 flex-wrap ${className}`}>
+      {/* 숫자 버튼들 */}
+      {quickValues.map((num) => (
+        <button
+          key={num}
+          type="button"
+          onClick={() => onAdd(num * unitMultiplier)}
+          className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+        >
+          +{num}{getUnitLabel()}
+        </button>
+      ))}
+
+      {/* 단위 버튼 (천, 만) */}
       {showUnits && (
-        <div className="flex gap-1">
+        <>
+          <span className="text-gray-300 dark:text-gray-600 mx-1">|</span>
           {[
-            { label: '1', value: 1 },
             { label: '천', value: 1000 },
             { label: '만', value: 10000 },
           ].map(({ label, value }) => (
             <button
               key={value}
               type="button"
-              onClick={() => setUnitMultiplier(value)}
-              className={`px-1.5 py-0.5 text-xs rounded ${
+              onClick={() => setUnitMultiplier(unitMultiplier === value ? 1 : value)}
+              className={`px-2 py-1 text-xs rounded transition-colors ${
                 unitMultiplier === value
                   ? 'bg-primary-500 text-white'
                   : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -181,7 +183,7 @@ export function QuickNumberButtons({
               {label}
             </button>
           ))}
-        </div>
+        </>
       )}
     </div>
   );

@@ -860,42 +860,58 @@ function SimpleBuyForm({ stock, currentPrice, onSuccess, onCancel }) {
             </button>
           )}
         </div>
-        <div className="space-y-2">
+        <div className="space-y-4">
           {formData.buy_orders.map((order, index) => (
-            <div key={index} className="space-y-1">
-              <div className="flex gap-2 items-center">
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="매수가"
-                  value={order.price}
-                  onChange={(e) => updateBuyOrder(index, 'price', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                />
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  placeholder="수량"
-                  value={order.quantity}
-                  onChange={(e) => updateBuyOrder(index, 'quantity', e.target.value)}
-                  className="w-28 px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                />
+            <div key={index} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500 dark:text-gray-400">매수 {index + 1}</span>
                 {formData.buy_orders.length > 1 && (
                   <button type="button" onClick={() => removeBuyOrder(index)} className="p-1 text-gray-400 hover:text-red-500">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 )}
               </div>
-              <div className="ml-auto" style={{ width: '7rem' }}>
+              {/* 매수가 입력 */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">매수가</label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="매수가 입력"
+                  value={order.price}
+                  onChange={(e) => updateBuyOrder(index, 'price', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+                <QuickNumberButtons
+                  onAdd={(num) => {
+                    const currentPrice = parseFloat(order.price) || 0;
+                    updateBuyOrder(index, 'price', String(currentPrice + num));
+                  }}
+                  quickValues={[100, 500, 1000, 5000, 10000]}
+                  className="mt-1"
+                />
+              </div>
+              {/* 수량 입력 */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">수량</label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  placeholder="수량 입력"
+                  value={order.quantity}
+                  onChange={(e) => updateBuyOrder(index, 'quantity', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                />
                 <QuickNumberButtons
                   onAdd={(num) => {
                     const currentQty = parseFloat(order.quantity) || 0;
                     updateBuyOrder(index, 'quantity', String(currentQty + num));
                   }}
                   quickValues={[1, 5, 10, 50, 100]}
+                  className="mt-1"
                 />
               </div>
             </div>
