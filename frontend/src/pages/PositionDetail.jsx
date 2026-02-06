@@ -15,6 +15,7 @@ import { discussionService } from '../services/discussionService';
 import { decisionNoteService } from '../services/decisionNoteService';
 import { tradingPlanService } from '../services/tradingPlanService';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../context/ToastContext';
 import {
   formatCurrency,
   formatPercent,
@@ -38,6 +39,7 @@ export function PositionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isManagerOrAdmin, isManager, adminMode } = useAuth();
+  const toast = useToast();
   const [position, setPosition] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -199,9 +201,9 @@ export function PositionDetail() {
       await tradingPlanService.createPlan(id, planData);
       setPlanMemo('');
       fetchTradingPlans();
-      alert('매매계획이 저장되었습니다.');
+      toast.success('매매계획이 저장되었습니다.');
     } catch (error) {
-      alert(error.response?.data?.detail || '저장에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '저장에 실패했습니다.');
     } finally {
       setSavingPlan(false);
     }
@@ -211,9 +213,9 @@ export function PositionDetail() {
     try {
       await tradingPlanService.submitPlan(id, planId);
       fetchTradingPlans();
-      alert('매매계획이 제출되었습니다.');
+      toast.success('매매계획이 제출되었습니다.');
     } catch (error) {
-      alert(error.response?.data?.detail || '제출에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '제출에 실패했습니다.');
     }
   };
 
@@ -223,13 +225,13 @@ export function PositionDetail() {
       await tradingPlanService.deletePlan(id, planId);
       fetchTradingPlans();
     } catch (error) {
-      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
   const handleSaveNote = async () => {
     if (!noteTitle.trim() || !noteContent.trim()) {
-      alert('제목과 내용을 입력해주세요.');
+      toast.warning('제목과 내용을 입력해주세요.');
       return;
     }
     try {
@@ -248,7 +250,7 @@ export function PositionDetail() {
       setNoteContent('');
       fetchDecisionNotes();
     } catch (error) {
-      alert(error.response?.data?.detail || '저장에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '저장에 실패했습니다.');
     }
   };
 
@@ -265,7 +267,7 @@ export function PositionDetail() {
       await decisionNoteService.deleteNote(id, noteId);
       fetchDecisionNotes();
     } catch (error) {
-      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
@@ -293,7 +295,7 @@ export function PositionDetail() {
 
   const handleCreateDiscussion = async () => {
     if (!discussionTitle.trim()) {
-      alert('토론 제목을 입력해주세요.');
+      toast.warning('토론 제목을 입력해주세요.');
       return;
     }
     setActionLoading(true);
@@ -307,7 +309,7 @@ export function PositionDetail() {
       fetchDiscussions();
       navigate(`/discussions/${discussion.id}`);
     } catch (error) {
-      alert(error.response?.data?.detail || '토론방 생성에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '토론방 생성에 실패했습니다.');
     } finally {
       setActionLoading(false);
     }
@@ -316,7 +318,7 @@ export function PositionDetail() {
   // 포지션 정보 저장
   const handleSaveInfo = async () => {
     if (!infoData.average_buy_price || !infoData.total_quantity) {
-      alert('평균 매입가와 수량을 입력해주세요.');
+      toast.warning('평균 매입가와 수량을 입력해주세요.');
       return;
     }
     setActionLoading(true);
@@ -330,7 +332,7 @@ export function PositionDetail() {
       fetchPosition();
       if (showAuditLogs) fetchAuditLogs();
     } catch (error) {
-      alert(error.response?.data?.detail || '정보 저장에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '정보 저장에 실패했습니다.');
     } finally {
       setActionLoading(false);
     }
@@ -374,10 +376,10 @@ export function PositionDetail() {
 
       // 잔량이 0이 되면 포지션 종료 안내
       if (updatedPosition.total_quantity <= 0) {
-        alert('모든 수량이 체결되었습니다.\n포지션 종료 버튼을 눌러 마무리하세요.');
+        toast.info('모든 수량이 체결되었습니다. 포지션 종료 버튼을 눌러 마무리하세요.');
       }
     } catch (error) {
-      alert(error.response?.data?.detail || '상태 변경에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '상태 변경에 실패했습니다.');
     }
   };
 
@@ -404,7 +406,7 @@ export function PositionDetail() {
       setEditingPlanItem({ planType, index: newIndex });
       setEditPlanData({ price: '', quantity: '' });
     } catch (error) {
-      alert(error.response?.data?.detail || '추가에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '추가에 실패했습니다.');
     }
   };
 
@@ -429,7 +431,7 @@ export function PositionDetail() {
       setEditingPlanItem(null);
       if (showAuditLogs) fetchAuditLogs();
     } catch (error) {
-      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
@@ -440,7 +442,7 @@ export function PositionDetail() {
     const { planType, index } = editingPlanItem;
 
     if (!editPlanData.price || !editPlanData.quantity) {
-      alert('가격과 수량을 모두 입력해주세요.');
+      toast.warning('가격과 수량을 모두 입력해주세요.');
       return;
     }
 
@@ -467,7 +469,7 @@ export function PositionDetail() {
       setEditingPlanItem(null);
       if (showAuditLogs) fetchAuditLogs();
     } catch (error) {
-      alert(error.response?.data?.detail || '수정에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '수정에 실패했습니다.');
     }
   };
 
@@ -534,7 +536,7 @@ export function PositionDetail() {
 
   const handleClose = async () => {
     if (!closeData.total_sell_amount) {
-      alert('청산 금액을 입력해주세요.');
+      toast.warning('청산 금액을 입력해주세요.');
       return;
     }
     if (hasUncompletedPlans) {
@@ -558,7 +560,7 @@ export function PositionDetail() {
       setShowCloseModal(false);
       fetchPosition();
     } catch (error) {
-      alert(error.response?.data?.detail || '포지션 종료에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '포지션 종료에 실패했습니다.');
     } finally {
       setActionLoading(false);
     }
@@ -720,10 +722,10 @@ export function PositionDetail() {
                 if (!window.confirm(`포지션 "${position.ticker_name || position.ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 모든 요청, 토론, 의사결정 노트가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
                 try {
                   await positionService.deletePosition(id);
-                  alert('포지션이 삭제되었습니다.');
+                  toast.success('포지션이 삭제되었습니다.');
                   navigate('/positions');
                 } catch (error) {
-                  alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+                  toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
                 }
               }}
             >
@@ -780,9 +782,9 @@ export function PositionDetail() {
                     <Button variant="secondary" onClick={async () => {
                       try {
                         await positionService.requestDiscussion(id);
-                        alert('토론 요청이 매니저에게 전송되었습니다.');
+                        toast.success('토론 요청이 매니저에게 전송되었습니다.');
                       } catch (error) {
-                        alert(error.response?.data?.detail || '토론 요청에 실패했습니다.');
+                        toast.error(error.response?.data?.detail || '토론 요청에 실패했습니다.');
                       }
                     }}>토론 요청</Button>
                   )}
@@ -790,9 +792,9 @@ export function PositionDetail() {
                     if (!window.confirm('포지션 조기종료를 요청하시겠습니까?')) return;
                     try {
                       await positionService.requestEarlyClose(id);
-                      alert('조기종료 요청이 매니저에게 전송되었습니다.');
+                      toast.success('조기종료 요청이 매니저에게 전송되었습니다.');
                     } catch (error) {
-                      alert(error.response?.data?.detail || '조기종료 요청에 실패했습니다.');
+                      toast.error(error.response?.data?.detail || '조기종료 요청에 실패했습니다.');
                     }
                   }}>조기종료 요청</Button>
                 </>
@@ -952,9 +954,9 @@ export function PositionDetail() {
       </div>
 
       {/* 차트 + 매매계획 (나란히) */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* 차트 (3/5) */}
-        <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+        {/* 차트 (3/5) - self-start로 높이 고정 */}
+        <div className="lg:col-span-3 lg:self-start bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 overflow-hidden">
           <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
             <h3 className="font-semibold dark:text-gray-200">차트</h3>
             <div className="flex gap-2">
@@ -1150,7 +1152,7 @@ export function PositionDetail() {
                         if (!window.confirm(`토론 "${discussion.title}"을(를) 삭제하시겠습니까?\n\n모든 메시지가 함께 삭제됩니다.`)) return;
                         discussionService.deleteDiscussion(discussion.id)
                           .then(() => fetchDiscussions())
-                          .catch((err) => alert(err.response?.data?.detail || '삭제에 실패했습니다.'));
+                          .catch((err) => toast.error(err.response?.data?.detail || '삭제에 실패했습니다.'));
                       }}
                       className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                       title="토론 삭제"
@@ -1412,10 +1414,10 @@ export function PositionDetail() {
                     if (result.success) {
                       setGeneratedReport(result.data.content);
                     } else {
-                      alert(result.message || '보고서 생성에 실패했습니다.');
+                      toast.error(result.message || '보고서 생성에 실패했습니다.');
                     }
                   } catch (error) {
-                    alert(error.response?.data?.detail || '보고서 생성 중 오류가 발생했습니다.');
+                    toast.error(error.response?.data?.detail || '보고서 생성 중 오류가 발생했습니다.');
                   } finally {
                     setReportGenerating(false);
                   }
@@ -1436,7 +1438,7 @@ export function PositionDetail() {
                     size="sm"
                     onClick={() => {
                       navigator.clipboard.writeText(generatedReport);
-                      alert('클립보드에 복사되었습니다.');
+                      toast.success('클립보드에 복사되었습니다.');
                     }}
                   >
                     복사

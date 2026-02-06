@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { ProfitProgressBar } from '../components/common/ProfitProgressBar';
-import { ChartModal } from '../components/charts/ChartModal';
+import { StockChart } from '../components/charts/StockChart';
 import { QuickNumberButtons } from '../components/common/NumberInputWithQuickButtons';
 import { usePositions } from '../hooks/usePositions';
 import { priceService } from '../services/priceService';
 import { positionService } from '../services/positionService';
 import { requestService } from '../services/requestService';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../context/ToastContext';
 import {
   formatCurrency,
   formatPercent,
@@ -30,6 +31,7 @@ const MARKETS = [
 
 export function Positions() {
   const { adminMode } = useAuth();
+  const toast = useToast();
   const [statusFilter, setStatusFilter] = useState('open');
   const { positions, total, loading, error, updateFilters, setPage, filters } = usePositions({ status: 'open' });
   const [priceData, setPriceData] = useState({});
@@ -49,9 +51,13 @@ export function Positions() {
   const searchRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  // 차트 모달 상태
-  const [chartStock, setChartStock] = useState(null);
-  const [showChartModal, setShowChartModal] = useState(false);
+  // 인라인 차트 상태
+  const [showInlineChart, setShowInlineChart] = useState(false);
+  const [inlineCandles, setInlineCandles] = useState([]);
+  const [inlineChartLoading, setInlineChartLoading] = useState(false);
+  const [inlineTimeframe, setInlineTimeframe] = useState('1d');
+  const [inlineHasMore, setInlineHasMore] = useState(false);
+  const [inlineLoadingMore, setInlineLoadingMore] = useState(false);
 
   // 매수 요청 폼 상태
   const [showBuyForm, setShowBuyForm] = useState(false);
@@ -143,7 +149,7 @@ export function Positions() {
       await positionService.deletePosition(position.id);
       updateFilters({ ...filters });
     } catch (error) {
-      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
@@ -170,6 +176,9 @@ export function Positions() {
     setShowDropdown(false);
     setShowBuyForm(false);
     setBuyFormSuccess('');
+    // 인라인 차트 리셋
+    setShowInlineChart(false);
+    setInlineCandles([]);
 
     // 현재가 조회
     try {
@@ -204,6 +213,9 @@ export function Positions() {
     setExistingPosition(null);
     setShowBuyForm(false);
     setBuyFormSuccess('');
+    // 인라인 차트 리셋
+    setShowInlineChart(false);
+    setInlineCandles([]);
   };
 
   // 시장 변경
@@ -215,12 +227,89 @@ export function Positions() {
     setShowDropdown(false);
     setStockPrice(null);
     setExistingPosition(null);
+    // 인라인 차트 리셋
+    setShowInlineChart(false);
+    setInlineCandles([]);
   };
 
-  // 차트 모달 열기
-  const openChartModal = (stock) => {
-    setChartStock(stock);
-    setShowChartModal(true);
+  // 인라인 차트 토글
+  const toggleInlineChart = async () => {
+    if (showInlineChart) {
+      setShowInlineChart(false);
+    } else {
+      setShowInlineChart(true);
+      await loadInlineCandles();
+    }
+  };
+
+  // 인라인 차트 데이터 로드
+  const loadInlineCandles = async () => {
+    if (!selectedStock) return;
+
+    setInlineChartLoading(true);
+    try {
+      const result = await priceService.getCandles(selectedStock.ticker, selectedStock.market, inlineTimeframe, 200);
+      if (result.success && result.data) {
+        setInlineCandles(result.data.candles || []);
+        setInlineHasMore(result.data.has_more === true);
+      }
+    } catch (err) {
+      console.error('차트 로드 실패:', err);
+    } finally {
+      setInlineChartLoading(false);
+    }
+  };
+
+  // 인라인 차트 타임프레임 변경
+  const handleInlineTimeframeChange = async (newTimeframe) => {
+    setInlineTimeframe(newTimeframe);
+    setInlineHasMore(false);
+
+    if (!selectedStock) return;
+    setInlineChartLoading(true);
+    try {
+      const result = await priceService.getCandles(selectedStock.ticker, selectedStock.market, newTimeframe, 200);
+      if (result.success && result.data) {
+        setInlineCandles(result.data.candles || []);
+        setInlineHasMore(result.data.has_more === true);
+      }
+    } catch (err) {
+      console.error('차트 로드 실패:', err);
+    } finally {
+      setInlineChartLoading(false);
+    }
+  };
+
+  // 인라인 차트 더보기 로드
+  const handleInlineLoadMore = async (beforeTimestamp) => {
+    if (!selectedStock || inlineLoadingMore || !inlineHasMore) return;
+
+    setInlineLoadingMore(true);
+    try {
+      const result = await priceService.getCandles(
+        selectedStock.ticker,
+        selectedStock.market,
+        inlineTimeframe,
+        200,
+        beforeTimestamp
+      );
+
+      if (result.success && result.data && result.data.candles?.length > 0) {
+        setInlineCandles(prev => {
+          const newCandles = result.data.candles;
+          const existingTimes = new Set(prev.map(c => c.time));
+          const uniqueNewCandles = newCandles.filter(c => !existingTimes.has(c.time));
+          return [...uniqueNewCandles, ...prev];
+        });
+        setInlineHasMore(result.data.has_more === true);
+      } else {
+        setInlineHasMore(false);
+      }
+    } catch (err) {
+      console.error('과거 데이터 로드 오류:', err);
+    } finally {
+      setInlineLoadingMore(false);
+    }
   };
 
   // 매수 요청 성공
@@ -239,7 +328,14 @@ export function Positions() {
         <Button
           variant={showSearch ? 'secondary' : 'primary'}
           size="sm"
-          onClick={() => setShowSearch(!showSearch)}
+          onClick={() => {
+            if (showSearch) {
+              // 검색 닫을 때 인라인 차트도 리셋
+              setShowInlineChart(false);
+              setInlineCandles([]);
+            }
+            setShowSearch(!showSearch);
+          }}
         >
           {showSearch ? '검색 닫기' : '종목 검색'}
         </Button>
@@ -364,11 +460,11 @@ export function Positions() {
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    variant="secondary"
+                    variant={showInlineChart ? 'primary' : 'secondary'}
                     size="sm"
-                    onClick={() => openChartModal(selectedStock)}
+                    onClick={toggleInlineChart}
                   >
-                    차트 보기
+                    {showInlineChart ? '차트 닫기' : '차트 보기'}
                   </Button>
                   {!existingPosition && (
                     <Button
@@ -406,6 +502,53 @@ export function Positions() {
               {buyFormSuccess && (
                 <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                   <p className="text-sm text-green-600 dark:text-green-400 font-medium">{buyFormSuccess}</p>
+                </div>
+              )}
+
+              {/* 인라인 차트 */}
+              {showInlineChart && (
+                <div className="mt-4 pt-4 border-t dark:border-gray-600">
+                  {/* 타임프레임 선택 */}
+                  <div className="flex gap-1 mb-3">
+                    {['1d', '1w', '1M', '3M', '1y'].map(tf => (
+                      <button
+                        key={tf}
+                        onClick={() => handleInlineTimeframeChange(tf)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                          inlineTimeframe === tf
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {tf === '1d' ? '일봉' : tf === '1w' ? '주봉' : tf === '1M' ? '월봉' : tf === '3M' ? '3개월' : '1년'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 차트 영역 */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 overflow-hidden" style={{ height: '350px' }}>
+                    {inlineChartLoading ? (
+                      <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
+                        <svg className="animate-spin h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        차트 로딩중...
+                      </div>
+                    ) : inlineCandles.length === 0 ? (
+                      <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
+                        차트 데이터가 없습니다
+                      </div>
+                    ) : (
+                      <StockChart
+                        candles={inlineCandles}
+                        height={350}
+                        hasMore={inlineHasMore}
+                        onLoadMore={handleInlineLoadMore}
+                        loadingMore={inlineLoadingMore}
+                      />
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -719,12 +862,6 @@ export function Positions() {
         </>
       )}
 
-      {/* 차트 모달 */}
-      <ChartModal
-        isOpen={showChartModal}
-        onClose={() => setShowChartModal(false)}
-        stock={chartStock}
-      />
     </div>
   );
 }

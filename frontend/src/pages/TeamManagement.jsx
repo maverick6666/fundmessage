@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { userService } from '../services/userService';
 import { Button } from '../components/common/Button';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../context/ToastContext';
 
 const ROLE_LABELS = {
   manager: '팀장',
@@ -17,6 +18,7 @@ const ROLE_COLORS = {
 
 export function TeamManagement() {
   const { adminMode, isManager, logout } = useAuth();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('members'); // 'members', 'pending'
   const [pendingUsers, setPendingUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
@@ -48,9 +50,9 @@ export function TeamManagement() {
     try {
       await userService.approveUser(userId);
       await loadData();
-      alert('사용자가 승인되었습니다.');
+      toast.success('사용자가 승인되었습니다.');
     } catch (error) {
-      alert(error.response?.data?.detail || '승인에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '승인에 실패했습니다.');
     } finally {
       setActionLoading(null);
     }
@@ -63,9 +65,9 @@ export function TeamManagement() {
     try {
       await userService.deactivateUser(userId);
       await loadData();
-      alert('계정이 비활성화되었습니다.');
+      toast.success('계정이 비활성화되었습니다.');
     } catch (error) {
-      alert(error.response?.data?.detail || '비활성화에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '비활성화에 실패했습니다.');
     } finally {
       setActionLoading(null);
     }
@@ -76,9 +78,9 @@ export function TeamManagement() {
     try {
       await userService.updateUserRole(userId, newRole);
       await loadData();
-      alert('역할이 변경되었습니다.');
+      toast.success('역할이 변경되었습니다.');
     } catch (error) {
-      alert(error.response?.data?.detail || '역할 변경에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '역할 변경에 실패했습니다.');
     } finally {
       setActionLoading(null);
     }
@@ -90,10 +92,10 @@ export function TeamManagement() {
     setActionLoading(userId);
     try {
       await userService.transferManager(userId);
-      alert(`팀장 권한이 ${userName}님에게 이전되었습니다. 다시 로그인해주세요.`);
+      toast.success(`팀장 권한이 ${userName}님에게 이전되었습니다. 다시 로그인해주세요.`);
       logout();
     } catch (error) {
-      alert(error.response?.data?.detail || '권한 이전에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '권한 이전에 실패했습니다.');
     } finally {
       setActionLoading(null);
     }
@@ -106,9 +108,9 @@ export function TeamManagement() {
     try {
       await userService.deleteUser(userId);
       await loadData();
-      alert('계정이 삭제되었습니다.');
+      toast.success('계정이 삭제되었습니다.');
     } catch (error) {
-      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     } finally {
       setActionLoading(null);
     }

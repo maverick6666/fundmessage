@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Button } from '../common/Button';
 import { Input, Textarea } from '../common/Input';
 import { requestService } from '../../services/requestService';
+import { useToast } from '../../context/ToastContext';
 
 export function SellRequestForm({ position, onSuccess, onCancel }) {
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     sell_quantity: '',
@@ -26,7 +28,7 @@ export function SellRequestForm({ position, onSuccess, onCancel }) {
       await requestService.createSellRequest(data);
       onSuccess?.();
     } catch (error) {
-      alert(error.response?.data?.detail || '요청 생성에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '요청 생성에 실패했습니다.');
     } finally {
       setLoading(false);
     }

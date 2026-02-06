@@ -9,6 +9,7 @@ import { MiniChart } from '../components/charts/MiniChart';
 import { discussionService } from '../services/discussionService';
 import { useAuth } from '../hooks/useAuth';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useToast } from '../context/ToastContext';
 import { formatDate } from '../utils/formatters';
 
 export function Discussion() {
@@ -16,6 +17,7 @@ export function Discussion() {
   const navigate = useNavigate();
   const { user, isManagerOrAdmin, adminMode } = useAuth();
   const { joinDiscussion, leaveDiscussion, subscribe, sendMessage: wsSendMessage } = useWebSocket();
+  const toast = useToast();
 
   const [discussion, setDiscussion] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -121,7 +123,7 @@ export function Discussion() {
       setShowCloseModal(false);
       fetchDiscussion();
     } catch (error) {
-      alert(error.response?.data?.detail || '토론 종료에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '토론 종료에 실패했습니다.');
     }
   };
 
@@ -130,7 +132,7 @@ export function Discussion() {
       await discussionService.reopenDiscussion(id);
       fetchDiscussion();
     } catch (error) {
-      alert(error.response?.data?.detail || '토론 재개에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '토론 재개에 실패했습니다.');
     }
   };
 
@@ -141,7 +143,7 @@ export function Discussion() {
       setSelectedSessions(new Set((data.sessions || []).map(s => s.session_number)));
       setShowExportModal(true);
     } catch (error) {
-      alert('세션 정보를 불러오는데 실패했습니다.');
+      toast.error('세션 정보를 불러오는데 실패했습니다.');
     }
   };
 
@@ -149,10 +151,10 @@ export function Discussion() {
     if (!window.confirm(`토론 "${discussion.title}"을(를) 정말 삭제하시겠습니까?\n\n모든 메시지가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
     try {
       await discussionService.deleteDiscussion(id);
-      alert('토론이 삭제되었습니다.');
+      toast.success('토론이 삭제되었습니다.');
       navigate(-1);
     } catch (error) {
-      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
@@ -173,7 +175,7 @@ export function Discussion() {
 
   const handleExportTxt = async () => {
     if (selectedSessions.size === 0) {
-      alert('최소 하나의 세션을 선택해주세요.');
+      toast.warning('최소 하나의 세션을 선택해주세요.');
       return;
     }
     setExportLoading(true);
@@ -191,7 +193,7 @@ export function Discussion() {
       }
       setShowExportModal(false);
     } catch (error) {
-      alert('다운로드에 실패했습니다.');
+      toast.error('다운로드에 실패했습니다.');
     } finally {
       setExportLoading(false);
     }
@@ -246,9 +248,9 @@ export function Discussion() {
             <Button variant="secondary" size="sm" onClick={async () => {
               try {
                 await discussionService.requestReopen(id);
-                alert('토론 재개 요청이 매니저에게 전송되었습니다.');
+                toast.success('토론 재개 요청이 매니저에게 전송되었습니다.');
               } catch (error) {
-                alert(error.response?.data?.detail || '요청에 실패했습니다.');
+                toast.error(error.response?.data?.detail || '요청에 실패했습니다.');
               }
             }}>
               재개 요청

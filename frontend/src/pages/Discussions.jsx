@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { discussionService } from '../services/discussionService';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../context/ToastContext';
 import { formatRelativeTime } from '../utils/formatters';
 
 export function Discussions() {
   const navigate = useNavigate();
   const { adminMode } = useAuth();
+  const toast = useToast();
   const [discussions, setDiscussions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('open');
@@ -23,7 +25,7 @@ export function Discussions() {
       await discussionService.deleteDiscussion(discussion.id);
       fetchDiscussions();
     } catch (error) {
-      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { uploadService } from '../../services/uploadService';
+import { useToast } from '../../context/ToastContext';
 
 /**
  * 노션 스타일 블록 에디터
@@ -33,6 +34,7 @@ function createBlock(type, data = {}) {
 }
 
 export function BlockEditor({ initialBlocks = [], onChange, readOnly = false }) {
+  const toast = useToast();
   const [blocks, setBlocks] = useState(() => {
     if (initialBlocks.length === 0) {
       return [createBlock('paragraph')];
@@ -107,7 +109,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false }) 
 
     // 파일 크기 체크 (200KB)
     if (file.size > 200 * 1024) {
-      alert('이미지 크기는 200KB 이하여야 합니다.');
+      toast.warning('이미지 크기는 200KB 이하여야 합니다.');
       return;
     }
 
@@ -121,7 +123,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false }) 
       });
     } catch (error) {
       console.error('이미지 업로드 실패:', error);
-      alert(error.response?.data?.detail || '이미지 업로드에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '이미지 업로드에 실패했습니다.');
     } finally {
       setUploadingBlockId(null);
     }

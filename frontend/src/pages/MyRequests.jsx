@@ -4,6 +4,7 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { requestService } from '../services/requestService';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../context/ToastContext';
 import {
   formatCurrency,
   formatPercent,
@@ -16,6 +17,7 @@ import {
 
 export function MyRequests() {
   const { user, adminMode } = useAuth();
+  const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
@@ -47,7 +49,7 @@ export function MyRequests() {
       await requestService.deleteRequest(request.id);
       fetchRequests();
     } catch (error) {
-      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
@@ -224,9 +226,9 @@ export function MyRequests() {
                         e.stopPropagation();
                         try {
                           await requestService.requestDiscussion(request.id);
-                          alert('토론 요청이 매니저에게 전송되었습니다.');
+                          toast.success('토론 요청이 매니저에게 전송되었습니다.');
                         } catch (error) {
-                          alert(error.response?.data?.detail || '토론 요청에 실패했습니다.');
+                          toast.error(error.response?.data?.detail || '토론 요청에 실패했습니다.');
                         }
                       }}
                     >

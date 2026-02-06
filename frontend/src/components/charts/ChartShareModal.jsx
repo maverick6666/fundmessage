@@ -4,8 +4,10 @@ import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { priceService } from '../../services/priceService';
+import { useToast } from '../../context/ToastContext';
 
 export function ChartShareModal({ isOpen, onClose, onShare }) {
+  const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedStock, setSelectedStock] = useState(null);
@@ -163,7 +165,7 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
   // 공유하기
   const handleShare = () => {
     if (!selectedStock || !selectedRange.from || !selectedRange.to) {
-      alert('종목과 기간을 선택해주세요.');
+      toast.warning('종목과 기간을 선택해주세요.');
       return;
     }
 
@@ -173,7 +175,7 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
     );
 
     if (selectedCandles.length === 0) {
-      alert('선택된 기간에 데이터가 없습니다.');
+      toast.warning('선택된 기간에 데이터가 없습니다.');
       return;
     }
 

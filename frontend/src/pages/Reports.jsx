@@ -7,6 +7,7 @@ import { BlockRenderer } from '../components/editor/BlockEditor';
 import { reportService } from '../services/reportService';
 import { columnService } from '../services/columnService';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../context/ToastContext';
 import {
   formatCurrency,
   formatPercent,
@@ -16,6 +17,7 @@ import {
 
 export function Reports() {
   const { user } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('reports'); // 'reports' | 'columns'
   const [reports, setReports] = useState([]);
@@ -71,7 +73,7 @@ export function Reports() {
         setSelectedColumn(null);
       }
     } catch (error) {
-      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 

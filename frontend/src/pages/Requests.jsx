@@ -6,10 +6,12 @@ import { Modal } from '../components/common/Modal';
 import { Input, Textarea } from '../components/common/Input';
 import { requestService } from '../services/requestService';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../context/ToastContext';
 import {
   formatCurrency,
   formatPercent,
   formatPriceQuantity,
+  formatQuantity,
   formatRelativeTime,
   getStatusBadgeClass,
   getStatusLabel,
@@ -19,6 +21,7 @@ import {
 export function Requests() {
   const navigate = useNavigate();
   const { user, adminMode, isManagerOrAdmin } = useAuth();
+  const toast = useToast();
   const canManage = isManagerOrAdmin();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +42,7 @@ export function Requests() {
       await requestService.deleteRequest(request.id);
       fetchRequests();
     } catch (error) {
-      alert(error.response?.data?.detail || '삭제에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
@@ -84,7 +87,7 @@ export function Requests() {
       await requestService.approveRequest(request.id, {});
       fetchRequests();
     } catch (error) {
-      alert(error.response?.data?.detail || '승인에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '승인에 실패했습니다.');
     } finally {
       setApproveLoading(null);
     }
@@ -97,7 +100,7 @@ export function Requests() {
       setRejectReason('');
       fetchRequests();
     } catch (error) {
-      alert(error.response?.data?.detail || '거부에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '거부에 실패했습니다.');
     }
   };
 
@@ -108,7 +111,7 @@ export function Requests() {
       setDiscussTitle('');
       navigate(`/discussions/${result.discussion.id}`);
     } catch (error) {
-      alert(error.response?.data?.detail || '토론 시작에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '토론 시작에 실패했습니다.');
     }
   };
 
@@ -232,7 +235,7 @@ export function Requests() {
                         {request.order_quantity && (
                           <span>
                             <span className="text-gray-500 dark:text-gray-400">희망 수량: </span>
-                            <span className="font-medium">{request.order_quantity}</span>
+                            <span className="font-medium">{formatQuantity(request.order_quantity)}</span>
                           </span>
                         )}
                       </div>
@@ -243,7 +246,7 @@ export function Requests() {
                       <div className="flex flex-wrap gap-4 text-sm">
                         <span>
                           <span className="text-gray-500 dark:text-gray-400">매도 수량: </span>
-                          <span className="font-medium">{request.sell_quantity}</span>
+                          <span className="font-medium">{formatQuantity(request.sell_quantity)}</span>
                         </span>
                         {request.sell_price && (
                           <span>

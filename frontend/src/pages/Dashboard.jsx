@@ -10,6 +10,7 @@ import { priceService } from '../services/priceService';
 import { reportService } from '../services/reportService';
 import { columnService } from '../services/columnService';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../context/ToastContext';
 import {
   formatCurrency,
   formatPercent,
@@ -24,6 +25,7 @@ import {
 
 export function Dashboard() {
   const { user, isManagerOrAdmin, isManager } = useAuth();
+  const toast = useToast();
   const [positions, setPositions] = useState([]);
   const [requests, setRequests] = useState([]);
   const [teamSettings, setTeamSettings] = useState(null);
@@ -82,9 +84,9 @@ export function Dashboard() {
       });
       setShowSettingsModal(false);
       fetchData();
-      alert('팀 설정이 저장되었습니다.');
+      toast.success('팀 설정이 저장되었습니다.');
     } catch (error) {
-      alert(error.response?.data?.detail || '설정 저장에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '설정 저장에 실패했습니다.');
     } finally {
       setActionLoading(false);
     }
@@ -139,7 +141,7 @@ export function Dashboard() {
 
   const handleExchange = async () => {
     if (!exchangeData.fromAmount || !exchangeData.toAmount) {
-      alert('변환 전 금액과 변환 후 금액을 입력해주세요.');
+      toast.warning('변환 전 금액과 변환 후 금액을 입력해주세요.');
       return;
     }
 
@@ -151,13 +153,13 @@ export function Dashboard() {
     if (exchangeData.direction === 'krw_to_usd') {
       const krwBalance = Number(teamSettings?.initial_capital_krw) || 0;
       if (fromAmount > krwBalance) {
-        alert(`원화 잔액이 부족합니다. 잔액: ${formatNumber(krwBalance)}원`);
+        toast.warning(`원화 잔액이 부족합니다. 잔액: ${formatNumber(krwBalance)}원`);
         return;
       }
     } else {
       const usdBalance = Number(teamSettings?.initial_capital_usd) || 0;
       if (fromAmount > usdBalance) {
-        alert(`달러 잔액이 부족합니다. 잔액: $${formatNumber(usdBalance, 2)}`);
+        toast.warning(`달러 잔액이 부족합니다. 잔액: $${formatNumber(usdBalance, 2)}`);
         return;
       }
     }
@@ -175,9 +177,9 @@ export function Dashboard() {
       setShowExchangeModal(false);
       setExchangeData({ direction: 'krw_to_usd', fromAmount: '', toAmount: '', exchangeRate: '', memo: '' });
       fetchData();
-      alert('환전이 완료되었습니다.');
+      toast.success('환전이 완료되었습니다.');
     } catch (error) {
-      alert(error.response?.data?.detail || '환전에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '환전에 실패했습니다.');
     } finally {
       setActionLoading(false);
     }
