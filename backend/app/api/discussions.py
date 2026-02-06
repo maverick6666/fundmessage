@@ -139,14 +139,17 @@ async def get_position_discussions(
     discussion_service = DiscussionService(db)
     discussions = discussion_service.get_discussions_by_position_id(position_id)
 
+    result = []
+    for d in discussions:
+        data = discussion_to_response(d, discussion_service.get_message_count(d.id)).model_dump()
+        # 마지막 메시지 추가
+        last_msg = discussion_service.get_last_message(d.id)
+        data['last_message'] = last_msg.content[:100] if last_msg else None
+        result.append(data)
+
     return APIResponse(
         success=True,
-        data=[
-            {
-                **discussion_to_response(d, discussion_service.get_message_count(d.id)).model_dump(),
-            }
-            for d in discussions
-        ]
+        data=result
     )
 
 

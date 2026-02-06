@@ -160,7 +160,7 @@ export function AIDecisionNoteModal({
                 sessions.map((session) => (
                   <label
                     key={session.id}
-                    className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${
+                    className={`flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${
                       selectedSessions.includes(session.id)
                         ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                         : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
@@ -170,14 +170,14 @@ export function AIDecisionNoteModal({
                       type="checkbox"
                       checked={selectedSessions.includes(session.id)}
                       onChange={() => toggleSession(session.id)}
-                      className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
+                      className="w-4 h-4 mt-0.5 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
                     />
-                    <div className="ml-3 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-900 dark:text-gray-100">
-                          세션 #{session.id}
+                    <div className="ml-3 flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {session.title || `토론 #${session.id}`}
                         </span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                        <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
                           {session.message_count || 0}개 메시지
                         </span>
                       </div>
@@ -185,6 +185,11 @@ export function AIDecisionNoteModal({
                         {formatRelativeTime(session.created_at)}
                         {session.opener && ` · ${session.opener.full_name}`}
                       </p>
+                      {session.last_message && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 truncate">
+                          💬 {session.last_message}
+                        </p>
+                      )}
                     </div>
                   </label>
                 ))
