@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
-import { Input } from '../components/common/Input';
+import { BlockRenderer } from '../components/editor/BlockEditor';
 import { reportService } from '../services/reportService';
 import { columnService } from '../services/columnService';
 import { useAuth } from '../hooks/useAuth';
@@ -16,16 +16,13 @@ import {
 
 export function Reports() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('reports'); // 'reports' | 'columns'
   const [reports, setReports] = useState([]);
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showColumnModal, setShowColumnModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedColumn, setSelectedColumn] = useState(null);
-  const [columnForm, setColumnForm] = useState({ title: '', content: '' });
-  const [editingColumn, setEditingColumn] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'reports') {
@@ -59,34 +56,8 @@ export function Reports() {
     }
   };
 
-  const handleCreateColumn = async () => {
-    if (!columnForm.title.trim() || !columnForm.content.trim()) {
-      alert('제목과 내용을 입력해주세요.');
-      return;
-    }
-
-    setActionLoading(true);
-    try {
-      if (editingColumn) {
-        await columnService.updateColumn(editingColumn.id, columnForm);
-      } else {
-        await columnService.createColumn(columnForm);
-      }
-      setShowColumnModal(false);
-      setColumnForm({ title: '', content: '' });
-      setEditingColumn(null);
-      fetchColumns();
-    } catch (error) {
-      alert(error.response?.data?.detail || '칼럼 저장에 실패했습니다.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleEditColumn = (column) => {
-    setEditingColumn(column);
-    setColumnForm({ title: column.title, content: column.content });
-    setShowColumnModal(true);
+    navigate(`/columns/${column.id}/edit`);
   };
 
   const handleDeleteColumn = async (columnId) => {
@@ -126,11 +97,7 @@ export function Reports() {
           운용보고서
         </h1>
         {activeTab === 'columns' && (
-          <Button onClick={() => {
-            setEditingColumn(null);
-            setColumnForm({ title: '', content: '' });
-            setShowColumnModal(true);
-          }}>
+          <Button onClick={() => navigate('/columns/new')}>
             칼럼 작성
           </Button>
         )}
@@ -292,53 +259,6 @@ export function Reports() {
         </div>
       )}
 
-      {/* Create/Edit Column Modal */}
-      <Modal
-        isOpen={showColumnModal}
-        onClose={() => {
-          setShowColumnModal(false);
-          setEditingColumn(null);
-          setColumnForm({ title: '', content: '' });
-        }}
-        title={editingColumn ? '칼럼 수정' : '새 칼럼 작성'}
-      >
-        <div className="space-y-4">
-          <Input
-            label="제목"
-            value={columnForm.title}
-            onChange={(e) => setColumnForm({ ...columnForm, title: e.target.value })}
-            placeholder="칼럼 제목..."
-          />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              내용
-            </label>
-            <textarea
-              value={columnForm.content}
-              onChange={(e) => setColumnForm({ ...columnForm, content: e.target.value })}
-              placeholder="칼럼 내용을 작성하세요... (마크다운 지원)"
-              rows={10}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100"
-            />
-          </div>
-          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowColumnModal(false);
-                setEditingColumn(null);
-                setColumnForm({ title: '', content: '' });
-              }}
-            >
-              취소
-            </Button>
-            <Button onClick={handleCreateColumn} loading={actionLoading}>
-              {editingColumn ? '수정' : '작성'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
       {/* View Column Modal */}
       <Modal
         isOpen={showViewModal}
@@ -359,22 +279,23 @@ export function Reports() {
               </span>
             </div>
             <div className="prose dark:prose-invert max-w-none">
-              {/* Simple markdown rendering - paragraphs */}
-              {selectedColumn.content.split('\n').map((line, i) => (
-                <p key={i} className="mb-2 text-gray-700 dark:text-gray-300">
-                  {line || '\u00A0'}
-                </p>
-              ))}
+              {/* 블록 형식이면 BlockRenderer 사용, 아니면 레거시 렌더링 */}
+              {selectedColumn.blocks && selectedColumn.blocks.length > 0 ? (
+                <BlockRenderer blocks={selectedColumn.blocks} />
+              ) : selectedColumn.content ? (
+                selectedColumn.content.split('\n').map((line, i) => (
+                  <p key={i} className="mb-2 text-gray-700 dark:text-gray-300">
+                    {line || '\u00A0'}
+                  </p>
+                ))
+              ) : null}
             </div>
             {(selectedColumn.author_id === user?.id || user?.role === 'manager') && (
               <div className="flex gap-3 mt-6 pt-4 border-t dark:border-gray-700">
                 {selectedColumn.author_id === user?.id && (
                   <Button
                     variant="secondary"
-                    onClick={() => {
-                      setShowViewModal(false);
-                      handleEditColumn(selectedColumn);
-                    }}
+                    onClick={() => navigate(`/columns/${selectedColumn.id}/edit`)}
                   >
                     수정
                   </Button>

@@ -1,3 +1,4 @@
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,10 @@ from app.utils.security import create_access_token, create_refresh_token, decode
 from app.config import settings
 from app.dependencies import get_manager_or_admin
 from app.models.user import User, UserRole
+from app.models.attendance import Attendance
+
+# 한국 시간대 (UTC+9)
+KST = timezone(timedelta(hours=9))
 
 router = APIRouter()
 
@@ -209,6 +214,28 @@ async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
 
     access_token = create_access_token(data={"sub": str(user.id)})
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
+
+    # 자동 출석 체크 (한국 시간 기준 오늘 날짜)
+    try:
+        kst_now = datetime.now(KST)
+        today = kst_now.date()
+
+        existing_attendance = db.query(Attendance).filter(
+            Attendance.user_id == user.id,
+            Attendance.date == today
+        ).first()
+
+        if not existing_attendance:
+            attendance = Attendance(
+                user_id=user.id,
+                date=today,
+                status='present'
+            )
+            db.add(attendance)
+            db.commit()
+    except Exception as e:
+        # 출석 체크 실패해도 로그인은 계속 진행
+        print(f"Auto attendance check-in failed: {e}")
 
     return APIResponse(
         success=True,

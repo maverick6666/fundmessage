@@ -17,6 +17,7 @@ import { Notifications } from './pages/Notifications';
 import { Settings } from './pages/Settings';
 import StockSearch from './pages/StockSearch';
 import { Reports } from './pages/Reports';
+import { ColumnEditor } from './pages/ColumnEditor';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -170,6 +171,24 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Reports />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/columns/new"
+        element={
+          <PrivateRoute>
+            <ColumnEditor />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/columns/:id/edit"
+        element={
+          <PrivateRoute>
+            <ColumnEditor />
           </PrivateRoute>
         }
       />

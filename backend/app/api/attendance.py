@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
@@ -11,6 +11,14 @@ from app.models.attendance import Attendance
 from app.models.team_column import TeamColumn
 from app.dependencies import get_current_user, get_manager
 from app.models.user import User
+
+# 한국 시간대 (UTC+9)
+KST = timezone(timedelta(hours=9))
+
+
+def get_kst_today():
+    """한국 시간 기준 오늘 날짜 반환"""
+    return datetime.now(KST).date()
 
 router = APIRouter()
 
@@ -37,8 +45,8 @@ async def check_in(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """오늘 출석 체크"""
-    today = date.today()
+    """오늘 출석 체크 (한국 시간 기준)"""
+    today = get_kst_today()
 
     # 이미 출석했는지 확인
     existing = db.query(Attendance).filter(
@@ -109,8 +117,8 @@ async def get_my_attendance_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """내 출석률 통계"""
-    today = date.today()
+    """내 출석률 통계 (한국 시간 기준)"""
+    today = get_kst_today()
 
     # 전체 출석률 (가입 후)
     total_records = db.query(Attendance).filter(

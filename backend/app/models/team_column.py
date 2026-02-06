@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -12,7 +12,8 @@ class TeamColumn(Base):
     id = Column(Integer, primary_key=True, index=True)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     title = Column(String(200), nullable=False)
-    content = Column(Text, nullable=False)  # markdown
+    content = Column(Text, nullable=True)  # legacy markdown (하위 호환)
+    blocks = Column(JSON, nullable=True)  # Editor.js 블록 형식
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

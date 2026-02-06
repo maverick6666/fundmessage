@@ -1,4 +1,4 @@
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 from decimal import Decimal
 from typing import Optional, List, Dict
 from sqlalchemy.orm import Session
@@ -7,6 +7,15 @@ from sqlalchemy import func, and_
 from app.models.position import Position, PositionStatus
 from app.models.request import Request, RequestStatus, RequestType
 from app.models.user import User
+from app.models.attendance import Attendance
+
+# 한국 시간대 (UTC+9)
+KST = timezone(timedelta(hours=9))
+
+
+def get_kst_today():
+    """한국 시간 기준 오늘 날짜 반환"""
+    return datetime.now(KST).date()
 
 
 class StatsService:
@@ -68,7 +77,62 @@ class StatsService:
                 "ticker": worst_trade.ticker,
                 "profit_rate": float(worst_trade.profit_rate or 0),
                 "closed_at": worst_trade.closed_at.isoformat() if worst_trade.closed_at else None
-            } if worst_trade else None
+            } if worst_trade else None,
+            "attendance": self._get_user_attendance_stats(user_id)
+        }
+
+    def _get_user_attendance_stats(self, user_id: int) -> dict:
+        """사용자 출석률 통계"""
+        today = get_kst_today()
+
+        # 전체 출석
+        total_records = self.db.query(Attendance).filter(
+            Attendance.user_id == user_id
+        ).count()
+
+        total_present = self.db.query(Attendance).filter(
+            Attendance.user_id == user_id,
+            Attendance.status.in_(['present', 'recovered'])
+        ).count()
+
+        # 이번 달 출석
+        month_start = date(today.year, today.month, 1)
+        month_records = self.db.query(Attendance).filter(
+            Attendance.user_id == user_id,
+            Attendance.date >= month_start,
+            Attendance.date <= today
+        ).count()
+
+        month_present = self.db.query(Attendance).filter(
+            Attendance.user_id == user_id,
+            Attendance.date >= month_start,
+            Attendance.date <= today,
+            Attendance.status.in_(['present', 'recovered'])
+        ).count()
+
+        # 연속 출석 일수
+        streak = 0
+        current_date = today
+        while True:
+            att = self.db.query(Attendance).filter(
+                Attendance.user_id == user_id,
+                Attendance.date == current_date,
+                Attendance.status.in_(['present', 'recovered'])
+            ).first()
+            if att:
+                streak += 1
+                current_date -= timedelta(days=1)
+            else:
+                break
+
+        return {
+            "total_rate": round((total_present / total_records * 100), 1) if total_records > 0 else 0,
+            "month_rate": round((month_present / month_records * 100), 1) if month_records > 0 else 0,
+            "streak": streak,
+            "total_present": total_present,
+            "total_records": total_records,
+            "month_present": month_present,
+            "month_days": month_records
         }
 
     def get_team_stats(

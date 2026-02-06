@@ -17,6 +17,7 @@ def column_to_dict(col: TeamColumn) -> dict:
         "id": col.id,
         "title": col.title,
         "content": col.content,
+        "blocks": col.blocks,  # Editor.js 블록 데이터
         "author_id": col.author_id,
         "author": {
             "id": col.author.id,
@@ -103,6 +104,7 @@ async def create_column(
     col = TeamColumn(
         title=column_data.title,
         content=column_data.content,
+        blocks=column_data.blocks,
         author_id=current_user.id
     )
     db.add(col)
@@ -142,6 +144,8 @@ async def update_column(
         col.title = column_data.title
     if column_data.content is not None:
         col.content = column_data.content
+    if column_data.blocks is not None:
+        col.blocks = column_data.blocks
 
     db.commit()
     db.refresh(col)
