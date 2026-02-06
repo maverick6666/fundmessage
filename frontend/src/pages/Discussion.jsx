@@ -189,11 +189,11 @@ export function Discussion() {
   };
 
   if (loading) {
-    return <div className="text-center py-12 text-gray-500">로딩중...</div>;
+    return <div className="text-center py-12 text-gray-500 dark:text-gray-400">로딩중...</div>;
   }
 
   if (!discussion) {
-    return <div className="text-center py-12 text-gray-500">토론을 찾을 수 없습니다</div>;
+    return <div className="text-center py-12 text-gray-500 dark:text-gray-400">토론을 찾을 수 없습니다</div>;
   }
 
   const isClosed = discussion.status === 'closed';
@@ -205,15 +205,15 @@ export function Discussion() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           <div>
-            <h1 className="text-xl font-bold">{discussion.title}</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-xl font-bold dark:text-gray-100">{discussion.title}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {isClosed ? '종료됨' : '진행중'}
             </p>
           </div>
@@ -262,12 +262,12 @@ export function Discussion() {
               className={`flex ${message.user.id === user?.id ? 'justify-end' : 'justify-start'}`}
             >
               {message.message_type === 'system' ? (
-                <div className="text-center text-sm text-gray-500 py-2 w-full">
+                <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-2 w-full">
                   {message.content}
                 </div>
               ) : (
                 <div className={`max-w-[70%] ${message.user.id === user?.id ? 'order-1' : ''}`}>
-                  <div className="text-xs text-gray-500 mb-1">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                     {message.user.full_name}
                     <span className="ml-2">{formatDate(message.created_at, 'HH:mm')}</span>
                   </div>
@@ -275,7 +275,7 @@ export function Discussion() {
                     className={`p-3 rounded-lg ${
                       message.user.id === user?.id
                         ? 'bg-primary-600 text-white'
-                        : 'bg-gray-100'
+                        : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-100'
                     }`}
                   >
                     {message.content}
@@ -289,7 +289,7 @@ export function Discussion() {
 
         {/* Input */}
         {!isClosed && (
-          <form onSubmit={handleSendMessage} className="border-t p-4 flex gap-2">
+          <form onSubmit={handleSendMessage} className="border-t dark:border-gray-700 p-4 flex gap-2">
             <Input
               placeholder="메시지 입력..."
               value={messageInput}
@@ -315,7 +315,7 @@ export function Discussion() {
             onChange={(e) => setSummary(e.target.value)}
           />
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
             <Button variant="secondary" onClick={() => setShowCloseModal(false)}>
               취소
             </Button>
@@ -333,16 +333,16 @@ export function Discussion() {
         title="토론 내보내기"
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">내보낼 세션을 선택하세요. 각 세션은 개별 텍스트 파일로 다운로드됩니다.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">내보낼 세션을 선택하세요. 각 세션은 개별 텍스트 파일로 다운로드됩니다.</p>
 
           {sessions.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">세션 정보가 없습니다</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">세션 정보가 없습니다</p>
           ) : (
             <div className="space-y-2">
               {sessions.map(session => (
                 <label
                   key={session.session_number}
-                  className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
                 >
                   <input
                     type="checkbox"
@@ -351,13 +351,13 @@ export function Discussion() {
                     className="w-4 h-4 text-primary-600 rounded"
                   />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       세션 {session.session_number}
-                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${session.status === 'open' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${session.status === 'open' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
                         {session.status === 'open' ? '진행중' : '종료'}
                       </span>
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {session.started_at ? new Date(session.started_at).toLocaleString('ko-KR') : '?'}
                       {' ~ '}
                       {session.closed_at ? new Date(session.closed_at).toLocaleString('ko-KR') : '진행중'}
@@ -369,7 +369,7 @@ export function Discussion() {
             </div>
           )}
 
-          <div className="flex justify-between items-center pt-4 border-t">
+          <div className="flex justify-between items-center pt-4 border-t dark:border-gray-700">
             <button
               onClick={() => {
                 if (selectedSessions.size === sessions.length) {

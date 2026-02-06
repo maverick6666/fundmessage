@@ -139,20 +139,20 @@ export default function StockSearch() {
     <div className="space-y-6">
       {/* 헤더 */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">종목검색</h1>
-        <p className="mt-1 text-sm text-gray-500">차트를 확인하고 매수 요청을 작성하세요</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">종목검색</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">차트를 확인하고 매수 요청을 작성하세요</p>
       </div>
 
       {/* 검색 폼 */}
-      <div className="bg-white rounded-xl shadow-sm border p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4">
         <div className="flex flex-wrap gap-3 items-end">
           {/* 시장 선택 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">시장</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">시장</label>
             <select
               value={market}
               onChange={(e) => setMarket(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               {MARKETS.map(m => (
                 <option key={m.value} value={m.value}>{m.label}</option>
@@ -162,14 +162,14 @@ export default function StockSearch() {
 
           {/* 종목코드 입력 */}
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">종목코드</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">종목코드</label>
             <input
               type="text"
               value={ticker}
               onChange={(e) => setTicker(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={market === 'CRYPTO' ? 'BTC' : '005930'}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
 
@@ -186,17 +186,17 @@ export default function StockSearch() {
 
       {/* 종목 정보 */}
       {stockInfo && (
-        <div className="bg-white rounded-xl shadow-sm border p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
                 {stockInfo.name}
-                <span className="ml-2 text-sm font-normal text-gray-500">({stockInfo.ticker})</span>
+                <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({stockInfo.ticker})</span>
               </h2>
               {stockInfo.price && (
-                <p className="mt-1 text-2xl font-bold text-primary-600">
+                <p className="mt-1 text-2xl font-bold text-primary-600 dark:text-primary-400">
                   {formatPrice(stockInfo.price)}
-                  <span className="text-sm font-normal text-gray-500 ml-1">
+                  <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">
                     {market === 'CRYPTO' ? 'USDT' : (market === 'NASDAQ' || market === 'NYSE') ? 'USD' : '원'}
                   </span>
                 </p>
@@ -212,7 +212,7 @@ export default function StockSearch() {
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     timeframe === tf.value
                       ? 'bg-primary-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                   }`}
                 >
                   {tf.label}
@@ -225,23 +225,23 @@ export default function StockSearch() {
 
       {/* 차트 */}
       {(stockInfo || loading) && (
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 overflow-hidden">
           <StockChart candles={candles} loading={loading} height={450} />
         </div>
       )}
 
       {/* 매수 요청 버튼 / 폼 */}
       {stockInfo && (
-        <div className="bg-white rounded-xl shadow-sm border">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700">
           <button
             onClick={() => setShowBuyForm(!showBuyForm)}
-            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
           >
-            <span className="font-medium text-gray-900">
+            <span className="font-medium text-gray-900 dark:text-gray-100">
               {showBuyForm ? '매수 요청 접기' : '매수 요청 작성'}
             </span>
             <svg
-              className={`w-5 h-5 text-gray-500 transition-transform ${showBuyForm ? 'rotate-180' : ''}`}
+              className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${showBuyForm ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -251,22 +251,22 @@ export default function StockSearch() {
           </button>
 
           {showBuyForm && (
-            <div className="px-4 pb-4 border-t">
+            <div className="px-4 pb-4 border-t dark:border-gray-700">
               <div className="pt-4">
                 {existingPosition && (
-                  <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                     <div className="flex items-start gap-3">
-                      <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                       </svg>
                       <div className="flex-1">
-                        <h3 className="font-medium text-yellow-800">이미 열린 포지션이 있습니다</h3>
-                        <p className="text-sm text-yellow-700 mt-1">
+                        <h3 className="font-medium text-yellow-800 dark:text-yellow-300">이미 열린 포지션이 있습니다</h3>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
                           {existingPosition.ticker_name || existingPosition.ticker} 포지션이 진행중입니다. 추가매수는 해당 포지션에서 요청해주세요.
                         </p>
                         <Link
                           to={`/positions/${existingPosition.id}`}
-                          className="inline-block mt-2 text-sm font-medium text-yellow-800 hover:text-yellow-900 underline"
+                          className="inline-block mt-2 text-sm font-medium text-yellow-800 hover:text-yellow-900 dark:text-yellow-300 dark:hover:text-yellow-200 underline"
                         >
                           열린 포지션으로 이동 →
                         </Link>
@@ -580,22 +580,22 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* 종목 정보 표시 */}
-      <div className="p-3 bg-blue-50 rounded-lg">
-        <p className="text-sm text-blue-700">
+      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        <p className="text-sm text-blue-700 dark:text-blue-300">
           <strong>{tickerName}</strong> ({ticker}) - {market}
         </p>
       </div>
 
       {/* 유효성 검사 에러 표시 */}
       {validationErrors.length > 0 && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <div className="flex items-start gap-2">
-            <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
             <div className="flex-1">
-              <h3 className="font-medium text-red-800 text-sm">입력 오류</h3>
-              <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
+              <h3 className="font-medium text-red-800 dark:text-red-300 text-sm">입력 오류</h3>
+              <ul className="mt-1 text-sm text-red-700 dark:text-red-400 list-disc list-inside">
                 {validationErrors.map((error, i) => (
                   <li key={i}>{error}</li>
                 ))}
@@ -608,7 +608,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
       {/* 매수 */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">매수</label>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">매수</label>
           {formData.buy_orders.length < 4 && (
             <button
               type="button"
@@ -628,7 +628,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
                 placeholder="매수가"
                 value={order.price}
                 onChange={(e) => updateBuyOrder(index, 'price', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
               />
               <input
                 type="number"
@@ -637,7 +637,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
                 placeholder="수량"
                 value={order.quantity}
                 onChange={(e) => updateBuyOrder(index, 'quantity', e.target.value)}
-                className="w-28 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                className="w-28 px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
               />
               {formData.buy_orders.length > 1 && (
                 <button
@@ -657,18 +657,18 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
 
       {/* 거래대금 요약 */}
       {totalAmount > 0 && (
-        <div className="p-3 bg-gray-50 rounded-lg">
+        <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600">총 수량</span>
-            <span className="font-medium text-gray-900">{formatNumber(totalBuyQuantity)}</span>
+            <span className="text-gray-600 dark:text-gray-400">총 수량</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{formatNumber(totalBuyQuantity)}</span>
           </div>
           <div className="flex justify-between items-center text-sm mt-1">
-            <span className="text-gray-600">평균 매수가</span>
-            <span className="font-medium text-gray-900">{formatNumber(avgBuyPrice)}{getCurrencyUnit()}</span>
+            <span className="text-gray-600 dark:text-gray-400">평균 매수가</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{formatNumber(avgBuyPrice)}{getCurrencyUnit()}</span>
           </div>
           <div className="flex justify-between items-center mt-2 pt-2 border-t">
             <span className="text-sm text-gray-600">예상 거래대금</span>
-            <span className="text-lg font-bold text-gray-900">{formatNumber(totalAmount)}{getCurrencyUnit()}</span>
+            <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatNumber(totalAmount)}{getCurrencyUnit()}</span>
           </div>
         </div>
       )}
@@ -676,7 +676,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
       {/* 익절 */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">익절</label>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">익절</label>
           {formData.take_profit_targets.length < 4 && (
             <button
               type="button"
@@ -696,7 +696,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
                 placeholder="익절가"
                 value={target.price}
                 onChange={(e) => updateTakeProfitTarget(index, 'price', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
               />
               <input
                 type="number"
@@ -705,7 +705,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
                 placeholder="수량"
                 value={target.quantity}
                 onChange={(e) => updateTakeProfitTarget(index, 'quantity', e.target.value)}
-                className="w-28 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                className="w-28 px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
               />
               {formData.take_profit_targets.length > 1 && (
                 <button
@@ -726,7 +726,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
       {/* 손절 */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">손절</label>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">손절</label>
           {formData.stop_loss_targets.length < 4 && (
             <button
               type="button"
@@ -746,7 +746,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
                 placeholder="손절가"
                 value={target.price}
                 onChange={(e) => updateStopLossTarget(index, 'price', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
               />
               <input
                 type="number"
@@ -755,7 +755,7 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
                 placeholder="수량"
                 value={target.quantity}
                 onChange={(e) => updateStopLossTarget(index, 'quantity', e.target.value)}
-                className="w-28 px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                className="w-28 px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
               />
               {formData.stop_loss_targets.length > 1 && (
                 <button
@@ -775,13 +775,13 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
 
       {/* 메모 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">메모</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">메모</label>
         <textarea
           rows={2}
           placeholder="매수 이유..."
           value={formData.memo}
           onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
       </div>
 

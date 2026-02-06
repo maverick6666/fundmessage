@@ -78,7 +78,7 @@ export function Positions() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">포지션</h1>
+        <h1 className="text-2xl font-bold dark:text-gray-100">포지션</h1>
       </div>
 
       {/* Filters */}
@@ -90,7 +90,7 @@ export function Positions() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               statusFilter === status
                 ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
             }`}
           >
             {status === 'open' ? '진행중' : status === 'closed' ? '종료' : '전체'}
@@ -100,11 +100,11 @@ export function Positions() {
 
       {/* Positions List */}
       {loading ? (
-        <div className="text-center py-12 text-gray-500">로딩중...</div>
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">로딩중...</div>
       ) : error ? (
-        <div className="text-center py-12 text-red-500">{error}</div>
+        <div className="text-center py-12 text-red-500 dark:text-red-400">{error}</div>
       ) : positions.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">포지션이 없습니다</div>
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">포지션이 없습니다</div>
       ) : (
         <>
           <div className="space-y-4">
@@ -121,25 +121,25 @@ export function Positions() {
               return (
                 <div
                   key={position.id}
-                  className={`bg-white rounded-xl shadow-sm border overflow-hidden transition-all ${
-                    expanded ? 'shadow-md border-primary-200' : 'border-gray-200 hover:shadow-md'
+                  className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden transition-all ${
+                    expanded ? 'shadow-md border-primary-200 dark:border-primary-700' : 'border-gray-200 dark:border-gray-700 hover:shadow-md'
                   }`}
                 >
                   {/* Card Header */}
                   <div
-                    className="cursor-pointer transition-colors hover:bg-gray-50/50"
+                    className="cursor-pointer transition-colors hover:bg-gray-50/50 dark:hover:bg-gray-700/50"
                     onClick={() => toggleExpand(position.id)}
                   >
                     {/* Top Row: Ticker + Status */}
                     <div className="px-5 pt-4 pb-2 flex items-start justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-base font-bold text-gray-900">
+                          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">
                             {position.ticker_name || position.ticker}
                           </h3>
-                          <span className="text-sm text-gray-400 font-mono">{position.ticker}</span>
+                          <span className="text-sm text-gray-400 dark:text-gray-500 font-mono">{position.ticker}</span>
                           {isOpen && !position.is_info_confirmed && (
-                            <span className="bg-yellow-100 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                            <span className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-medium px-2 py-0.5 rounded-full">
                               미수정
                             </span>
                           )}
@@ -148,17 +148,17 @@ export function Positions() {
                         {isOpen && (position.remaining_buys > 0 || position.remaining_take_profits > 0 || position.remaining_stop_losses > 0) && (
                           <div className="flex gap-3 mt-1">
                             {position.remaining_buys > 0 && (
-                              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                              <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full">
                                 매수 {position.remaining_buys}건
                               </span>
                             )}
                             {position.remaining_take_profits > 0 && (
-                              <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                              <span className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">
                                 익절 {position.remaining_take_profits}건
                               </span>
                             )}
                             {position.remaining_stop_losses > 0 && (
-                              <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                              <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
                                 손절 {position.remaining_stop_losses}건
                               </span>
                             )}
@@ -178,31 +178,31 @@ export function Positions() {
                         {/* Left metrics */}
                         <div className="flex gap-6 items-end">
                           <div>
-                            <p className="text-xs text-gray-400 mb-0.5">매수금액</p>
-                            <p className="text-sm font-semibold text-gray-700">
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">매수금액</p>
+                            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                               {formatCurrency(position.total_buy_amount, position.market)}
                             </p>
                           </div>
                           {isOpen && price?.current_price && (
                             <div>
-                              <p className="text-xs text-gray-400 mb-0.5">현재가</p>
-                              <p className="text-sm font-semibold text-gray-700">
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">현재가</p>
+                              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                                 {formatCurrency(price.current_price, position.market)}
                               </p>
                             </div>
                           )}
                           <div>
-                            <p className="text-xs text-gray-400 mb-0.5">보유기간</p>
-                            <p className="text-sm font-medium text-gray-500">{formatHours(holdingHours)}</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">보유기간</p>
+                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{formatHours(holdingHours)}</p>
                           </div>
                         </div>
 
                         {/* Right: P&L highlight */}
                         <div className="flex items-center gap-3">
                           <div className="text-right">
-                            <p className="text-xs text-gray-400 mb-0.5">{isOpen ? '수익률' : '실현 수익률'}</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">{isOpen ? '수익률' : '실현 수익률'}</p>
                             <p className={`text-xl font-bold ${
-                              isProfit ? 'text-red-500' : isLoss ? 'text-blue-500' : 'text-gray-400'
+                              isProfit ? 'text-red-500' : isLoss ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'
                             }`}>
                               {profitRate != null ? (
                                 <>
@@ -213,7 +213,7 @@ export function Positions() {
                           </div>
                           {/* Expand Arrow */}
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                            expanded ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-400'
+                            expanded ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400' : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500'
                           }`}>
                             <svg
                               className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
@@ -229,16 +229,16 @@ export function Positions() {
 
                   {/* Expanded Details */}
                   {expanded && (
-                    <div className="border-t border-gray-100 bg-gray-50/50">
+                    <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
                       <div className="px-5 py-4">
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                          <div className="bg-white rounded-lg p-3 border border-gray-100">
-                            <p className="text-xs text-gray-400 mb-1">평균매수가</p>
+                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">평균매수가</p>
                             <p className="text-sm font-semibold">{formatCurrency(position.average_buy_price, position.market)}</p>
                           </div>
                           {isOpen && (
-                            <div className="bg-white rounded-lg p-3 border border-gray-100">
-                              <p className="text-xs text-gray-400 mb-1">현재가</p>
+                            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">현재가</p>
                               <p className="text-sm font-semibold">
                                 {price?.current_price
                                   ? formatCurrency(price.current_price, position.market)
@@ -246,18 +246,18 @@ export function Positions() {
                               </p>
                             </div>
                           )}
-                          <div className="bg-white rounded-lg p-3 border border-gray-100">
-                            <p className="text-xs text-gray-400 mb-1">수량</p>
+                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">수량</p>
                             <p className="text-sm font-semibold">{formatQuantity(position.total_quantity)}</p>
                           </div>
-                          <div className="bg-white rounded-lg p-3 border border-gray-100">
-                            <p className="text-xs text-gray-400 mb-1">매수금액</p>
+                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">매수금액</p>
                             <p className="text-sm font-semibold">{formatCurrency(position.total_buy_amount, position.market)}</p>
                           </div>
                           {isOpen && (
                             <>
-                              <div className="bg-white rounded-lg p-3 border border-gray-100">
-                                <p className="text-xs text-gray-400 mb-1">평가금액</p>
+                              <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">평가금액</p>
                                 <p className="text-sm font-semibold">
                                   {price?.evaluation_amount
                                     ? formatCurrency(price.evaluation_amount, position.market)
@@ -265,9 +265,9 @@ export function Positions() {
                                 </p>
                               </div>
                               <div className={`rounded-lg p-3 border ${
-                                isProfit ? 'bg-red-50 border-red-100' : isLoss ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100'
+                                isProfit ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800' : isLoss ? 'bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700'
                               }`}>
-                                <p className="text-xs text-gray-400 mb-1">평가손익</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">평가손익</p>
                                 <p className={`text-sm font-bold ${getProfitLossClass(profitLoss)}`}>
                                   {profitLoss != null
                                     ? formatCurrency(profitLoss, position.market)
@@ -278,25 +278,25 @@ export function Positions() {
                           )}
                           {!isOpen && (
                             <div className={`rounded-lg p-3 border ${
-                              isProfit ? 'bg-red-50 border-red-100' : isLoss ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100'
+                              isProfit ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800' : isLoss ? 'bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700'
                             }`}>
-                              <p className="text-xs text-gray-400 mb-1">실현손익</p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">실현손익</p>
                               <p className={`text-sm font-bold ${getProfitLossClass(profitLoss)}`}>
                                 {formatCurrency(profitLoss, position.market)}
                               </p>
                             </div>
                           )}
-                          <div className="bg-white rounded-lg p-3 border border-gray-100">
-                            <p className="text-xs text-gray-400 mb-1">보유기간</p>
+                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">보유기간</p>
                             <p className="text-sm font-semibold">{formatHours(holdingHours)}</p>
                           </div>
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-200">
+                        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
                           <Link
                             to={`/positions/${position.id}`}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 dark:text-primary-400 dark:bg-primary-900/20 dark:hover:bg-primary-900/40 rounded-lg transition-colors"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -306,7 +306,7 @@ export function Positions() {
                           {adminMode && (
                             <button
                               onClick={(e) => handleDelete(e, position)}
-                              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors ml-auto"
+                              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-900/20 dark:hover:bg-red-900/40 rounded-lg transition-colors ml-auto"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -334,7 +334,7 @@ export function Positions() {
               >
                 이전
               </Button>
-              <span className="px-4 py-2 text-sm text-gray-600">
+              <span className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
                 {filters.page} / {Math.ceil(total / filters.limit)}
               </span>
               <Button

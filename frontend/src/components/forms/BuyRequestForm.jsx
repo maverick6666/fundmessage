@@ -172,7 +172,7 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* 시장 선택 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">시장</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">시장</label>
         <div className="flex flex-wrap gap-2">
           {MARKETS.map((market) => (
             <button
@@ -182,7 +182,7 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 formData.target_market === market.value
                   ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
               {market.label}
@@ -216,14 +216,14 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
 
         {/* 현재가 표시 */}
         {currentPrice && (
-          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
-            <span className="text-sm text-blue-700">
+          <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <span className="text-sm text-blue-700 dark:text-blue-300">
               현재가: <strong>{formatNumber(currentPrice)}</strong>원
             </span>
             <button
               type="button"
               onClick={applyCurrentPrice}
-              className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded"
+              className="text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-800/40 text-blue-700 dark:text-blue-300 px-2 py-1 rounded"
             >
               매수가에 적용
             </button>
@@ -255,10 +255,10 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
 
       {/* 거래대금 표시 */}
       {totalAmount !== null && (
-        <div className="p-4 bg-gray-50 rounded-lg">
+        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">예상 거래대금</span>
-            <span className="text-lg font-bold text-gray-900">
+            <span className="text-sm text-gray-600 dark:text-gray-400">예상 거래대금</span>
+            <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
               {formatNumber(totalAmount)}원
             </span>
           </div>
@@ -267,7 +267,7 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
 
       {/* 익절가 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">익절 목표</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">익절 목표</label>
         {formData.take_profit_targets.map((target, index) => (
           <div key={index} className="flex gap-2 mb-2 items-center">
             <Input
@@ -314,7 +314,7 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
 
       {/* 손절가 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">손절 목표</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">손절 목표</label>
         {formData.stop_loss_targets.map((target, index) => (
           <div key={index} className="flex gap-2 mb-2 items-center">
             <Input
@@ -361,9 +361,9 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
 
       {/* 메모 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">메모 (선택)</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">메모 (선택)</label>
         <textarea
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           rows={2}
           placeholder="매수 이유, 차트 분석 등..."
           value={formData.memo}
@@ -371,7 +371,7 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
         />
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t">
+      <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
         <Button type="button" variant="secondary" onClick={onCancel}>
           취소
         </Button>

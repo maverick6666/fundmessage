@@ -195,7 +195,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">대시보드</h1>
+        <h1 className="text-2xl font-bold dark:text-gray-100">대시보드</h1>
         {isManager() && (
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setShowExchangeModal(true)}>
@@ -213,11 +213,11 @@ export function Dashboard() {
         {/* 원화 자본금 */}
         <Card>
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-500">원화 자본금</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">원화 자본금</p>
             {isManager() && (
               <button
                 onClick={() => setShowSettingsModal(true)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -225,11 +225,11 @@ export function Dashboard() {
               </button>
             )}
           </div>
-          <p className="text-2xl font-bold mt-1">
+          <p className="text-2xl font-bold mt-1 dark:text-gray-100">
             {initialCapitalKrw > 0 ? formatCurrency(initialCapitalKrw, 'KRX') : '-'}
           </p>
           {initialCapitalKrw > 0 && krwInvested > 0 && (
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               투자: {formatCurrency(krwInvested, 'KRX')} ({formatPercent(krwInvested / initialCapitalKrw)})
             </p>
           )}
@@ -238,11 +238,11 @@ export function Dashboard() {
         {/* 달러 자본금 */}
         <Card>
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-500">달러 자본금</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">달러 자본금</p>
             {isManager() && (
               <button
                 onClick={() => setShowSettingsModal(true)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -250,11 +250,11 @@ export function Dashboard() {
               </button>
             )}
           </div>
-          <p className="text-2xl font-bold mt-1">
+          <p className="text-2xl font-bold mt-1 dark:text-gray-100">
             {initialCapitalUsd > 0 ? formatCurrency(initialCapitalUsd, 'USD') : '-'}
           </p>
           {initialCapitalUsd > 0 && (usdInvested > 0 || usdtInvested > 0) && (
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               투자: {formatCurrency(usdInvested + usdtInvested, 'USD')} ({formatPercent((usdInvested + usdtInvested) / initialCapitalUsd)})
             </p>
           )}
@@ -262,9 +262,9 @@ export function Dashboard() {
 
         {/* 열린 포지션 */}
         <Card>
-          <p className="text-sm text-gray-500">열린 포지션</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">열린 포지션</p>
           <div className="flex items-center gap-2 mt-1">
-            <p className="text-2xl font-bold">{positions.length}</p>
+            <p className="text-2xl font-bold dark:text-gray-100">{positions.length}</p>
             {unconfirmedCount > 0 && (
               <span className="text-yellow-500 text-sm flex items-center gap-1">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -279,8 +279,8 @@ export function Dashboard() {
         {/* 대기중 요청 (매니저만) */}
         {isManagerOrAdmin() && (
           <Card>
-            <p className="text-sm text-gray-500">대기중 요청</p>
-            <p className="text-2xl font-bold mt-1 text-yellow-600">{pendingCount}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">대기중 요청</p>
+            <p className="text-2xl font-bold mt-1 text-yellow-600 dark:text-yellow-400">{pendingCount}</p>
           </Card>
         )}
       </div>
@@ -298,21 +298,21 @@ export function Dashboard() {
           </CardHeader>
 
           {loading ? (
-            <div className="text-center py-8 text-gray-500">로딩중...</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">로딩중...</div>
           ) : positions.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">열린 포지션이 없습니다</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">열린 포지션이 없습니다</div>
           ) : (
             <div className="space-y-2">
               {positions.map(position => (
                 <Link
                   key={position.id}
                   to={`/positions/${position.id}`}
-                  className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="block p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{position.ticker_name || position.ticker}</span>
-                      <span className="text-xs text-gray-400">{position.ticker}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{position.ticker}</span>
                       {!position.is_info_confirmed && (
                         <span className="text-yellow-500" title="정보 확인 필요">
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -328,21 +328,21 @@ export function Dashboard() {
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 text-sm">
-                    <div className="flex justify-between text-gray-500">
+                    <div className="flex justify-between text-gray-500 dark:text-gray-400">
                       <span>평단</span>
-                      <span className="text-gray-700">{formatCurrency(position.average_buy_price, position.market)}</span>
+                      <span className="text-gray-700 dark:text-gray-300">{formatCurrency(position.average_buy_price, position.market)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-500">
+                    <div className="flex justify-between text-gray-500 dark:text-gray-400">
                       <span>현재가</span>
-                      <span className="text-gray-700">{position.current_price ? formatCurrency(position.current_price, position.market) : '-'}</span>
+                      <span className="text-gray-700 dark:text-gray-300">{position.current_price ? formatCurrency(position.current_price, position.market) : '-'}</span>
                     </div>
-                    <div className="flex justify-between text-gray-500">
+                    <div className="flex justify-between text-gray-500 dark:text-gray-400">
                       <span>수량</span>
-                      <span className="text-gray-700">{formatNumber(position.quantity)}</span>
+                      <span className="text-gray-700 dark:text-gray-300">{formatNumber(position.quantity)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-500">
+                    <div className="flex justify-between text-gray-500 dark:text-gray-400">
                       <span>평가금액</span>
-                      <span className={position.profit_loss != null ? getProfitLossClass(position.profit_loss) : 'text-gray-700'}>
+                      <span className={position.profit_loss != null ? getProfitLossClass(position.profit_loss) : 'text-gray-700 dark:text-gray-300'}>
                         {position.evaluation_amount ? formatCurrency(position.evaluation_amount, position.market) : '-'}
                       </span>
                     </div>
@@ -365,15 +365,15 @@ export function Dashboard() {
           </CardHeader>
 
           {loading ? (
-            <div className="text-center py-8 text-gray-500">로딩중...</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">로딩중...</div>
           ) : requests.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">요청이 없습니다</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">요청이 없습니다</div>
           ) : (
             <div className="space-y-3">
               {requests.map(request => (
                 <div
                   key={request.id}
-                  className="p-3 bg-gray-50 rounded-lg"
+                  className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -386,7 +386,7 @@ export function Dashboard() {
                       {getStatusLabel(request.status)}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-sm text-gray-500">
+                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
                     <span>{request.requester.full_name}</span>
                     <span>{formatRelativeTime(request.created_at)}</span>
                   </div>
@@ -406,7 +406,7 @@ export function Dashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-gray-500 border-b">
+                <tr className="text-left text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
                   <th className="pb-2 font-medium">날짜</th>
                   <th className="pb-2 font-medium">From</th>
                   <th className="pb-2 font-medium">To</th>
@@ -416,7 +416,7 @@ export function Dashboard() {
               </thead>
               <tbody>
                 {teamSettings.exchange_history.slice(-5).reverse().map((ex, i) => (
-                  <tr key={i} className="border-b last:border-0">
+                  <tr key={i} className="border-b last:border-0 dark:border-gray-700">
                     <td className="py-2">{formatDate(ex.timestamp, 'MM/dd HH:mm')}</td>
                     <td className="py-2">
                       {ex.from_currency === 'KRW'
@@ -429,7 +429,7 @@ export function Dashboard() {
                         : `$${formatNumber(ex.to_amount, 2)}`}
                     </td>
                     <td className="py-2">{ex.exchange_rate ? formatNumber(ex.exchange_rate, 2) : '-'}</td>
-                    <td className="py-2 text-gray-500">{ex.memo || '-'}</td>
+                    <td className="py-2 text-gray-500 dark:text-gray-400">{ex.memo || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -460,10 +460,10 @@ export function Dashboard() {
             onChange={(e) => setSettingsData({ ...settingsData, initial_capital_usd: e.target.value })}
             placeholder="예: 10000"
           />
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             팀 펀드의 자본금을 입력하세요. 투자 비율 계산에 사용됩니다.
           </p>
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
             <Button variant="secondary" onClick={() => setShowSettingsModal(false)}>
               취소
             </Button>
@@ -489,7 +489,7 @@ export function Dashboard() {
               className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
                 exchangeData.direction === 'krw_to_usd'
                   ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
               원화 → 달러
@@ -500,7 +500,7 @@ export function Dashboard() {
               className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
                 exchangeData.direction === 'usd_to_krw'
                   ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
               달러 → 원화
@@ -508,13 +508,13 @@ export function Dashboard() {
           </div>
 
           {/* 현재 잔액 표시 */}
-          <div className="p-3 bg-gray-50 rounded-lg text-sm">
+          <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500">원화 잔액:</span>
+              <span className="text-gray-500 dark:text-gray-400">원화 잔액:</span>
               <span className="font-medium">{formatCurrency(initialCapitalKrw, 'KRX')}</span>
             </div>
             <div className="flex justify-between mt-1">
-              <span className="text-gray-500">달러 잔액:</span>
+              <span className="text-gray-500 dark:text-gray-400">달러 잔액:</span>
               <span className="font-medium">{formatCurrency(initialCapitalUsd, 'USD')}</span>
             </div>
           </div>
@@ -553,7 +553,7 @@ export function Dashboard() {
             placeholder="환전 사유..."
           />
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
             <Button variant="secondary" onClick={() => setShowExchangeModal(false)}>
               취소
             </Button>

@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { WebSocketProvider } from './context/WebSocketContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
@@ -194,11 +195,13 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <WebSocketProvider>
-        <AppRoutes />
-      </WebSocketProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <WebSocketProvider>
+          <AppRoutes />
+        </WebSocketProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

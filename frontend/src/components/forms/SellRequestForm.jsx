@@ -34,11 +34,11 @@ export function SellRequestForm({ position, onSuccess, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="bg-gray-50 p-3 rounded-lg">
-        <p className="text-sm text-gray-600">
-          <strong>{position.ticker_name || position.ticker}</strong> ({position.ticker})
+      <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          <strong className="dark:text-gray-200">{position.ticker_name || position.ticker}</strong> ({position.ticker})
         </p>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           보유 수량: {position.total_quantity}
         </p>
       </div>
@@ -72,7 +72,7 @@ export function SellRequestForm({ position, onSuccess, onCancel }) {
         onChange={(e) => setFormData({ ...formData, sell_reason: e.target.value })}
       />
 
-      <div className="flex justify-end gap-3 pt-4 border-t">
+      <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
         <Button type="button" variant="secondary" onClick={onCancel}>
           취소
         </Button>

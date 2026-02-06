@@ -114,7 +114,7 @@ export function Requests() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">{canManage ? '요청 관리' : '팀 요청 현황'}</h1>
+      <h1 className="text-2xl font-bold dark:text-gray-100">{canManage ? '요청 관리' : '팀 요청 현황'}</h1>
 
       {/* Filters */}
       <div className="flex gap-2 flex-wrap">
@@ -125,7 +125,7 @@ export function Requests() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               statusFilter === status
                 ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
             }`}
           >
             {status === 'all' ? '전체' : getStatusLabel(status)}
@@ -135,9 +135,9 @@ export function Requests() {
 
       {/* Requests List */}
       {loading ? (
-        <div className="text-center py-12 text-gray-500">로딩중...</div>
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">로딩중...</div>
       ) : requests.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">요청이 없습니다</div>
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">요청이 없습니다</div>
       ) : (
         <div className="grid gap-4">
           {requests.map(request => (
@@ -151,15 +151,15 @@ export function Requests() {
                       <span className={`badge ${request.request_type === 'buy' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
                         {getRequestTypeLabel(request.request_type)}
                       </span>
-                      <span className="font-bold text-lg">{request.ticker_name || request.target_ticker}</span>
-                      <span className="text-gray-500 text-sm">({request.target_ticker})</span>
+                      <span className="font-bold text-lg dark:text-gray-100">{request.ticker_name || request.target_ticker}</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-sm">({request.target_ticker})</span>
                       <span className={`badge ${getStatusBadgeClass(request.status)}`}>
                         {getStatusLabel(request.status)}
                       </span>
                     </div>
 
                     {/* 요청자, 시간 */}
-                    <div className="text-sm text-gray-600 mb-2">
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                       요청자: {request.requester.full_name} | {formatRelativeTime(request.created_at)}
                     </div>
 
@@ -168,13 +168,13 @@ export function Requests() {
                       <div className="flex flex-wrap gap-4 text-sm">
                         {request.buy_price && (
                           <span>
-                            <span className="text-gray-500">희망 매수가: </span>
+                            <span className="text-gray-500 dark:text-gray-400">희망 매수가: </span>
                             <span className="font-medium">{formatCurrency(request.buy_price, request.target_market)}</span>
                           </span>
                         )}
                         {request.order_quantity && (
                           <span>
-                            <span className="text-gray-500">희망 수량: </span>
+                            <span className="text-gray-500 dark:text-gray-400">희망 수량: </span>
                             <span className="font-medium">{request.order_quantity}</span>
                           </span>
                         )}
@@ -185,12 +185,12 @@ export function Requests() {
                     {request.request_type === 'sell' && (
                       <div className="flex flex-wrap gap-4 text-sm">
                         <span>
-                          <span className="text-gray-500">매도 수량: </span>
+                          <span className="text-gray-500 dark:text-gray-400">매도 수량: </span>
                           <span className="font-medium">{request.sell_quantity}</span>
                         </span>
                         {request.sell_price && (
                           <span>
-                            <span className="text-gray-500">매도가: </span>
+                            <span className="text-gray-500 dark:text-gray-400">매도가: </span>
                             <span className="font-medium">{formatCurrency(request.sell_price, request.target_market)}</span>
                           </span>
                         )}
@@ -199,7 +199,7 @@ export function Requests() {
 
                     {/* 거부 사유 */}
                     {request.rejection_reason && (
-                      <div className="mt-2 p-2 bg-red-50 rounded text-sm text-red-700">
+                      <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded text-sm text-red-700 dark:text-red-400">
                         거부 사유: {request.rejection_reason}
                       </div>
                     )}
@@ -244,7 +244,7 @@ export function Requests() {
                 {/* 세부사항 토글 버튼 */}
                 <button
                   onClick={() => toggleExpand(request.id)}
-                  className="mt-3 pt-3 border-t flex items-center justify-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+                  className="mt-3 pt-3 border-t dark:border-gray-700 flex items-center justify-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   {expandedId === request.id ? (
                     <>
@@ -265,13 +265,13 @@ export function Requests() {
 
                 {/* 세부사항 (확장 시) */}
                 {expandedId === request.id && (
-                  <div className="mt-3 pt-3 border-t space-y-2 text-sm">
+                  <div className="mt-3 pt-3 border-t dark:border-gray-700 space-y-2 text-sm">
                     {request.request_type === 'buy' && (
                       <>
                         {/* 매수 계획 */}
                         {request.buy_orders?.length > 0 && (
                           <div>
-                            <span className="text-gray-500">매수 계획: </span>
+                            <span className="text-gray-500 dark:text-gray-400">매수 계획: </span>
                             {request.buy_orders.map((o, i) => (
                               <span key={i} className="mr-2">
                                 {formatCurrency(o.price, request.target_market)} ({formatPercent(o.ratio)})
@@ -283,7 +283,7 @@ export function Requests() {
                         {/* 목표 비중 */}
                         {request.target_ratio && (
                           <div>
-                            <span className="text-gray-500">목표 비중: </span>
+                            <span className="text-gray-500 dark:text-gray-400">목표 비중: </span>
                             {formatPercent(request.target_ratio)}
                           </div>
                         )}
@@ -291,9 +291,9 @@ export function Requests() {
                         {/* 익절 타겟 */}
                         {request.take_profit_targets?.length > 0 && (
                           <div>
-                            <span className="text-gray-500">익절: </span>
+                            <span className="text-gray-500 dark:text-gray-400">익절: </span>
                             {request.take_profit_targets.map((t, i) => (
-                              <span key={i} className="text-red-600 mr-2">
+                              <span key={i} className="text-red-600 dark:text-red-400 mr-2">
                                 {formatCurrency(t.price, request.target_market)} x {t.quantity ?? formatPercent(t.ratio)}
                               </span>
                             ))}
@@ -303,9 +303,9 @@ export function Requests() {
                         {/* 손절 타겟 */}
                         {request.stop_loss_targets?.length > 0 && (
                           <div>
-                            <span className="text-gray-500">손절: </span>
+                            <span className="text-gray-500 dark:text-gray-400">손절: </span>
                             {request.stop_loss_targets.map((t, i) => (
-                              <span key={i} className="text-blue-600 mr-2">
+                              <span key={i} className="text-blue-600 dark:text-blue-400 mr-2">
                                 {formatCurrency(t.price, request.target_market)} x {t.quantity ?? formatPercent(t.ratio)}
                               </span>
                             ))}
@@ -316,21 +316,21 @@ export function Requests() {
 
                     {request.request_type === 'sell' && request.sell_reason && (
                       <div>
-                        <span className="text-gray-500">매도 사유: </span>
+                        <span className="text-gray-500 dark:text-gray-400">매도 사유: </span>
                         <span>{request.sell_reason}</span>
                       </div>
                     )}
 
                     {/* 메모 */}
                     {request.memo && (
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                        <p className="text-gray-500 text-xs mb-1">메모</p>
-                        <p className="text-gray-700">{request.memo}</p>
+                      <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">메모</p>
+                        <p className="text-gray-700 dark:text-gray-300">{request.memo}</p>
                       </div>
                     )}
 
                     {/* 시장 정보 */}
-                    <div className="text-gray-400 text-xs">
+                    <div className="text-gray-400 dark:text-gray-500 text-xs">
                       시장: {request.target_market}
                     </div>
                   </div>
@@ -356,7 +356,7 @@ export function Requests() {
             required
           />
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
             <Button variant="secondary" onClick={() => setShowRejectModal(false)}>
               취소
             </Button>
@@ -381,7 +381,7 @@ export function Requests() {
             required
           />
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
             <Button variant="secondary" onClick={() => setShowDiscussModal(false)}>
               취소
             </Button>

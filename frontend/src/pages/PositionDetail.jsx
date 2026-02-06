@@ -402,8 +402,8 @@ export function PositionDetail() {
     return names[field] || field;
   };
 
-  if (loading) return <div className="text-center py-12 text-gray-500">로딩중...</div>;
-  if (!position) return <div className="text-center py-12 text-gray-500">포지션을 찾을 수 없습니다</div>;
+  if (loading) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">로딩중...</div>;
+  if (!position) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">포지션을 찾을 수 없습니다</div>;
 
   const needsConfirmation = position.status === 'open' && !position.is_info_confirmed;
 
@@ -525,18 +525,18 @@ export function PositionDetail() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           <div>
-            <h1 className="text-2xl font-bold">{position.ticker_name || position.ticker}</h1>
-            <p className="text-gray-500">{position.ticker} | {position.market}</p>
+            <h1 className="text-2xl font-bold dark:text-gray-100">{position.ticker_name || position.ticker}</h1>
+            <p className="text-gray-500 dark:text-gray-400">{position.ticker} | {position.market}</p>
           </div>
           <span className={`badge ${getStatusBadgeClass(position.status)}`}>{getStatusLabel(position.status)}</span>
           {needsConfirmation && (
-            <span className="flex items-center gap-1 text-yellow-600 text-sm bg-yellow-50 px-2 py-1 rounded">
+            <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400 text-sm bg-yellow-50 dark:bg-yellow-900/20 px-2 py-1 rounded">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
@@ -550,7 +550,7 @@ export function PositionDetail() {
           {adminMode && (
             <Button
               variant="secondary"
-              className="text-red-600 hover:bg-red-50"
+              className="text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
               onClick={async () => {
                 if (!window.confirm(`포지션 "${position.ticker_name || position.ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 모든 요청, 토론, 의사결정 노트가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
                 try {
@@ -624,14 +624,14 @@ export function PositionDetail() {
 
       {/* 잔량 경고 */}
       {quantityWarning && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
             <div>
-              <h3 className="font-medium text-yellow-800">계획 수량 확인 필요</h3>
-              {quantityWarning.map((w, i) => <p key={i} className="text-sm text-yellow-700 mt-1">{w}</p>)}
+              <h3 className="font-medium text-yellow-800 dark:text-yellow-300">계획 수량 확인 필요</h3>
+              {quantityWarning.map((w, i) => <p key={i} className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">{w}</p>)}
             </div>
           </div>
         </div>
@@ -644,7 +644,7 @@ export function PositionDetail() {
             <div className="flex items-center justify-between w-full">
               <CardTitle>포지션 정보</CardTitle>
               {isManager() && position.status === 'open' && !editingInfo && (
-                <button onClick={() => setEditingInfo(true)} className="p-1 text-gray-400 hover:text-gray-600">
+                <button onClick={() => setEditingInfo(true)} className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
@@ -661,7 +661,7 @@ export function PositionDetail() {
                 <Input label="수량" type="number" step="any" value={infoData.total_quantity} onChange={(e) => setInfoData({ ...infoData, total_quantity: e.target.value })} required />
               </div>
               {infoData.average_buy_price && infoData.total_quantity && (
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
                   진입 금액: <span className="font-medium">{formatCurrency(parseFloat(infoData.average_buy_price) * parseFloat(infoData.total_quantity), position.market)}</span>
                 </div>
               )}
@@ -674,40 +674,40 @@ export function PositionDetail() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">평균 매입가</p>
-                  <p className="text-lg font-medium">{formatCurrency(position.average_buy_price, position.market)}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">평균 매입가</p>
+                  <p className="text-lg font-medium dark:text-gray-200">{formatCurrency(position.average_buy_price, position.market)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">보유 수량</p>
-                  <p className="text-lg font-medium">{formatQuantity(position.total_quantity)}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">보유 수량</p>
+                  <p className="text-lg font-medium dark:text-gray-200">{formatQuantity(position.total_quantity)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">진입 금액</p>
-                  <p className="text-lg font-medium">{formatCurrency(position.total_buy_amount, position.market)}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">진입 금액</p>
+                  <p className="text-lg font-medium dark:text-gray-200">{formatCurrency(position.total_buy_amount, position.market)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">보유 기간</p>
-                  <p className="text-lg font-medium">{formatHours(position.status === 'open' ? calcHoldingHours(position.opened_at) : position.holding_period_hours)}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">보유 기간</p>
+                  <p className="text-lg font-medium dark:text-gray-200">{formatHours(position.status === 'open' ? calcHoldingHours(position.opened_at) : position.holding_period_hours)}</p>
                 </div>
               </div>
 
               {position.status === 'closed' && (
-                <div className="pt-4 border-t">
+                <div className="pt-4 border-t dark:border-gray-700">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-500">청산 금액</p>
-                      <p className="text-lg font-medium">{formatCurrency(position.total_sell_amount, position.market)}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">청산 금액</p>
+                      <p className="text-lg font-medium dark:text-gray-200">{formatCurrency(position.total_sell_amount, position.market)}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">평균 매도가</p>
-                      <p className="text-lg font-medium">{formatCurrency(position.average_sell_price, position.market)}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">평균 매도가</p>
+                      <p className="text-lg font-medium dark:text-gray-200">{formatCurrency(position.average_sell_price, position.market)}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">수익금</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">수익금</p>
                       <p className={`text-lg font-medium ${getProfitLossClass(position.profit_loss)}`}>{formatCurrency(position.profit_loss, position.market)}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">수익률</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">수익률</p>
                       <p className={`text-lg font-medium ${getProfitLossClass(position.profit_rate)}`}>{formatPercent(position.profit_rate)}</p>
                     </div>
                   </div>
@@ -727,14 +727,14 @@ export function PositionDetail() {
             {/* 매수 계획 */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-gray-700">매수</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">매수</p>
                 {position.status === 'open' && (
                   <button onClick={() => handleAddPlanItem('buy')} className="text-xs text-primary-600 hover:text-primary-700">+ 추가</button>
                 )}
               </div>
               <div className="space-y-1">
                 {(position.buy_plan || []).length === 0 ? (
-                  <p className="text-sm text-gray-500">설정 안됨</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">설정 안됨</p>
                 ) : (
                   position.buy_plan.map((item, i) => renderPlanItem(item, i, 'buy', 'bg-blue-50', position.status === 'closed'))
                 )}
@@ -744,14 +744,14 @@ export function PositionDetail() {
             {/* 익절 */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-gray-700">익절가</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">익절가</p>
                 {position.status === 'open' && (
                   <button onClick={() => handleAddPlanItem('take_profit')} className="text-xs text-primary-600 hover:text-primary-700">+ 추가</button>
                 )}
               </div>
               <div className="space-y-1">
                 {(position.take_profit_targets || []).length === 0 ? (
-                  <p className="text-sm text-gray-500">설정 안됨</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">설정 안됨</p>
                 ) : (
                   position.take_profit_targets.map((item, i) => renderPlanItem(item, i, 'take_profit', 'bg-red-50', position.status === 'closed'))
                 )}
@@ -761,14 +761,14 @@ export function PositionDetail() {
             {/* 손절 */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-gray-700">손절가</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">손절가</p>
                 {position.status === 'open' && (
                   <button onClick={() => handleAddPlanItem('stop_loss')} className="text-xs text-primary-600 hover:text-primary-700">+ 추가</button>
                 )}
               </div>
               <div className="space-y-1">
                 {(position.stop_loss_targets || []).length === 0 ? (
-                  <p className="text-sm text-gray-500">설정 안됨</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">설정 안됨</p>
                 ) : (
                   position.stop_loss_targets.map((item, i) => renderPlanItem(item, i, 'stop_loss', 'bg-blue-50', position.status === 'closed'))
                 )}
@@ -783,12 +783,12 @@ export function PositionDetail() {
             <CardHeader><CardTitle>토론방</CardTitle></CardHeader>
             <div className="space-y-2">
               {discussions.map(discussion => (
-                <div key={discussion.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer" onClick={() => navigate(`/discussions/${discussion.id}`)}>
+                <div key={discussion.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" onClick={() => navigate(`/discussions/${discussion.id}`)}>
                   <div>
-                    <p className="font-medium text-gray-900">{discussion.title}</p>
-                    <p className="text-sm text-gray-500">{discussion.opened_by?.full_name} · {formatDate(discussion.opened_at)}{discussion.message_count > 0 && ` · 메시지 ${discussion.message_count}개`}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{discussion.title}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{discussion.opened_by?.full_name} · {formatDate(discussion.opened_at)}{discussion.message_count > 0 && ` · 메시지 ${discussion.message_count}개`}</p>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded ${discussion.status === 'open' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>
+                  <span className={`text-xs px-2 py-1 rounded ${discussion.status === 'open' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300'}`}>
                     {discussion.status === 'open' ? '진행중' : '종료'}
                   </span>
                 </div>
@@ -814,20 +814,20 @@ export function PositionDetail() {
           </CardHeader>
 
           {showNoteForm && (
-            <div className="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+            <div className="mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700/50">
               <input
                 type="text"
                 placeholder="노트 제목"
                 value={noteTitle}
                 onChange={(e) => setNoteTitle(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
               <textarea
                 placeholder="마크다운으로 작성할 수 있습니다..."
                 value={noteContent}
                 onChange={(e) => setNoteContent(e.target.value)}
                 rows={8}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
               <div className="flex justify-end gap-2 mt-3">
                 <Button variant="secondary" size="sm" onClick={() => { setShowNoteForm(false); setEditingNoteId(null); }}>취소</Button>
@@ -837,29 +837,29 @@ export function PositionDetail() {
           )}
 
           {decisionNotes.length === 0 && !showNoteForm ? (
-            <p className="text-sm text-gray-500 text-center py-6">작성된 의사결정 노트가 없습니다</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">작성된 의사결정 노트가 없습니다</p>
           ) : (
             <div className="space-y-2">
               {decisionNotes.map(note => (
-                <div key={note.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                   <div
-                    className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer hover:bg-gray-100"
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                     onClick={() => setExpandedNoteId(expandedNoteId === note.id ? null : note.id)}
                   >
                     <div className="flex items-center gap-3">
-                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${expandedNoteId === note.id ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${expandedNoteId === note.id ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                       </svg>
                       <div>
-                        <p className="font-medium text-gray-900 text-sm">{note.title}</p>
-                        <p className="text-xs text-gray-500">{note.author?.full_name} · {formatDate(note.updated_at || note.created_at)}</p>
+                        <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{note.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{note.author?.full_name} · {formatDate(note.updated_at || note.created_at)}</p>
                       </div>
                     </div>
                     {isManager() && (
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleEditNote(note)}
-                          className="p-1.5 text-gray-400 hover:text-gray-600 rounded"
+                          className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded"
                           title="수정"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -868,7 +868,7 @@ export function PositionDetail() {
                         </button>
                         <button
                           onClick={() => handleDeleteNote(note.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-500 rounded"
+                          className="p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded"
                           title="삭제"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -879,7 +879,7 @@ export function PositionDetail() {
                     )}
                   </div>
                   {expandedNoteId === note.id && (
-                    <div className="p-4 border-t border-gray-200 prose prose-sm max-w-none">
+                    <div className="p-4 border-t border-gray-200 dark:border-gray-700 prose prose-sm dark:prose-invert max-w-none">
                       <ReactMarkdown>{note.content}</ReactMarkdown>
                     </div>
                   )}
@@ -893,18 +893,18 @@ export function PositionDetail() {
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle>이력</CardTitle></CardHeader>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div><p className="text-gray-500">개설자</p><p className="font-medium">{position.opened_by?.full_name || '-'}</p></div>
-            <div><p className="text-gray-500">개설 일시</p><p className="font-medium">{formatDate(position.opened_at)}</p></div>
-            <div><p className="text-gray-500">정보 확인</p><p className="font-medium">{position.is_info_confirmed ? <span className="text-green-600">완료</span> : <span className="text-yellow-600">미확인</span>}</p></div>
+            <div><p className="text-gray-500 dark:text-gray-400">개설자</p><p className="font-medium dark:text-gray-200">{position.opened_by?.full_name || '-'}</p></div>
+            <div><p className="text-gray-500 dark:text-gray-400">개설 일시</p><p className="font-medium dark:text-gray-200">{formatDate(position.opened_at)}</p></div>
+            <div><p className="text-gray-500 dark:text-gray-400">정보 확인</p><p className="font-medium">{position.is_info_confirmed ? <span className="text-green-600 dark:text-green-400">완료</span> : <span className="text-yellow-600 dark:text-yellow-400">미확인</span>}</p></div>
             {position.status === 'closed' && (
               <>
-                <div><p className="text-gray-500">종료자</p><p className="font-medium">{position.closed_by?.full_name || '-'}</p></div>
-                <div><p className="text-gray-500">종료 일시</p><p className="font-medium">{formatDate(position.closed_at)}</p></div>
+                <div><p className="text-gray-500 dark:text-gray-400">종료자</p><p className="font-medium dark:text-gray-200">{position.closed_by?.full_name || '-'}</p></div>
+                <div><p className="text-gray-500 dark:text-gray-400">종료 일시</p><p className="font-medium dark:text-gray-200">{formatDate(position.closed_at)}</p></div>
               </>
             )}
           </div>
 
-          <button onClick={toggleAuditLogs} className="mt-4 pt-4 border-t w-full flex items-center justify-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+          <button onClick={toggleAuditLogs} className="mt-4 pt-4 border-t dark:border-gray-700 w-full flex items-center justify-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
             <span>{showAuditLogs ? '수정 이력 접기' : '수정 이력 보기'}</span>
             <svg className={`w-4 h-4 transition-transform ${showAuditLogs ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -914,27 +914,27 @@ export function PositionDetail() {
           {showAuditLogs && (
             <div className="mt-4 space-y-2">
               {auditLogs.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">수정 이력이 없습니다</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">수정 이력이 없습니다</p>
               ) : (
                 auditLogs.map(log => (
-                  <div key={log.id} className="p-3 bg-gray-50 rounded-lg text-sm">
+                  <div key={log.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-gray-700">{log.user?.full_name || '알 수 없음'}</span>
-                      <span className="text-xs text-gray-400">{formatDate(log.created_at)}</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">{log.user?.full_name || '알 수 없음'}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(log.created_at)}</span>
                     </div>
                     {log.field_name ? (
-                      <p className="text-gray-600">
+                      <p className="text-gray-600 dark:text-gray-400">
                         <span className="font-medium">{formatFieldName(log.field_name)}</span>{': '}
-                        <span className="text-red-500 line-through">{log.old_value ?? '-'}</span>{' → '}
-                        <span className="text-green-600">{log.new_value ?? '-'}</span>
+                        <span className="text-red-500 dark:text-red-400 line-through">{log.old_value ?? '-'}</span>{' → '}
+                        <span className="text-green-600 dark:text-green-400">{log.new_value ?? '-'}</span>
                       </p>
                     ) : log.changes ? (
                       <div className="space-y-1">
                         {Object.entries(log.changes).map(([field, vals]) => (
-                          <p key={field} className="text-gray-600">
+                          <p key={field} className="text-gray-600 dark:text-gray-400">
                             <span className="font-medium">{formatFieldName(field)}</span>{': '}
-                            <span className="text-red-500 line-through">{vals.old ?? '-'}</span>{' → '}
-                            <span className="text-green-600">{vals.new ?? '-'}</span>
+                            <span className="text-red-500 dark:text-red-400 line-through">{vals.old ?? '-'}</span>{' → '}
+                            <span className="text-green-600 dark:text-green-400">{vals.new ?? '-'}</span>
                           </p>
                         ))}
                       </div>

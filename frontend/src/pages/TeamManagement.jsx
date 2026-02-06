@@ -10,9 +10,9 @@ const ROLE_LABELS = {
 };
 
 const ROLE_COLORS = {
-  manager: 'bg-purple-100 text-purple-800',
-  admin: 'bg-blue-100 text-blue-800',
-  member: 'bg-gray-100 text-gray-800'
+  manager: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+  admin: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  member: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
 };
 
 export function TeamManagement() {
@@ -125,23 +125,23 @@ export function TeamManagement() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">팀 관리</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">팀 관리</h1>
         {pendingUsers.length > 0 && (
-          <span className="bg-red-100 text-red-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+          <span className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 text-sm font-medium px-2.5 py-0.5 rounded-full">
             승인 대기 {pendingUsers.length}명
           </span>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => setActiveTab('members')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'members'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
             }`}
           >
             팀원 목록
@@ -150,8 +150,8 @@ export function TeamManagement() {
             onClick={() => setActiveTab('pending')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'pending'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
             }`}
           >
             승인 대기
@@ -166,32 +166,32 @@ export function TeamManagement() {
 
       {/* Members Tab */}
       {activeTab === 'members' && (
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
           {allUsers.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               팀원이 없습니다.
             </div>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이름</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이메일</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">사용자명</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">역할</th>
-                  {adminMode && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">관리</th>}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">이름</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">이메일</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">사용자명</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">역할</th>
+                  {adminMode && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">관리</th>}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {allUsers.map((user) => (
                   <tr key={user.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{user.full_name}</div>
+                      <div className="font-medium text-gray-900 dark:text-gray-100">{user.full_name}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {user.email}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       @{user.username}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -204,7 +204,7 @@ export function TeamManagement() {
                           value={user.role}
                           onChange={(e) => handleRoleChange(user.id, e.target.value)}
                           disabled={actionLoading === user.id}
-                          className="text-sm border border-gray-300 rounded px-2 py-1"
+                          className="text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded px-2 py-1"
                         >
                           <option value="member">팀원</option>
                           <option value="admin">관리자</option>
@@ -244,7 +244,7 @@ export function TeamManagement() {
                             </Button>
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-400">-</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
                         )}
                       </td>
                     )}
@@ -258,19 +258,19 @@ export function TeamManagement() {
 
       {/* Pending Users Tab */}
       {activeTab === 'pending' && (
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
           {pendingUsers.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               승인 대기 중인 사용자가 없습니다.
             </div>
           ) : (
-            <ul className="divide-y divide-gray-200">
+            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
               {pendingUsers.map((user) => (
                 <li key={user.id} className="p-4 flex items-center justify-between">
                   <div>
-                    <div className="font-medium text-gray-900">{user.full_name}</div>
-                    <div className="text-sm text-gray-500">{user.email}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="font-medium text-gray-900 dark:text-gray-100">{user.full_name}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
                       @{user.username} - 희망 역할:{' '}
                       <span className={`px-2 py-0.5 rounded text-xs ${ROLE_COLORS[user.role]}`}>
                         {ROLE_LABELS[user.role]}

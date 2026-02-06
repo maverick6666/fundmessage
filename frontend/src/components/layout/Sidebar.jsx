@@ -25,7 +25,7 @@ export function Sidebar({ isOpen, onClose }) {
       {/* Mobile overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 dark:bg-black/70 z-40 lg:hidden"
           onClick={onClose}
         />
       )}
@@ -33,21 +33,21 @@ export function Sidebar({ isOpen, onClose }) {
       {/* Sidebar */}
       <aside className={`
         fixed lg:relative inset-y-0 left-0 z-50
-        w-64 h-full bg-white border-r flex flex-col flex-shrink-0
-        transform transition-transform duration-200
+        w-64 h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0
+        transform transition-all duration-200
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        <div className="h-16 flex items-center justify-between px-4 border-b lg:hidden">
-          <span className="text-lg font-bold text-primary-600">Menu</span>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700 lg:hidden">
+          <span className="text-lg font-bold text-primary-600 dark:text-primary-400">Menu</span>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
         <nav className="flex-1 p-4 pt-16 lg:pt-4 overflow-y-auto">
-          <ul className="space-y-2">
+          <ul className="space-y-1">
             {filteredItems.map(item => (
               <li key={item.path}>
                 <NavLink
@@ -56,8 +56,8 @@ export function Sidebar({ isOpen, onClose }) {
                   className={({ isActive }) => `
                     flex items-center px-4 py-2.5 rounded-lg transition-colors
                     ${isActive
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
                     }
                   `}
                 >
@@ -71,15 +71,15 @@ export function Sidebar({ isOpen, onClose }) {
           </ul>
         </nav>
 
-        {/* 관리자 모드 토글 - 팀장/관리자에게만 표시 */}
+        {/* 관리자 모드 토글 */}
         {isManagerOrAdmin() && (
-          <div className="p-4 border-t">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={toggleAdminMode}
               className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg transition-colors ${
                 adminMode
-                  ? 'bg-red-50 text-red-700 border border-red-200'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               <span className="flex items-center">
@@ -89,7 +89,7 @@ export function Sidebar({ isOpen, onClose }) {
                 </svg>
                 관리자 모드
               </span>
-              <div className={`w-10 h-6 rounded-full p-1 transition-colors ${adminMode ? 'bg-red-500' : 'bg-gray-300'}`}>
+              <div className={`w-10 h-6 rounded-full p-1 transition-colors ${adminMode ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
                 <div className={`w-4 h-4 rounded-full bg-white transition-transform ${adminMode ? 'translate-x-4' : ''}`} />
               </div>
             </button>
