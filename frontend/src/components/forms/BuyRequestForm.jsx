@@ -15,6 +15,7 @@ const MARKETS = [
 export function BuyRequestForm({ onSuccess, onCancel }) {
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     target_ticker: '',
     ticker_name: '',
@@ -91,14 +92,15 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
 
     if (!formData.target_ticker) {
-      alert('종목 코드를 입력해주세요.');
+      setError('종목 코드를 입력해주세요.');
       return;
     }
 
     if (!formData.order_quantity || !formData.buy_price) {
-      alert('수량과 매수가를 입력해주세요.');
+      setError('수량과 매수가를 입력해주세요.');
       return;
     }
 
@@ -136,8 +138,24 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
 
       await requestService.createBuyRequest(data);
       onSuccess?.();
-    } catch (error) {
-      alert(error.response?.data?.detail || '요청 생성에 실패했습니다.');
+    } catch (err) {
+      // 에러 핸들링 개선
+      let errorMessage = '요청 생성에 실패했습니다.';
+
+      if (err.response) {
+        const detail = err.response.data?.detail;
+        if (typeof detail === 'string') {
+          errorMessage = detail;
+        } else if (err.response.status === 401) {
+          errorMessage = '로그인이 필요합니다.';
+        } else if (err.response.status === 403) {
+          errorMessage = '요청 권한이 없습니다.';
+        }
+      } else if (err.request) {
+        errorMessage = '서버에 연결할 수 없습니다.';
+      }
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -170,6 +188,13 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* 에러 메시지 */}
+      {error && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        </div>
+      )}
+
       {/* 시장 선택 */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">시장</label>

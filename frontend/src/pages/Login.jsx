@@ -24,6 +24,7 @@ export function Login() {
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.detail || '로그인에 실패했습니다.');
+      setPassword(''); // 보안: 로그인 실패 시 비밀번호 초기화
     } finally {
       setLoading(false);
     }
@@ -34,8 +35,9 @@ export function Login() {
       {/* 다크모드 토글 (우상단) */}
       <button
         onClick={toggleTheme}
-        className="fixed top-4 right-4 p-2 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        className="fixed top-4 right-4 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         title={theme === 'dark' ? '라이트 모드' : '다크 모드'}
+        aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
       >
         {theme === 'dark' ? (
           <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -68,6 +70,7 @@ export function Login() {
               placeholder="email@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               required
             />
 
@@ -77,6 +80,7 @@ export function Login() {
               placeholder="********"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               required
             />
 

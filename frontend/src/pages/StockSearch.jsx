@@ -130,9 +130,13 @@ export default function StockSearch() {
   };
 
   // 매수 요청 성공 시
+  const [successMessage, setSuccessMessage] = useState('');
+
   const handleBuySuccess = () => {
     setShowBuyForm(false);
-    alert('매수 요청이 생성되었습니다.');
+    setSuccessMessage('매수 요청이 생성되었습니다.');
+    // 3초 후 메시지 숨기기
+    setTimeout(() => setSuccessMessage(''), 3000);
   };
 
   return (
@@ -168,7 +172,7 @@ export default function StockSearch() {
               value={ticker}
               onChange={(e) => setTicker(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={market === 'CRYPTO' ? 'BTC' : '005930'}
+              placeholder={market === 'CRYPTO' ? '예: BTC, ETH' : '예: 005930, AAPL'}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
@@ -180,7 +184,13 @@ export default function StockSearch() {
         </div>
 
         {error && (
-          <p className="mt-3 text-sm text-red-600">{error}</p>
+          <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+        )}
+
+        {successMessage && (
+          <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <p className="text-sm text-green-600 dark:text-green-400 font-medium">{successMessage}</p>
+          </div>
         )}
       </div>
 
@@ -560,7 +570,29 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
       await requestService.createBuyRequest(data);
       onSuccess?.();
     } catch (error) {
-      setValidationErrors([error.response?.data?.detail || '요청 생성에 실패했습니다.']);
+      // 에러 핸들링 개선
+      let errorMessage = '요청 생성에 실패했습니다.';
+
+      if (error.response) {
+        // 서버가 응답을 반환한 경우
+        const detail = error.response.data?.detail;
+        if (typeof detail === 'string') {
+          errorMessage = detail;
+        } else if (Array.isArray(detail)) {
+          errorMessage = detail.map(d => d.msg || d).join(', ');
+        } else if (error.response.status === 401) {
+          errorMessage = '로그인이 필요합니다. 다시 로그인해주세요.';
+        } else if (error.response.status === 403) {
+          errorMessage = '요청 권한이 없습니다. 팀에 가입되어 있는지 확인해주세요.';
+        } else if (error.response.status >= 500) {
+          errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+        }
+      } else if (error.request) {
+        // 요청은 보냈지만 응답을 받지 못한 경우
+        errorMessage = '서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.';
+      }
+
+      setValidationErrors([errorMessage]);
     } finally {
       setLoading(false);
     }

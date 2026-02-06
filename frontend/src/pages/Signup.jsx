@@ -10,6 +10,7 @@ export function Signup() {
   const { theme, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -40,14 +41,15 @@ export function Signup() {
     setLoading(true);
 
     try {
-      const result = await authService.signup({
+      await authService.signup({
         email: formData.email,
         password: formData.password,
         full_name: formData.full_name
       });
 
-      alert(result.message || '회원가입이 완료되었습니다. 팀장 승인 후 로그인할 수 있습니다.');
-      navigate('/login');
+      setSuccess(true);
+      // 3초 후 로그인 페이지로 이동
+      setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
       setError(err.response?.data?.detail || '회원가입에 실패했습니다');
     } finally {
@@ -64,8 +66,9 @@ export function Signup() {
       {/* 다크모드 토글 (우상단) */}
       <button
         onClick={toggleTheme}
-        className="fixed top-4 right-4 p-2 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        className="fixed top-4 right-4 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         title={theme === 'dark' ? '라이트 모드' : '다크 모드'}
+        aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
       >
         {theme === 'dark' ? (
           <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,6 +97,13 @@ export function Signup() {
           </div>
         )}
 
+        {success && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg">
+            <p className="font-medium">회원가입이 완료되었습니다!</p>
+            <p className="text-sm mt-1">팀장 승인 후 로그인할 수 있습니다. 잠시 후 로그인 페이지로 이동합니다...</p>
+          </div>
+        )}
+
         <form onSubmit={handleSignup} className="mt-8 space-y-5">
           <Input
             label="이메일"
@@ -102,6 +112,7 @@ export function Signup() {
             value={formData.email}
             onChange={handleChange}
             placeholder="example@email.com"
+            autoComplete="email"
             required
           />
 
@@ -112,19 +123,26 @@ export function Signup() {
             value={formData.full_name}
             onChange={handleChange}
             placeholder="예: 홍길동"
+            autoComplete="name"
             required
           />
 
-          <Input
-            label="비밀번호"
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="8자 이상"
-            minLength={8}
-            required
-          />
+          <div>
+            <Input
+              label="비밀번호"
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="8자 이상 입력"
+              autoComplete="new-password"
+              minLength={8}
+              required
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              비밀번호는 8자 이상이어야 합니다
+            </p>
+          </div>
 
           <Input
             label="비밀번호 확인"
@@ -133,6 +151,7 @@ export function Signup() {
             value={formData.passwordConfirm}
             onChange={handleChange}
             placeholder="비밀번호를 다시 입력하세요"
+            autoComplete="new-password"
             required
           />
 

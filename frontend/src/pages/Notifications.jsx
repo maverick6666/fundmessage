@@ -131,16 +131,27 @@ export function Notifications() {
     }
 
     // 관련 페이지로 이동
-    if (notification.notification_type === 'user_pending_approval') {
+    const type = notification.notification_type;
+
+    if (type === 'user_pending_approval') {
       navigate('/team');
-    } else if (notification.notification_type === 'new_request') {
+    } else if (type === 'new_request') {
       navigate('/requests');
+    } else if (type === 'discussion_requested' || type === 'reopen_requested') {
+      // 토론 요청 알림은 요청 페이지로 이동
+      navigate('/requests');
+    } else if (type === 'discussion_opened' && notification.related_id) {
+      // 토론 개시 알림은 토론방으로 이동
+      navigate(`/discussions/${notification.related_id}`);
     } else if (notification.related_type === 'discussion' && notification.related_id) {
       navigate(`/discussions/${notification.related_id}`);
     } else if (notification.related_type === 'position' && notification.related_id) {
       navigate(`/positions/${notification.related_id}`);
     } else if (notification.related_type === 'request' && notification.related_id) {
       navigate('/my-requests');
+    } else {
+      // 기본: 알림 페이지에 유지
+      navigate('/notifications');
     }
   };
 
