@@ -52,7 +52,8 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
       console.log('Loading candles for:', stock.ticker, stock.market);
       const data = await priceService.getCandles(stock.ticker, stock.market, '1d', 100);
       console.log('Candles response:', data);
-      setCandles(data.data || []);
+      // API 응답: { success: true, data: { candles: [...] } }
+      setCandles(data.data?.candles || []);
     } catch (error) {
       console.error('Failed to load candles:', error);
     } finally {
