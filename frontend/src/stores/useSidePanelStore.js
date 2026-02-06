@@ -12,7 +12,7 @@ export const useSidePanelStore = create((set, get) => ({
   // 패널 열림 상태
   isOpen: false,
 
-  // 패널 타입: 'document' | 'column-editor' | null
+  // 패널 타입: 'document' | 'column-editor' | 'note-editor' | null
   panelType: null,
 
   // 패널 데이터
@@ -60,6 +60,15 @@ export const useSidePanelStore = create((set, get) => ({
     openPanel({
       type: 'column-editor',
       data: { columnId, onSaved },
+    });
+  },
+
+  // 의사결정 노트 에디터 열기 헬퍼
+  openNoteEditor: (note, onSaved = null) => {
+    const { openPanel } = get();
+    openPanel({
+      type: 'note-editor',
+      data: { note, onSaved },
     });
   },
 }));

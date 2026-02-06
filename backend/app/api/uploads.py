@@ -14,7 +14,7 @@ router = APIRouter()
 
 # 업로드 디렉토리 설정 (컨테이너 환경에서는 /tmp 사용)
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/tmp/fundmessage_uploads")
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 
 
@@ -24,7 +24,7 @@ async def upload_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """이미지 업로드 (최대 200KB)"""
+    """이미지 업로드 (최대 2MB)"""
     # 파일 타입 검증
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(

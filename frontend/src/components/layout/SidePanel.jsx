@@ -4,6 +4,7 @@ import { useLayoutStore } from '../../stores/useLayoutStore';
 import { useTheme } from '../../context/ThemeContext';
 import { DocumentPanel } from '../documents/DocumentPanel';
 import { ColumnEditorPanel } from '../editor/ColumnEditorPanel';
+import { NoteEditorPanel } from '../editor/NoteEditorPanel';
 
 /**
  * 노션 스타일 사이드 패널
@@ -108,8 +109,8 @@ export function SidePanel() {
           />
         </div>
 
-        {/* 칼럼 에디터는 자체 헤더를 가짐 */}
-        {panelType !== 'column-editor' && (
+        {/* 에디터 패널들은 자체 헤더를 가짐 */}
+        {panelType !== 'column-editor' && panelType !== 'note-editor' && (
           <header
             className={`
               flex items-center justify-between px-5 py-4
@@ -158,7 +159,7 @@ export function SidePanel() {
         )}
 
         {/* 패널 컨텐츠 */}
-        <div className={`flex-1 ${panelType === 'column-editor' ? '' : 'overflow-y-auto'}`}>
+        <div className={`flex-1 ${(panelType === 'column-editor' || panelType === 'note-editor') ? '' : 'overflow-y-auto'}`}>
           {panelType === 'document' && panelData?.document && (
             <DocumentPanel
               document={panelData.document}
@@ -169,6 +170,12 @@ export function SidePanel() {
           {panelType === 'column-editor' && (
             <ColumnEditorPanel
               columnId={panelData?.columnId}
+              onSaved={panelData?.onSaved}
+            />
+          )}
+          {panelType === 'note-editor' && panelData?.note && (
+            <NoteEditorPanel
+              note={panelData.note}
               onSaved={panelData?.onSaved}
             />
           )}

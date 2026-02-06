@@ -6,13 +6,13 @@ export const decisionNoteService = {
     return response.data.data;
   },
 
-  async createNote(positionId, { title, content }) {
-    const response = await api.post(`/positions/${positionId}/notes`, { title, content });
+  async createNote(positionId, { title, content, blocks }) {
+    const response = await api.post(`/positions/${positionId}/notes`, { title, content, blocks });
     return response.data.data;
   },
 
-  async updateNote(positionId, noteId, { title, content }) {
-    const response = await api.patch(`/positions/${positionId}/notes/${noteId}`, { title, content });
+  async updateNote(positionId, noteId, { title, content, blocks }) {
+    const response = await api.patch(`/positions/${positionId}/notes/${noteId}`, { title, content, blocks });
     return response.data.data;
   },
 

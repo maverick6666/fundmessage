@@ -15,13 +15,13 @@ import { useToast } from '../../context/ToastContext';
  * - 테마 연동 (라이트/다크)
  * - 스크롤 가능
  * - 마크다운 및 블록 콘텐츠 지원
- * - 인라인 편집 지원 (칼럼)
+ * - 인라인 편집 지원 (칼럼, 의사결정 노트)
  * - 칼럼 검증 기능 (팀장/관리자)
  */
 export function DocumentPanel({ document: doc, type = 'decision-note', onDelete, onSaved }) {
   const { user } = useAuth();
   const { isCurrentThemeDark } = useTheme();
-  const { openColumnEditor } = useSidePanelStore();
+  const { openColumnEditor, openNoteEditor } = useSidePanelStore();
   const toast = useToast();
   const [verifying, setVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(doc?.is_verified || false);
@@ -31,7 +31,8 @@ export function DocumentPanel({ document: doc, type = 'decision-note', onDelete,
 
   const isManagerRole = user?.role === 'manager' || user?.role === 'admin';
   const isAuthor = doc?.author_id === user?.id || doc?.author?.id === user?.id;
-  const canEdit = isAuthor;
+  // 의사결정 노트는 팀장/관리자만 수정 가능, 칼럼은 작성자만
+  const canEdit = type === 'decision-note' ? isManagerRole : isAuthor;
   const canDelete = isAuthor || isManagerRole;
   // 검증은 팀장/관리자만 가능하며, 본인 칼럼은 검증 불가
   const canVerify = type === 'column' && isManagerRole && !isAuthor;
@@ -72,6 +73,9 @@ export function DocumentPanel({ document: doc, type = 'decision-note', onDelete,
     if (type === 'column' && doc?.id) {
       // 사이드 패널 내에서 편집 모드로 전환
       openColumnEditor(doc.id, onSaved);
+    } else if (type === 'decision-note' && doc?.id) {
+      // 의사결정 노트 편집 모드로 전환
+      openNoteEditor(doc, onSaved);
     }
   };
 
@@ -300,7 +304,7 @@ export function DocumentPanel({ document: doc, type = 'decision-note', onDelete,
               {verifying ? '취소중...' : '검증 취소'}
             </button>
           )}
-          {canEdit && type === 'column' && (
+          {canEdit && (
             <button
               onClick={handleEdit}
               className={`

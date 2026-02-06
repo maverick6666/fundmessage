@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -16,11 +16,13 @@ router = APIRouter()
 class DecisionNoteCreate(BaseModel):
     title: str
     content: str
+    blocks: Optional[List[Any]] = None
 
 
 class DecisionNoteUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
+    blocks: Optional[List[Any]] = None
 
 
 def note_to_dict(note: DecisionNote) -> dict:
@@ -29,11 +31,13 @@ def note_to_dict(note: DecisionNote) -> dict:
         "position_id": note.position_id,
         "title": note.title,
         "content": note.content,
+        "blocks": note.blocks,
         "author": {
             "id": note.author.id,
             "username": note.author.username,
             "full_name": note.author.full_name
         } if note.author else None,
+        "author_id": note.created_by,
         "updated_at": note.updated_at.isoformat() if note.updated_at else None,
         "created_at": note.created_at.isoformat() if note.created_at else None
     }
@@ -72,6 +76,7 @@ async def create_decision_note(
         position_id=position_id,
         title=note_data.title,
         content=note_data.content,
+        blocks=note_data.blocks,
         created_by=current_user.id
     )
     db.add(note)
@@ -106,6 +111,8 @@ async def update_decision_note(
         note.title = note_data.title
     if note_data.content is not None:
         note.content = note_data.content
+    if note_data.blocks is not None:
+        note.blocks = note_data.blocks
 
     db.commit()
     db.refresh(note)
