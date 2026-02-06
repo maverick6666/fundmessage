@@ -9,6 +9,7 @@ import { requestService } from '../services/requestService';
 import { priceService } from '../services/priceService';
 import { reportService } from '../services/reportService';
 import { columnService } from '../services/columnService';
+import { statsService } from '../services/statsService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import {
@@ -31,6 +32,7 @@ export function Dashboard() {
   const [teamSettings, setTeamSettings] = useState(null);
   const [reports, setReports] = useState([]);
   const [columns, setColumns] = useState([]);
+  const [teamRanking, setTeamRanking] = useState({ members: [], avg_week_attendance_rate: 0 });
   const [loading, setLoading] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showExchangeModal, setShowExchangeModal] = useState(false);
@@ -50,17 +52,19 @@ export function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const [positionData, requestData, settings, reportsData, columnsData] = await Promise.all([
+      const [positionData, requestData, settings, reportsData, columnsData, rankingData] = await Promise.all([
         priceService.getPositionsWithPrices().catch(() => ({ positions: [] })),
         requestService.getRequests({ limit: 3 }),
         positionService.getTeamSettings().catch(() => null),
         reportService.getReports({ limit: 3 }).catch(() => ({ reports: [] })),
-        columnService.getColumns({ limit: 3 }).catch(() => ({ columns: [] }))
+        columnService.getColumns({ limit: 3 }).catch(() => ({ columns: [] })),
+        statsService.getTeamRanking().catch(() => ({ members: [], avg_week_attendance_rate: 0 }))
       ]);
       setPositions(positionData.positions || []);
       setRequests(requestData.requests);
       setReports(reportsData.reports || []);
       setColumns(columnsData.columns || []);
+      setTeamRanking(rankingData || { members: [], avg_week_attendance_rate: 0 });
       if (settings) {
         setTeamSettings(settings);
         setSettingsData({
@@ -210,24 +214,44 @@ export function Dashboard() {
   const krwTotalAssets = krwCash + krwEvaluation;
   const usdTotalAssets = usdCash + usdEvaluation;
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>대시보드</h1>
-        {isManager() && (
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setShowExchangeModal(true)}>
-              환전
-            </Button>
-            <Button variant="secondary" onClick={() => setShowSettingsModal(true)}>
-              팀 설정
-            </Button>
-          </div>
-        )}
-      </div>
+  // 역할 라벨
+  const getRoleLabel = (role) => {
+    switch (role) {
+      case 'manager': return '팀장';
+      case 'admin': return '관리자';
+      default: return '팀원';
+    }
+  };
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+  // 역할 색상
+  const getRoleBadgeClass = (role) => {
+    switch (role) {
+      case 'manager': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+      case 'admin': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+      default: return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+    }
+  };
+
+  return (
+    <div className="flex gap-6">
+      {/* Main Content */}
+      <div className="flex-1 space-y-6 min-w-0">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>대시보드</h1>
+          {isManager() && (
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setShowExchangeModal(true)}>
+                환전
+              </Button>
+              <Button variant="secondary" onClick={() => setShowSettingsModal(true)}>
+                팀 설정
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 원화 자본금 */}
         <Card>
           <div className="flex items-center justify-between">
@@ -307,11 +331,11 @@ export function Dashboard() {
             {usdTotalAssets > 0 ? formatCurrency(usdTotalAssets, 'USD') : '-'}
           </p>
         </Card>
-      </div>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Open Positions */}
-        <Card>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Open Positions */}
+          <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>열린 포지션</CardTitle>
@@ -418,119 +442,200 @@ export function Dashboard() {
               ))}
             </div>
           )}
-        </Card>
-      </div>
+          </Card>
+        </div>
 
-      {/* Recent Reports and Columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Reports */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>최근 보고서</CardTitle>
-              <Link to="/reports" className="text-sm text-primary-600 hover:text-primary-700">
-                전체보기
-              </Link>
-            </div>
-          </CardHeader>
-
-          {reports.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">보고서가 없습니다</div>
-          ) : (
-            <div className="space-y-3">
-              {reports.map(report => (
-                <Link
-                  key={report.position_id}
-                  to={`/positions/${report.position_id}`}
-                  className="block p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium dark:text-gray-100">{report.ticker_name || report.ticker}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{report.note_count}개 노트</span>
-                  </div>
-                  {report.latest_note && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                      {report.latest_note.title}
-                    </p>
-                  )}
+        {/* Recent Reports and Columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent Reports */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>최근 보고서</CardTitle>
+                <Link to="/reports" className="text-sm text-primary-600 hover:text-primary-700">
+                  전체보기
                 </Link>
-              ))}
-            </div>
-          )}
-        </Card>
+              </div>
+            </CardHeader>
 
-        {/* Recent Columns */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>최근 칼럼</CardTitle>
-              <Link to="/reports?tab=columns" className="text-sm text-primary-600 hover:text-primary-700">
-                전체보기
-              </Link>
-            </div>
-          </CardHeader>
+            {reports.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">보고서가 없습니다</div>
+            ) : (
+              <div className="space-y-3">
+                {reports.map(report => (
+                  <Link
+                    key={report.position_id}
+                    to={`/positions/${report.position_id}`}
+                    className="block p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium dark:text-gray-100">{report.ticker_name || report.ticker}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{report.note_count}개 노트</span>
+                    </div>
+                    {report.latest_note && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                        {report.latest_note.title}
+                      </p>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </Card>
 
-          {columns.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">작성된 칼럼이 없습니다</div>
-          ) : (
-            <div className="space-y-3">
-              {columns.map(column => (
-                <div
-                  key={column.id}
-                  className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-                >
-                  <p className="font-medium dark:text-gray-100 mb-1 line-clamp-1">{column.title}</p>
-                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-                    <span>{column.author?.full_name}</span>
-                    <span>{formatRelativeTime(column.created_at)}</span>
+          {/* Recent Columns */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>최근 칼럼</CardTitle>
+                <Link to="/reports?tab=columns" className="text-sm text-primary-600 hover:text-primary-700">
+                  전체보기
+                </Link>
+              </div>
+            </CardHeader>
+
+            {columns.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">작성된 칼럼이 없습니다</div>
+            ) : (
+              <div className="space-y-3">
+                {columns.map(column => (
+                  <div
+                    key={column.id}
+                    className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                  >
+                    <p className="font-medium dark:text-gray-100 mb-1 line-clamp-1">{column.title}</p>
+                    <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+                      <span>{column.author?.full_name}</span>
+                      <span>{formatRelativeTime(column.created_at)}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* 환전 이력 */}
+        {teamSettings?.exchange_history && teamSettings.exchange_history.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>환전 이력</CardTitle>
+            </CardHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
+                    <th className="pb-2 font-medium">날짜</th>
+                    <th className="pb-2 font-medium">From</th>
+                    <th className="pb-2 font-medium">To</th>
+                    <th className="pb-2 font-medium">환율</th>
+                    <th className="pb-2 font-medium">메모</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamSettings.exchange_history.slice(-5).reverse().map((ex, i) => (
+                    <tr key={i} className="border-b last:border-0 dark:border-gray-700">
+                      <td className="py-2">{formatDate(ex.timestamp, 'MM/dd HH:mm')}</td>
+                      <td className="py-2">
+                        {ex.from_currency === 'KRW'
+                          ? `₩${formatNumber(ex.from_amount, 0)}`
+                          : `$${formatNumber(ex.from_amount, 2)}`}
+                      </td>
+                      <td className="py-2">
+                        {ex.to_currency === 'KRW'
+                          ? `₩${formatNumber(ex.to_amount, 0)}`
+                          : `$${formatNumber(ex.to_amount, 2)}`}
+                      </td>
+                      <td className="py-2">{ex.exchange_rate ? formatNumber(ex.exchange_rate, 2) : '-'}</td>
+                      <td className="py-2 text-gray-500 dark:text-gray-400">{ex.memo || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </Card>
+          </Card>
+        )}
       </div>
 
-      {/* 환전 이력 */}
-      {teamSettings?.exchange_history && teamSettings.exchange_history.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>환전 이력</CardTitle>
-          </CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
-                  <th className="pb-2 font-medium">날짜</th>
-                  <th className="pb-2 font-medium">From</th>
-                  <th className="pb-2 font-medium">To</th>
-                  <th className="pb-2 font-medium">환율</th>
-                  <th className="pb-2 font-medium">메모</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teamSettings.exchange_history.slice(-5).reverse().map((ex, i) => (
-                  <tr key={i} className="border-b last:border-0 dark:border-gray-700">
-                    <td className="py-2">{formatDate(ex.timestamp, 'MM/dd HH:mm')}</td>
-                    <td className="py-2">
-                      {ex.from_currency === 'KRW'
-                        ? `₩${formatNumber(ex.from_amount, 0)}`
-                        : `$${formatNumber(ex.from_amount, 2)}`}
-                    </td>
-                    <td className="py-2">
-                      {ex.to_currency === 'KRW'
-                        ? `₩${formatNumber(ex.to_amount, 0)}`
-                        : `$${formatNumber(ex.to_amount, 2)}`}
-                    </td>
-                    <td className="py-2">{ex.exchange_rate ? formatNumber(ex.exchange_rate, 2) : '-'}</td>
-                    <td className="py-2 text-gray-500 dark:text-gray-400">{ex.memo || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+      {/* Team Ranking Section - Right Sidebar */}
+      <div className="hidden xl:block w-80 shrink-0">
+        <div className="sticky top-4">
+          <Card className="h-fit">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>팀원 랭킹</CardTitle>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  주간 평균 {teamRanking.avg_week_attendance_rate}%
+                </span>
+              </div>
+            </CardHeader>
+
+            {loading ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">로딩중...</div>
+            ) : teamRanking.members.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">팀원 정보가 없습니다</div>
+            ) : (
+              <div className="space-y-3">
+                {teamRanking.members.map((member) => {
+                  // 출석률 프로그레스바 색상: 평균보다 낮으면 빨간색, 높으면 초록색
+                  const attendanceColor = member.week_attendance_rate >= teamRanking.avg_week_attendance_rate
+                    ? 'bg-emerald-500'
+                    : 'bg-red-500';
+
+                  return (
+                    <div
+                      key={member.id}
+                      className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                    >
+                      {/* 상단: 이름 + 역할 */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium dark:text-gray-100">{member.full_name}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${getRoleBadgeClass(member.role)}`}>
+                            {getRoleLabel(member.role)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 수익률 & 수익금 */}
+                      <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400 text-xs">평균 수익률</span>
+                          <p className={`font-medium ${getProfitLossClass(member.avg_profit_rate)}`}>
+                            {member.avg_profit_rate >= 0 ? '+' : ''}{member.avg_profit_rate}%
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400 text-xs">총 수익금</span>
+                          <p className={`font-medium ${getProfitLossClass(member.total_profit)}`}>
+                            {member.total_profit >= 0 ? '+' : ''}{formatNumber(member.total_profit, 0)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 주간 출석률 프로그레스바 */}
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-gray-500 dark:text-gray-400">주간 출석률</span>
+                          <span className="text-gray-600 dark:text-gray-300">
+                            {member.week_present}/{member.week_total} ({member.week_attendance_rate}%)
+                          </span>
+                        </div>
+                        <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${attendanceColor} transition-all duration-300`}
+                            style={{ width: `${Math.min(100, member.week_attendance_rate)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
 
       {/* Team Settings Modal */}
       <Modal

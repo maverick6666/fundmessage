@@ -29,5 +29,15 @@ export const columnService = {
   async deleteColumn(id) {
     const response = await api.delete(`/columns/${id}`);
     return response.data;
+  },
+
+  async verifyColumn(id) {
+    const response = await api.post(`/columns/${id}/verify`);
+    return response.data;
+  },
+
+  async unverifyColumn(id) {
+    const response = await api.post(`/columns/${id}/unverify`);
+    return response.data;
   }
 };

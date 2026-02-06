@@ -1,3 +1,4 @@
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
@@ -6,8 +7,12 @@ from app.database import get_db
 from app.schemas.common import APIResponse
 from app.schemas.team_column import TeamColumnCreate, TeamColumnUpdate
 from app.models.team_column import TeamColumn
-from app.dependencies import get_current_user
+from app.models.attendance import Attendance
+from app.dependencies import get_current_user, get_manager
 from app.models.user import User
+
+# 한국 시간대
+KST = timezone(timedelta(hours=9))
 
 router = APIRouter()
 
@@ -24,6 +29,13 @@ def column_to_dict(col: TeamColumn) -> dict:
             "username": col.author.username,
             "full_name": col.author.full_name
         } if col.author else None,
+        "is_verified": col.is_verified,
+        "verified_by": col.verified_by,
+        "verified_at": col.verified_at.isoformat() if col.verified_at else None,
+        "verifier": {
+            "id": col.verifier.id,
+            "full_name": col.verifier.full_name
+        } if col.verifier else None,
         "created_at": col.created_at.isoformat() if col.created_at else None,
         "updated_at": col.updated_at.isoformat() if col.updated_at else None
     }
@@ -39,6 +51,7 @@ def column_to_list_item(col: TeamColumn) -> dict:
             "username": col.author.username,
             "full_name": col.author.full_name
         } if col.author else None,
+        "is_verified": col.is_verified,
         "created_at": col.created_at.isoformat() if col.created_at else None
     }
 
@@ -79,7 +92,8 @@ async def get_column(
 ):
     """칼럼 상세 조회"""
     col = db.query(TeamColumn).options(
-        joinedload(TeamColumn.author)
+        joinedload(TeamColumn.author),
+        joinedload(TeamColumn.verifier)
     ).filter(TeamColumn.id == column_id).first()
 
     if not col:
@@ -187,4 +201,119 @@ async def delete_column(
     return APIResponse(
         success=True,
         message="칼럼이 삭제되었습니다"
+    )
+
+
+@router.post("/{column_id}/verify", response_model=APIResponse)
+async def verify_column(
+    column_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager)
+):
+    """칼럼 검증 (파란 체크마크) - 팀장/관리자만
+
+    검증 시 혜택:
+    - 작성자의 가장 최근 결석(absent)을 자동으로 출석(recovered)으로 변경
+    """
+    col = db.query(TeamColumn).options(
+        joinedload(TeamColumn.author),
+        joinedload(TeamColumn.verifier)
+    ).filter(TeamColumn.id == column_id).first()
+
+    if not col:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="칼럼을 찾을 수 없습니다"
+        )
+
+    if col.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 검증된 칼럼입니다"
+        )
+
+    # 본인 칼럼은 검증 불가
+    if col.author_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="본인이 작성한 칼럼은 검증할 수 없습니다"
+        )
+
+    # 검증 처리
+    col.is_verified = True
+    col.verified_by = current_user.id
+    col.verified_at = datetime.now(KST)
+
+    # 출석 혜택: 작성자의 가장 최근 결석을 복구
+    latest_absent = db.query(Attendance).filter(
+        Attendance.user_id == col.author_id,
+        Attendance.status == 'absent'
+    ).order_by(Attendance.date.desc()).first()
+
+    recovered_date = None
+    if latest_absent:
+        latest_absent.status = 'recovered'
+        latest_absent.recovered_by_column_id = col.id
+        latest_absent.approved_by = current_user.id
+        recovered_date = latest_absent.date.isoformat()
+
+    db.commit()
+    db.refresh(col)
+
+    message = "칼럼이 검증되었습니다"
+    if recovered_date:
+        message += f" ({recovered_date} 결석이 출석으로 복구되었습니다)"
+
+    return APIResponse(
+        success=True,
+        data={
+            **column_to_dict(col),
+            "recovered_date": recovered_date
+        },
+        message=message
+    )
+
+
+@router.post("/{column_id}/unverify", response_model=APIResponse)
+async def unverify_column(
+    column_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager)
+):
+    """칼럼 검증 취소 - 팀장/관리자만"""
+    col = db.query(TeamColumn).filter(TeamColumn.id == column_id).first()
+
+    if not col:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="칼럼을 찾을 수 없습니다"
+        )
+
+    if not col.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="검증되지 않은 칼럼입니다"
+        )
+
+    # 검증 취소 시 출석 복구도 취소
+    recovered_attendance = db.query(Attendance).filter(
+        Attendance.recovered_by_column_id == col.id
+    ).first()
+
+    if recovered_attendance:
+        recovered_attendance.status = 'absent'
+        recovered_attendance.recovered_by_column_id = None
+        recovered_attendance.approved_by = None
+
+    col.is_verified = False
+    col.verified_by = None
+    col.verified_at = None
+
+    db.commit()
+    db.refresh(col)
+
+    return APIResponse(
+        success=True,
+        data=column_to_dict(col),
+        message="검증이 취소되었습니다"
     )

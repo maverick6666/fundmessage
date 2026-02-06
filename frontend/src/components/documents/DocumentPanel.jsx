@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { BlockRenderer } from '../editor/BlockEditor';
@@ -5,6 +6,8 @@ import { formatRelativeTime } from '../../utils/formatters';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
 import { useSidePanelStore } from '../../stores/useSidePanelStore';
+import { columnService } from '../../services/columnService';
+import { useToast } from '../../context/ToastContext';
 
 /**
  * 사이드 패널용 문서 뷰어
@@ -13,18 +16,57 @@ import { useSidePanelStore } from '../../stores/useSidePanelStore';
  * - 스크롤 가능
  * - 마크다운 및 블록 콘텐츠 지원
  * - 인라인 편집 지원 (칼럼)
+ * - 칼럼 검증 기능 (팀장/관리자)
  */
 export function DocumentPanel({ document: doc, type = 'decision-note', onDelete, onSaved }) {
   const { user } = useAuth();
   const { isCurrentThemeDark } = useTheme();
   const { openColumnEditor } = useSidePanelStore();
+  const toast = useToast();
+  const [verifying, setVerifying] = useState(false);
+  const [isVerified, setIsVerified] = useState(doc?.is_verified || false);
+  const [verifier, setVerifier] = useState(doc?.verifier || null);
 
   if (!doc) return null;
 
-  const isManager = user?.role === 'manager' || user?.role === 'admin';
+  const isManagerRole = user?.role === 'manager' || user?.role === 'admin';
   const isAuthor = doc?.author_id === user?.id || doc?.author?.id === user?.id;
   const canEdit = isAuthor;
-  const canDelete = isAuthor || isManager;
+  const canDelete = isAuthor || isManagerRole;
+  // 검증은 팀장/관리자만 가능하며, 본인 칼럼은 검증 불가
+  const canVerify = type === 'column' && isManagerRole && !isAuthor;
+
+  const handleVerify = async () => {
+    if (!doc?.id) return;
+    setVerifying(true);
+    try {
+      const result = await columnService.verifyColumn(doc.id);
+      setIsVerified(true);
+      setVerifier({ id: user?.id, full_name: user?.full_name });
+      toast.success(result.message || '칼럼이 검증되었습니다.');
+      if (onSaved) onSaved();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || '검증에 실패했습니다.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleUnverify = async () => {
+    if (!doc?.id) return;
+    setVerifying(true);
+    try {
+      await columnService.unverifyColumn(doc.id);
+      setIsVerified(false);
+      setVerifier(null);
+      toast.success('검증이 취소되었습니다.');
+      if (onSaved) onSaved();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || '검증 취소에 실패했습니다.');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleEdit = () => {
     if (type === 'column' && doc?.id) {
@@ -56,13 +98,22 @@ export function DocumentPanel({ document: doc, type = 'decision-note', onDelete,
 
   return (
     <div className="px-6 py-6">
-      {/* 제목 */}
-      <h1
-        className={`text-2xl sm:text-3xl font-semibold mb-5 leading-tight ${styles.title}`}
-        style={{ fontFamily: "'Noto Serif KR', 'Crimson Pro', serif" }}
-      >
-        {doc.title}
-      </h1>
+      {/* 제목 + 검증 배지 */}
+      <div className="flex items-start gap-2 mb-5">
+        <h1
+          className={`text-2xl sm:text-3xl font-semibold leading-tight flex-1 ${styles.title}`}
+          style={{ fontFamily: "'Noto Serif KR', 'Crimson Pro', serif" }}
+        >
+          {doc.title}
+        </h1>
+        {type === 'column' && isVerified && (
+          <div className="shrink-0 mt-1" title={`검증됨${verifier ? ` - ${verifier.full_name}` : ''}`}>
+            <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+          </div>
+        )}
+      </div>
 
       {/* 작성자 & 날짜 */}
       {doc.author && (
@@ -208,8 +259,47 @@ export function DocumentPanel({ document: doc, type = 'decision-note', onDelete,
       </article>
 
       {/* 액션 버튼 */}
-      {(canEdit || canDelete) && (
+      {(canEdit || canDelete || canVerify) && (
         <div className={`flex items-center justify-end gap-2 mt-6 pt-4 border-t ${styles.border}`}>
+          {/* 검증/검증취소 버튼 (팀장/관리자만, 본인 칼럼 제외) */}
+          {canVerify && !isVerified && (
+            <button
+              onClick={handleVerify}
+              disabled={verifying}
+              className={`
+                flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors
+                ${isCurrentThemeDark
+                  ? 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20'
+                  : 'text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200'
+                }
+                ${verifying ? 'opacity-50 cursor-not-allowed' : ''}
+              `}
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              {verifying ? '검증중...' : '검증하기'}
+            </button>
+          )}
+          {canVerify && isVerified && (
+            <button
+              onClick={handleUnverify}
+              disabled={verifying}
+              className={`
+                flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors
+                ${isCurrentThemeDark
+                  ? 'text-gray-400 bg-white/5 hover:bg-white/10 border border-white/10'
+                  : 'text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200'
+                }
+                ${verifying ? 'opacity-50 cursor-not-allowed' : ''}
+              `}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              {verifying ? '취소중...' : '검증 취소'}
+            </button>
+          )}
           {canEdit && type === 'column' && (
             <button
               onClick={handleEdit}

@@ -215,14 +215,15 @@ async def approve_request(
     request_service = RequestService(db)
     request, position = request_service.approve_request(request_id, approve_data, current_user.id)
 
-    # 요청자에게 알림 전송
-    notification_service = NotificationService(db)
-    notification_service.notify_request_approved(
-        requester_id=request.requester_id,
-        request_id=request.id,
-        ticker=request.target_ticker,
-        position_id=position.id if position else None
-    )
+    # 요청자에게 알림 전송 (본인 요청이 아닌 경우에만)
+    if request.requester_id != current_user.id:
+        notification_service = NotificationService(db)
+        notification_service.notify_request_approved(
+            requester_id=request.requester_id,
+            request_id=request.id,
+            ticker=request.target_ticker,
+            position_id=position.id if position else None
+        )
 
     response_data = {
         "request": request_to_response(request)
@@ -255,14 +256,15 @@ async def reject_request(
     request_service = RequestService(db)
     request = request_service.reject_request(request_id, reject_data.rejection_reason, current_user.id)
 
-    # 요청자에게 알림 전송
-    notification_service = NotificationService(db)
-    notification_service.notify_request_rejected(
-        requester_id=request.requester_id,
-        request_id=request.id,
-        ticker=request.target_ticker,
-        reason=reject_data.rejection_reason
-    )
+    # 요청자에게 알림 전송 (본인 요청이 아닌 경우에만)
+    if request.requester_id != current_user.id:
+        notification_service = NotificationService(db)
+        notification_service.notify_request_rejected(
+            requester_id=request.requester_id,
+            request_id=request.id,
+            ticker=request.target_ticker,
+            reason=reject_data.rejection_reason
+        )
 
     return APIResponse(
         success=True,

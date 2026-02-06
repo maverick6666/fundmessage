@@ -18,5 +18,10 @@ export const statsService = {
   async getExchangeRate() {
     const response = await api.get('/stats/exchange-rate');
     return response.data.data;
+  },
+
+  async getTeamRanking() {
+    const response = await api.get('/stats/team-ranking');
+    return response.data.data;
   }
 };
