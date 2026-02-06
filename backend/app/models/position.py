@@ -61,3 +61,4 @@ class Position(Base):
     price_alerts = relationship("PriceAlert", back_populates="position")
     discussions = relationship("Discussion", back_populates="position")
     decision_notes = relationship("DecisionNote", back_populates="position", order_by="DecisionNote.created_at.desc()")
+    trading_plans = relationship("TradingPlan", back_populates="position", order_by="TradingPlan.created_at.desc()")

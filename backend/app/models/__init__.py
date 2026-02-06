@@ -9,5 +9,8 @@ from app.models.team_settings import TeamSettings
 from app.models.audit_log import AuditLog
 from app.models.notification import Notification
 from app.models.decision_note import DecisionNote
+from app.models.team_column import TeamColumn
+from app.models.attendance import Attendance
+from app.models.trading_plan import TradingPlan
 
-__all__ = ["User", "Position", "Request", "Discussion", "Message", "PriceAlert", "EmailVerification", "TeamSettings", "AuditLog", "Notification", "DecisionNote"]
+__all__ = ["User", "Position", "Request", "Discussion", "Message", "PriceAlert", "EmailVerification", "TeamSettings", "AuditLog", "Notification", "DecisionNote", "TeamColumn", "Attendance", "TradingPlan"]

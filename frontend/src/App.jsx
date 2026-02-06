@@ -17,6 +17,7 @@ import { TeamManagement } from './pages/TeamManagement';
 import { Notifications } from './pages/Notifications';
 import { Settings } from './pages/Settings';
 import StockSearch from './pages/StockSearch';
+import { Reports } from './pages/Reports';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -165,6 +166,15 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Stats />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/reports"
+        element={
+          <PrivateRoute>
+            <Reports />
           </PrivateRoute>
         }
       />

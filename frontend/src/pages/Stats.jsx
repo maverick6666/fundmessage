@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle } from '../components/common/Card';
 import { ProfitProgressBar } from '../components/common/ProfitProgressBar';
+import { AttendanceCalendar } from '../components/attendance/AttendanceCalendar';
 import { statsService } from '../services/statsService';
 import { positionService } from '../services/positionService';
 import { userService } from '../services/userService';
@@ -507,6 +508,12 @@ export function Stats() {
                 )}
               </div>
             </Card>
+          </div>
+
+          {/* 출석 현황 */}
+          <div className="mt-6">
+            <h3 className="text-lg font-medium mb-4 dark:text-gray-200">출석 현황</h3>
+            <AttendanceCalendar />
           </div>
         </div>
       )}

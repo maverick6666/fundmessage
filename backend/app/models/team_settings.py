@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Numeric, DateTime, Text, JSON
+from sqlalchemy import Column, Integer, Numeric, DateTime, Text, JSON, Date
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -17,6 +17,11 @@ class TeamSettings(Base):
     # 환전 이력
     # [{"from_currency": "KRW", "to_currency": "USD", "from_amount": 1300000, "to_amount": 1000, "exchange_rate": 1300, "memo": "...", "user_id": 1, "user_name": "홍길동"}, ...]
     exchange_history = Column(JSON, default=list)
+
+    # AI 사용량 관리
+    ai_daily_limit = Column(Integer, default=3)  # 일일 사용 제한
+    ai_usage_count = Column(Integer, default=0)  # 오늘 사용량
+    ai_usage_reset_date = Column(Date, nullable=True)  # 마지막 리셋 날짜
 
     description = Column(Text)  # 설명/메모
 

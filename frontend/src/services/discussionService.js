@@ -74,5 +74,11 @@ export const discussionService = {
   async deleteDiscussion(id) {
     const response = await api.delete(`/discussions/${id}`);
     return response.data;
+  },
+
+  // 세션 삭제 (팀장/관리자)
+  async deleteSession(discussionId, sessionNumber) {
+    const response = await api.delete(`/discussions/${discussionId}/sessions/${sessionNumber}`);
+    return response.data;
   }
 };

@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     kis_app_key: str = ""
     kis_app_secret: str = ""
 
+    # OpenAI API
+    openai_api_key: str = ""
+
     # Environment
     environment: str = "development"
 

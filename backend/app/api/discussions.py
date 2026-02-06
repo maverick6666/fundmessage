@@ -376,3 +376,60 @@ async def delete_discussion(
         success=True,
         message=f"토론 '{title}'이(가) 삭제되었습니다"
     )
+
+
+@router.delete("/{discussion_id}/sessions/{session_number}", response_model=APIResponse)
+async def delete_discussion_session(
+    discussion_id: int,
+    session_number: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager_or_admin)
+):
+    """토론 내 특정 세션 삭제 (팀장/관리자만)
+
+    세션은 "Discussion started/reopened"부터 "Discussion closed"까지의 기간입니다.
+    해당 세션의 모든 메시지가 삭제됩니다.
+    """
+    from app.models.message import Message, MessageType
+    from fastapi import HTTPException
+
+    discussion_service = DiscussionService(db)
+    sessions = discussion_service.get_discussion_sessions(discussion_id)
+
+    if session_number < 1 or session_number > len(sessions):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"잘못된 세션 번호입니다. 유효 범위: 1-{len(sessions)}"
+        )
+
+    session = sessions[session_number - 1]  # 0-indexed
+    start_time = session.get('started_at')
+    end_time = session.get('ended_at')
+
+    if not start_time:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="세션 시작 시간을 찾을 수 없습니다"
+        )
+
+    # 해당 세션의 메시지 삭제
+    query = db.query(Message).filter(Message.discussion_id == discussion_id)
+
+    # 시작 시간 이후
+    from datetime import datetime
+    start_dt = datetime.fromisoformat(start_time)
+    query = query.filter(Message.created_at >= start_dt)
+
+    # 종료 시간 이전 (있는 경우)
+    if end_time:
+        end_dt = datetime.fromisoformat(end_time)
+        query = query.filter(Message.created_at <= end_dt)
+
+    deleted_count = query.delete(synchronize_session=False)
+    db.commit()
+
+    return APIResponse(
+        success=True,
+        data={"deleted_messages": deleted_count},
+        message=f"세션 {session_number}의 메시지 {deleted_count}개가 삭제되었습니다"
+    )
