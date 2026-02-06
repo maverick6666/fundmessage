@@ -278,42 +278,32 @@ export function Dashboard() {
 
         {/* 원화 평가가치 */}
         <Card>
-          <p className="text-sm text-gray-500 dark:text-gray-400">원화 평가가치</p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <p className="text-2xl font-bold dark:text-gray-100">
-              {krwTotalAssets > 0 ? formatCurrency(krwTotalAssets, 'KRX') : '-'}
-            </p>
-            {initialCapitalKrw > 0 && krwTotalAssets > 0 && (
-              <span className={`text-lg font-semibold ${krwTotalAssets >= initialCapitalKrw ? 'text-red-500 dark:text-red-400' : 'text-blue-500 dark:text-blue-400'}`}>
-                {krwTotalAssets >= initialCapitalKrw ? '+' : ''}{formatPercent((krwTotalAssets - initialCapitalKrw) / initialCapitalKrw)}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-gray-400">원화 평가가치</p>
+            {initialCapitalKrw > 0 && krwTotalAssets !== initialCapitalKrw && (
+              <span className={`text-sm font-semibold ${krwTotalAssets > initialCapitalKrw ? 'text-red-500 dark:text-red-400' : 'text-blue-500 dark:text-blue-400'}`}>
+                {krwTotalAssets > initialCapitalKrw ? '+' : ''}{formatPercent((krwTotalAssets - initialCapitalKrw) / initialCapitalKrw)}
               </span>
             )}
           </div>
-          {initialCapitalKrw > 0 && krwTotalAssets > 0 && (
-            <p className={`text-sm mt-1 ${krwTotalAssets >= initialCapitalKrw ? 'text-red-500/70' : 'text-blue-500/70'}`}>
-              {krwTotalAssets >= initialCapitalKrw ? '+' : ''}{formatCurrency(krwTotalAssets - initialCapitalKrw, 'KRX')}
-            </p>
-          )}
+          <p className="text-2xl font-bold mt-1 dark:text-gray-100">
+            {krwTotalAssets > 0 ? formatCurrency(krwTotalAssets, 'KRX') : '-'}
+          </p>
         </Card>
 
         {/* 달러 평가가치 */}
         <Card>
-          <p className="text-sm text-gray-500 dark:text-gray-400">달러 평가가치</p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <p className="text-2xl font-bold dark:text-gray-100">
-              {usdTotalAssets > 0 ? formatCurrency(usdTotalAssets, 'USD') : '-'}
-            </p>
-            {initialCapitalUsd > 0 && usdTotalAssets > 0 && (
-              <span className={`text-lg font-semibold ${usdTotalAssets >= initialCapitalUsd ? 'text-red-500 dark:text-red-400' : 'text-blue-500 dark:text-blue-400'}`}>
-                {usdTotalAssets >= initialCapitalUsd ? '+' : ''}{formatPercent((usdTotalAssets - initialCapitalUsd) / initialCapitalUsd)}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-gray-400">달러 평가가치</p>
+            {initialCapitalUsd > 0 && usdTotalAssets !== initialCapitalUsd && (
+              <span className={`text-sm font-semibold ${usdTotalAssets > initialCapitalUsd ? 'text-red-500 dark:text-red-400' : 'text-blue-500 dark:text-blue-400'}`}>
+                {usdTotalAssets > initialCapitalUsd ? '+' : ''}{formatPercent((usdTotalAssets - initialCapitalUsd) / initialCapitalUsd)}
               </span>
             )}
           </div>
-          {initialCapitalUsd > 0 && usdTotalAssets > 0 && (
-            <p className={`text-sm mt-1 ${usdTotalAssets >= initialCapitalUsd ? 'text-red-500/70' : 'text-blue-500/70'}`}>
-              {usdTotalAssets >= initialCapitalUsd ? '+' : ''}{formatCurrency(usdTotalAssets - initialCapitalUsd, 'USD')}
-            </p>
-          )}
+          <p className="text-2xl font-bold mt-1 dark:text-gray-100">
+            {usdTotalAssets > 0 ? formatCurrency(usdTotalAssets, 'USD') : '-'}
+          </p>
         </Card>
       </div>
 
