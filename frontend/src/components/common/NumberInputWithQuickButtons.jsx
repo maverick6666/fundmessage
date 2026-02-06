@@ -132,7 +132,8 @@ export function NumberInputWithQuickButtons({
 
 /**
  * 간단한 빠른 버튼 (인라인용)
- * 한 줄에 숫자 버튼 + 천/만 단위 버튼 배치
+ * 숫자 선택 후 천/만 클릭하면 곱해서 추가
+ * 예: 100 클릭 → 만 클릭 → 1,000,000 추가
  */
 export function QuickNumberButtons({
   onAdd,
@@ -140,12 +141,30 @@ export function QuickNumberButtons({
   showUnits = true,
   className = ''
 }) {
-  const [unitMultiplier, setUnitMultiplier] = useState(1);
+  // 선택된 숫자 (천/만 클릭 대기 중)
+  const [selectedNum, setSelectedNum] = useState(null);
 
-  const getUnitLabel = () => {
-    if (unitMultiplier === 1000) return '천';
-    if (unitMultiplier === 10000) return '만';
-    return '';
+  const handleNumberClick = (num) => {
+    if (selectedNum === num) {
+      // 같은 숫자 다시 클릭 → 그냥 추가하고 선택 해제
+      onAdd(num);
+      setSelectedNum(null);
+    } else if (selectedNum !== null) {
+      // 다른 숫자 클릭 → 이전 숫자 추가하고 새 숫자 선택
+      onAdd(selectedNum);
+      setSelectedNum(num);
+    } else {
+      // 첫 클릭 → 선택 (천/만 대기)
+      setSelectedNum(num);
+    }
+  };
+
+  const handleUnitClick = (multiplier) => {
+    if (selectedNum !== null) {
+      // 선택된 숫자 × 단위 추가
+      onAdd(selectedNum * multiplier);
+      setSelectedNum(null);
+    }
   };
 
   return (
@@ -155,10 +174,14 @@ export function QuickNumberButtons({
         <button
           key={num}
           type="button"
-          onClick={() => onAdd(num * unitMultiplier)}
-          className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          onClick={() => handleNumberClick(num)}
+          className={`px-2 py-1 text-xs rounded transition-colors ${
+            selectedNum === num
+              ? 'bg-primary-500 text-white'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+          }`}
         >
-          +{num}{getUnitLabel()}
+          +{num}
         </button>
       ))}
 
@@ -173,11 +196,12 @@ export function QuickNumberButtons({
             <button
               key={value}
               type="button"
-              onClick={() => setUnitMultiplier(unitMultiplier === value ? 1 : value)}
+              onClick={() => handleUnitClick(value)}
+              disabled={selectedNum === null}
               className={`px-2 py-1 text-xs rounded transition-colors ${
-                unitMultiplier === value
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                selectedNum !== null
+                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-800/40'
+                  : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
               }`}
             >
               {label}
