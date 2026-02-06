@@ -130,7 +130,9 @@ export function TargetProgressBar({
         </span>
         {targetInfo && (
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            {targetInfo.completed ? '타겟 도달' : `${targetInfo.index}차 목표`}
+            {targetInfo.completed
+              ? (direction === 'profit' ? '익절 도달' : '손절 도달')
+              : `${targetInfo.index}차 ${direction === 'profit' ? '익절' : '손절'}`}
           </span>
         )}
       </div>
