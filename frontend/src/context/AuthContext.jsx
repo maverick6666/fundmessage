@@ -27,6 +27,8 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const userData = await authService.login(email, password);
     setUser(userData);
+    // WebSocket 재연결을 위한 이벤트 발생
+    window.dispatchEvent(new Event('auth-change'));
     return userData;
   };
 
@@ -54,6 +56,8 @@ export function AuthProvider({ children }) {
     authService.logout();
     setUser(null);
     setAdminMode(false);
+    // WebSocket 연결 종료를 위한 이벤트 발생
+    window.dispatchEvent(new Event('auth-change'));
   };
 
   return (
