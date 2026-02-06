@@ -25,8 +25,8 @@ class Settings(BaseSettings):
 
     # OpenAI API
     openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
-    openai_temperature: float = 0.7
+    openai_model: str = "gpt-5-mini"  # 400K context, 정확한 프롬프트에 최적화
+    openai_temperature: float = 0.2  # 낮을수록 일관된 출력 (0.0~1.0)
     openai_max_tokens: int = 0  # 0이면 제한 없음 (모델이 자연스럽게 종료)
     openai_max_tokens_report: int = 0  # 0이면 제한 없음
 
