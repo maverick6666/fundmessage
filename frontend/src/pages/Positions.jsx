@@ -558,7 +558,14 @@ export function Positions() {
                         <div className="flex items-center gap-3">
                           <div className="text-right">
                             <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">{isOpen ? '수익률' : '실현 수익률'}</p>
-                            <ProfitProgressBar value={profitRate} size="lg" />
+                            {/* 타겟이 있을 때만 프로그레스 바 표시, 없으면 텍스트만 */}
+                            {isOpen && (position.remaining_take_profits > 0 || position.remaining_stop_losses > 0) ? (
+                              <ProfitProgressBar value={profitRate} size="lg" />
+                            ) : (
+                              <span className={`text-base font-medium ${getProfitLossClass(profitRate)}`}>
+                                {profitRate != null ? `${profitRate >= 0 ? '+' : ''}${formatPercent(profitRate)}` : '-'}
+                              </span>
+                            )}
                           </div>
                           {/* Expand Arrow */}
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
