@@ -286,9 +286,9 @@ export function Reports() {
 
                     {/* Footer */}
                     <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
-                      {position.opener ? (
+                      {(position.requester || position.opener) ? (
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          담당: {position.opener.full_name}
+                          요청: {position.requester?.full_name || position.opener?.full_name}
                         </span>
                       ) : (
                         <span />

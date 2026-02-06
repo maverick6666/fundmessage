@@ -22,8 +22,11 @@ async def get_positions_for_report(
     current_user: User = Depends(get_current_user)
 ):
     """운용보고서용 포지션 목록 (토론, 의사결정서 개수 포함)"""
+    from app.models.request import Request
+
     query = db.query(Position).options(
-        joinedload(Position.opener)
+        joinedload(Position.opener),
+        joinedload(Position.requests).joinedload(Request.requester)
     )
 
     if status:
@@ -45,6 +48,15 @@ async def get_positions_for_report(
             Discussion.position_id == p.id
         ).scalar()
 
+        # 원래 요청자 찾기 (가장 먼저 승인된 요청의 요청자)
+        original_requester = None
+        if p.requests:
+            # 승인된 요청 중 가장 오래된 것의 요청자
+            approved_requests = [r for r in p.requests if r.status == 'approved' and r.requester]
+            if approved_requests:
+                approved_requests.sort(key=lambda r: r.created_at or r.id)
+                original_requester = approved_requests[0].requester
+
         result.append({
             "id": p.id,
             "ticker": p.ticker,
@@ -59,6 +71,10 @@ async def get_positions_for_report(
                 "id": p.opener.id,
                 "full_name": p.opener.full_name
             } if p.opener else None,
+            "requester": {
+                "id": original_requester.id,
+                "full_name": original_requester.full_name
+            } if original_requester else None,
             "note_count": note_count,
             "discussion_count": discussion_count,
             "has_data": note_count > 0 or discussion_count > 0
