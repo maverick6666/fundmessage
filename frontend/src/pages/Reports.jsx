@@ -1,60 +1,94 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardTitle } from '../components/common/Card';
+import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { BlockRenderer } from '../components/editor/BlockEditor';
 import { reportService } from '../services/reportService';
 import { columnService } from '../services/columnService';
+import { aiService } from '../services/aiService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import {
-  formatCurrency,
   formatPercent,
   formatRelativeTime,
   getProfitLossClass
 } from '../utils/formatters';
 
+// Tab icons
+const TabIcons = {
+  operations: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  ),
+  decisions: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  ),
+  columns: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+    </svg>
+  )
+};
+
 export function Reports() {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('reports'); // 'reports' | 'columns'
-  const [reports, setReports] = useState([]);
+  const [activeTab, setActiveTab] = useState('operations');
+
+  // Data states
+  const [positions, setPositions] = useState([]);
+  const [decisionNotes, setDecisionNotes] = useState([]);
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Modal states
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedColumn, setSelectedColumn] = useState(null);
+  const [generatingReportId, setGeneratingReportId] = useState(null);
 
   useEffect(() => {
-    if (activeTab === 'reports') {
-      fetchReports();
-    } else {
-      fetchColumns();
-    }
+    fetchData();
   }, [activeTab]);
 
-  const fetchReports = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await reportService.getReports({ limit: 50 });
-      setReports(data.reports || []);
+      if (activeTab === 'operations') {
+        const data = await reportService.getPositionsForReport({ limit: 50 });
+        setPositions(data.positions || []);
+      } else if (activeTab === 'decisions') {
+        const data = await reportService.getDecisionNotes({ limit: 50 });
+        setDecisionNotes(data.notes || []);
+      } else {
+        const data = await columnService.getColumns({ limit: 50 });
+        setColumns(data.columns || []);
+      }
     } catch (error) {
-      console.error('Failed to fetch reports:', error);
+      console.error('Failed to fetch data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchColumns = async () => {
-    setLoading(true);
+  const handleGenerateReport = async (e, positionId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setGeneratingReportId(positionId);
     try {
-      const data = await columnService.getColumns({ limit: 50 });
-      setColumns(data.columns || []);
+      const result = await aiService.generateOperationReport(positionId);
+      if (result.data?.content) {
+        toast.success('운용보고서가 생성되었습니다');
+        navigate(`/positions/${positionId}`);
+      }
     } catch (error) {
-      console.error('Failed to fetch columns:', error);
+      toast.error(error.response?.data?.detail || 'AI 보고서 생성에 실패했습니다');
     } finally {
-      setLoading(false);
+      setGeneratingReportId(null);
     }
   };
 
@@ -64,16 +98,16 @@ export function Reports() {
 
   const handleDeleteColumn = async (columnId) => {
     if (!confirm('정말 이 칼럼을 삭제하시겠습니까?')) return;
-
     try {
       await columnService.deleteColumn(columnId);
-      fetchColumns();
+      fetchData();
       if (showViewModal && selectedColumn?.id === columnId) {
         setShowViewModal(false);
         setSelectedColumn(null);
       }
+      toast.success('칼럼이 삭제되었습니다');
     } catch (error) {
-      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다');
     }
   };
 
@@ -87,105 +121,248 @@ export function Reports() {
     }
   };
 
+  const isManager = user?.role === 'manager' || user?.role === 'admin';
+
   const tabs = [
-    { id: 'reports', label: '보고서' },
-    { id: 'columns', label: '칼럼' }
+    { id: 'operations', label: '운용보고서', icon: TabIcons.operations },
+    { id: 'decisions', label: '의사결정서', icon: TabIcons.decisions },
+    { id: 'columns', label: '칼럼', icon: TabIcons.columns }
   ];
+
+  const renderEmptyState = (message, subMessage, icon) => (
+    <div className="flex flex-col items-center justify-center py-16 px-4">
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center mb-4 shadow-inner">
+        {icon}
+      </div>
+      <p className="text-gray-600 dark:text-gray-300 font-medium text-center">{message}</p>
+      <p className="text-sm text-gray-400 dark:text-gray-500 mt-2 text-center max-w-md">{subMessage}</p>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-          문서
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
+            문서
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            운용보고서, 의사결정서, 팀 칼럼을 관리합니다
+          </p>
+        </div>
         {activeTab === 'columns' && (
-          <Button onClick={() => navigate('/columns/new')}>
+          <Button onClick={() => navigate('/columns/new')} className="gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+            </svg>
             칼럼 작성
           </Button>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit">
+      <div className="flex gap-1 p-1.5 bg-gray-100/80 dark:bg-gray-800/80 rounded-xl w-fit backdrop-blur-sm">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
               activeTab === tab.id
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50'
             }`}
           >
+            <span className={activeTab === tab.id ? 'text-primary-500' : ''}>{tab.icon}</span>
             {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Reports Tab */}
-      {activeTab === 'reports' && (
+      {/* Operations Tab */}
+      {activeTab === 'operations' && (
         <div>
           {loading ? (
-            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-              로딩중...
-            </div>
-          ) : reports.length === 0 ? (
-            <Card>
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                <p>아직 작성된 보고서가 없습니다.</p>
-                <p className="text-sm mt-2">포지션 상세에서 AI 운용보고서를 생성하거나 의사결정 노트를 작성하면 여기에 표시됩니다.</p>
+            <div className="flex items-center justify-center py-16">
+              <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>불러오는 중...</span>
               </div>
-            </Card>
+            </div>
+          ) : positions.length === 0 ? (
+            renderEmptyState(
+              '포지션이 없습니다',
+              '포지션을 개설하면 여기에서 운용보고서를 관리할 수 있습니다',
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            )
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {reports.map((report) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {positions.map((position) => (
                 <Link
-                  key={report.position_id}
-                  to={`/positions/${report.position_id}`}
-                  className="block"
+                  key={position.id}
+                  to={`/positions/${position.id}`}
+                  className="group block"
                 >
-                  <Card className="h-full hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                          {report.name || report.ticker}
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {report.ticker} · {report.market}
-                        </p>
-                      </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        report.status === 'open'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                  <div className="relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 hover:-translate-y-0.5">
+                    {/* Status indicator */}
+                    <div className="absolute top-4 right-4">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                        position.status === 'open'
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 ring-1 ring-emerald-600/20'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 ring-1 ring-gray-500/20'
                       }`}>
-                        {report.status === 'open' ? '보유중' : '종료'}
+                        {position.status === 'open' ? '보유중' : '종료'}
                       </span>
                     </div>
 
-                    {report.profit_rate != null && (
-                      <div className={`text-lg font-bold mb-2 ${getProfitLossClass(report.profit_rate)}`}>
-                        {report.profit_rate >= 0 ? '+' : ''}{formatPercent(report.profit_rate)}
+                    {/* Header */}
+                    <div className="mb-4">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg leading-tight pr-20">
+                        {position.ticker_name || position.ticker}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-mono">
+                        {position.ticker} · {position.market}
+                      </p>
+                    </div>
+
+                    {/* Profit/Loss */}
+                    {position.profit_rate != null && (
+                      <div className={`text-2xl font-bold mb-4 ${getProfitLossClass(position.profit_rate)}`}>
+                        {position.profit_rate >= 0 ? '+' : ''}{formatPercent(position.profit_rate)}
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">
-                        노트 {report.note_count}개
-                      </span>
-                      <span className="text-gray-400 dark:text-gray-500">
-                        {formatRelativeTime(report.latest_note_at)}
-                      </span>
+                    {/* Stats */}
+                    <div className="flex items-center gap-4 text-sm mb-4">
+                      <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <span>토론 {position.discussion_count}개</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>노트 {position.note_count}개</span>
+                      </div>
                     </div>
 
-                    {report.opener && (
-                      <div className="mt-2 pt-2 border-t dark:border-gray-700">
+                    {/* Footer */}
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
+                      {position.opener ? (
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          담당: {report.opener.full_name}
+                          담당: {position.opener.full_name}
                         </span>
+                      ) : (
+                        <span />
+                      )}
+
+                      {isManager && position.has_data && (
+                        <button
+                          onClick={(e) => handleGenerateReport(e, position.id)}
+                          disabled={generatingReportId === position.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors disabled:opacity-50"
+                        >
+                          {generatingReportId === position.id ? (
+                            <>
+                              <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              생성 중...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                              </svg>
+                              AI 보고서
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Decision Notes Tab */}
+      {activeTab === 'decisions' && (
+        <div>
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>불러오는 중...</span>
+              </div>
+            </div>
+          ) : decisionNotes.length === 0 ? (
+            renderEmptyState(
+              '작성된 의사결정서가 없습니다',
+              '포지션 상세에서 AI 의사결정서를 생성하거나 직접 작성할 수 있습니다',
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            )
+          ) : (
+            <div className="space-y-3">
+              {decisionNotes.map((note) => (
+                <Link
+                  key={note.id}
+                  to={`/positions/${note.position?.id}`}
+                  className="group block"
+                >
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 transition-all duration-200 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
+                          {note.title}
+                        </h3>
+                        {note.position && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              note.position.status === 'open'
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                            }`}>
+                              {note.position.ticker_name || note.position.ticker}
+                            </span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                              {note.position.ticker} · {note.position.market}
+                            </span>
+                          </div>
+                        )}
+                        {note.content && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 line-clamp-2">
+                            {note.content}
+                          </p>
+                        )}
                       </div>
-                    )}
-                  </Card>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                          {formatRelativeTime(note.created_at)}
+                        </span>
+                        {note.author && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {note.author.full_name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -197,49 +374,68 @@ export function Reports() {
       {activeTab === 'columns' && (
         <div>
           {loading ? (
-            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-              로딩중...
+            <div className="flex items-center justify-center py-16">
+              <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>불러오는 중...</span>
+              </div>
             </div>
           ) : columns.length === 0 ? (
-            <Card>
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                <p>아직 작성된 칼럼이 없습니다.</p>
-                <p className="text-sm mt-2">팀원 누구나 자유롭게 칼럼을 작성할 수 있습니다.</p>
-              </div>
-            </Card>
+            renderEmptyState(
+              '아직 작성된 칼럼이 없습니다',
+              '팀원 누구나 자유롭게 칼럼을 작성할 수 있습니다. 시장 분석, 투자 아이디어 등을 공유해보세요.',
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+              </svg>
+            )
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {columns.map((column) => (
-                <Card key={column.id} className="hover:shadow-md transition-shadow">
+                <div
+                  key={column.id}
+                  className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600"
+                >
                   <div
-                    className="cursor-pointer"
+                    className="p-5 cursor-pointer"
                     onClick={() => handleViewColumn(column)}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 hover:text-primary-600">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-2">
                         {column.title}
                       </h3>
-                      <span className="text-sm text-gray-400 dark:text-gray-500 whitespace-nowrap ml-4">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
                         {formatRelativeTime(column.created_at)}
                       </span>
                     </div>
+
                     {column.author && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {column.author.full_name}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-xs font-medium">
+                          {column.author.full_name?.charAt(0) || '?'}
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {column.author.full_name}
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  {(column.author_id === user?.id || user?.role === 'manager') && (
-                    <div className="flex gap-2 mt-3 pt-3 border-t dark:border-gray-700">
+                  {(column.author_id === user?.id || isManager) && (
+                    <div className="flex items-center gap-1 px-5 py-3 bg-gray-50 dark:bg-gray-750 border-t border-gray-100 dark:border-gray-700">
                       {column.author_id === user?.id && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleEditColumn(column);
                           }}
-                          className="text-sm text-primary-600 hover:text-primary-700"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-md transition-colors"
                         >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
                           수정
                         </button>
                       )}
@@ -248,13 +444,16 @@ export function Reports() {
                           e.stopPropagation();
                           handleDeleteColumn(column.id);
                         }}
-                        className="text-sm text-red-600 hover:text-red-700"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
                       >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                         삭제
                       </button>
                     </div>
                   )}
-                </Card>
+                </div>
               ))}
             </div>
           )}
@@ -272,40 +471,56 @@ export function Reports() {
       >
         {selectedColumn && (
           <div>
-            <div className="flex items-center justify-between mb-4 pb-4 border-b dark:border-gray-700">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {selectedColumn.author?.full_name}
-              </span>
-              <span className="text-sm text-gray-400 dark:text-gray-500">
-                {formatRelativeTime(selectedColumn.created_at)}
-              </span>
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-medium">
+                  {selectedColumn.author?.full_name?.charAt(0) || '?'}
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    {selectedColumn.author?.full_name}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {formatRelativeTime(selectedColumn.created_at)}
+                  </p>
+                </div>
+              </div>
             </div>
+
             <div className="prose dark:prose-invert max-w-none">
-              {/* 블록 형식이면 BlockRenderer 사용, 아니면 레거시 렌더링 */}
               {selectedColumn.blocks && selectedColumn.blocks.length > 0 ? (
                 <BlockRenderer blocks={selectedColumn.blocks} />
               ) : selectedColumn.content ? (
                 selectedColumn.content.split('\n').map((line, i) => (
-                  <p key={i} className="mb-2 text-gray-700 dark:text-gray-300">
+                  <p key={i} className="mb-3 text-gray-700 dark:text-gray-300 leading-relaxed">
                     {line || '\u00A0'}
                   </p>
                 ))
               ) : null}
             </div>
-            {(selectedColumn.author_id === user?.id || user?.role === 'manager') && (
-              <div className="flex gap-3 mt-6 pt-4 border-t dark:border-gray-700">
+
+            {(selectedColumn.author_id === user?.id || isManager) && (
+              <div className="flex gap-3 mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
                 {selectedColumn.author_id === user?.id && (
                   <Button
                     variant="secondary"
                     onClick={() => navigate(`/columns/${selectedColumn.id}/edit`)}
+                    className="gap-2"
                   >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
                     수정
                   </Button>
                 )}
                 <Button
                   variant="danger"
                   onClick={() => handleDeleteColumn(selectedColumn.id)}
+                  className="gap-2"
                 >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                   삭제
                 </Button>
               </div>

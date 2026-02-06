@@ -13,6 +13,111 @@ from app.models.user import User
 router = APIRouter()
 
 
+@router.get("/positions", response_model=APIResponse)
+async def get_positions_for_report(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    status: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """운용보고서용 포지션 목록 (토론, 의사결정서 개수 포함)"""
+    query = db.query(Position).options(
+        joinedload(Position.opener)
+    )
+
+    if status:
+        query = query.filter(Position.status == status)
+
+    total = query.count()
+    positions = query.order_by(Position.opened_at.desc()).offset(skip).limit(limit).all()
+
+    result = []
+    for p in positions:
+        # 의사결정서 개수
+        note_count = db.query(func.count(DecisionNote.id)).filter(
+            DecisionNote.position_id == p.id
+        ).scalar()
+
+        # 토론 개수
+        from app.models.discussion import Discussion
+        discussion_count = db.query(func.count(Discussion.id)).filter(
+            Discussion.position_id == p.id
+        ).scalar()
+
+        result.append({
+            "id": p.id,
+            "ticker": p.ticker,
+            "ticker_name": p.ticker_name,
+            "market": p.market,
+            "status": p.status,
+            "average_buy_price": float(p.average_buy_price) if p.average_buy_price else None,
+            "total_quantity": float(p.total_quantity) if p.total_quantity else None,
+            "profit_rate": float(p.profit_rate) if p.profit_rate else None,
+            "opened_at": p.opened_at.isoformat() if p.opened_at else None,
+            "opener": {
+                "id": p.opener.id,
+                "full_name": p.opener.full_name
+            } if p.opener else None,
+            "note_count": note_count,
+            "discussion_count": discussion_count,
+            "has_data": note_count > 0 or discussion_count > 0
+        })
+
+    return APIResponse(
+        success=True,
+        data={
+            "positions": result,
+            "total": total,
+            "skip": skip,
+            "limit": limit
+        }
+    )
+
+
+@router.get("/decision-notes", response_model=APIResponse)
+async def get_all_decision_notes(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """전체 의사결정서 목록 (모든 포지션)"""
+    query = db.query(DecisionNote).options(
+        joinedload(DecisionNote.author),
+        joinedload(DecisionNote.position)
+    ).order_by(DecisionNote.created_at.desc())
+
+    total = query.count()
+    notes = query.offset(skip).limit(limit).all()
+
+    return APIResponse(
+        success=True,
+        data={
+            "notes": [{
+                "id": n.id,
+                "title": n.title,
+                "content": n.content[:200] + "..." if n.content and len(n.content) > 200 else n.content,
+                "position": {
+                    "id": n.position.id,
+                    "ticker": n.position.ticker,
+                    "ticker_name": n.position.ticker_name,
+                    "market": n.position.market,
+                    "status": n.position.status
+                } if n.position else None,
+                "author": {
+                    "id": n.author.id,
+                    "full_name": n.author.full_name
+                } if n.author else None,
+                "created_at": n.created_at.isoformat() if n.created_at else None
+            } for n in notes],
+            "total": total,
+            "skip": skip,
+            "limit": limit
+        }
+    )
+
+
 @router.get("", response_model=APIResponse)
 async def get_reports(
     skip: int = Query(0, ge=0),
@@ -47,7 +152,7 @@ async def get_reports(
         reports.append({
             "position_id": position.id,
             "ticker": position.ticker,
-            "name": position.name,
+            "ticker_name": position.ticker_name,
             "market": position.market,
             "status": position.status,
             "profit_rate": position.profit_rate,
@@ -101,11 +206,11 @@ async def get_position_report(
             "position": {
                 "id": position.id,
                 "ticker": position.ticker,
-                "name": position.name,
+                "ticker_name": position.ticker_name,
                 "market": position.market,
                 "status": position.status,
-                "avg_buy_price": position.avg_buy_price,
-                "quantity": position.quantity,
+                "average_buy_price": position.average_buy_price,
+                "total_quantity": position.total_quantity,
                 "profit_rate": position.profit_rate,
                 "opened_at": position.opened_at.isoformat() if position.opened_at else None,
                 "closed_at": position.closed_at.isoformat() if position.closed_at else None,
