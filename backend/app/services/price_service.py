@@ -266,17 +266,25 @@ class PriceService:
 
     # ========== 캔들 데이터 API ==========
 
-    async def get_candles(self, ticker: str, market: str, timeframe: str = "1d", limit: int = 100) -> Optional[Dict[str, Any]]:
-        """캔들(OHLCV) 데이터 조회"""
+    async def get_candles(self, ticker: str, market: str, timeframe: str = "1d", limit: int = 100, before: int = None) -> Optional[Dict[str, Any]]:
+        """캔들(OHLCV) 데이터 조회
+
+        Args:
+            ticker: 종목 코드
+            market: 시장 (KOSPI, KOSDAQ, NASDAQ, NYSE, CRYPTO)
+            timeframe: 타임프레임 (1d, 1w, 1M, 1h)
+            limit: 가져올 캔들 수
+            before: 이 타임스탬프 이전의 데이터만 조회 (lazy loading용)
+        """
         if market in ["KOSPI", "KOSDAQ"]:
-            return await self._get_korean_candles(ticker, timeframe, limit)
+            return await self._get_korean_candles(ticker, timeframe, limit, before)
         elif market in ["NASDAQ", "NYSE"]:
-            return await self._get_us_candles(ticker, timeframe, limit)
+            return await self._get_us_candles(ticker, timeframe, limit, before)
         elif market == "CRYPTO":
-            return await self._get_crypto_candles(ticker, timeframe, limit)
+            return await self._get_crypto_candles(ticker, timeframe, limit, before)
         return None
 
-    async def _get_korean_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
+    async def _get_korean_candles(self, ticker: str, timeframe: str, limit: int, before: int = None) -> Optional[Dict[str, Any]]:
         """한국 주식 캔들 데이터 (Yahoo Finance 사용)"""
         try:
             # Yahoo Finance 티커 형식으로 변환 (KOSPI: .KS, KOSDAQ: .KQ)
@@ -287,7 +295,7 @@ class PriceService:
             result = await loop.run_in_executor(
                 None,
                 self._fetch_yfinance_candles,
-                yahoo_ticker, timeframe, limit
+                yahoo_ticker, timeframe, limit, before
             )
 
             # .KS로 안되면 .KQ로 시도
@@ -296,7 +304,7 @@ class PriceService:
                 result = await loop.run_in_executor(
                     None,
                     self._fetch_yfinance_candles,
-                    yahoo_ticker, timeframe, limit
+                    yahoo_ticker, timeframe, limit, before
                 )
 
             if result:
@@ -308,48 +316,52 @@ class PriceService:
             print(f"한국 주식 캔들 조회 오류: {e}")
         return None
 
-    async def _get_us_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
+    async def _get_us_candles(self, ticker: str, timeframe: str, limit: int, before: int = None) -> Optional[Dict[str, Any]]:
         """미국 주식 캔들 데이터 (Yahoo Finance)"""
         try:
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
                 None,
                 self._fetch_yfinance_candles,
-                ticker, timeframe, limit
+                ticker, timeframe, limit, before
             )
             return result
         except Exception as e:
             print(f"미국 주식 캔들 조회 오류: {e}")
         return None
 
-    def _fetch_yfinance_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
-        """Yahoo Finance에서 캔들 데이터 조회 (동기)"""
+    def _fetch_yfinance_candles(self, ticker: str, timeframe: str, limit: int, before: int = None) -> Optional[Dict[str, Any]]:
+        """Yahoo Finance에서 캔들 데이터 조회 (동기)
+
+        Args:
+            ticker: 종목 코드
+            timeframe: 타임프레임
+            limit: 가져올 캔들 수
+            before: 이 타임스탬프 이전의 데이터만 필터링 (lazy loading용)
+        """
         try:
             stock = yf.Ticker(ticker)
 
-            # 타임프레임에 따른 기간 설정 (더 많은 데이터 요청)
+            # before가 있으면 더 많은 데이터를 가져와서 필터링
+            # 타임프레임에 따른 기간 설정
             if timeframe in ["1d", "day"]:
-                # limit에 따라 기간 조정
-                if limit > 500:
-                    period = "5y"
-                elif limit > 250:
-                    period = "2y"
-                elif limit > 100:
-                    period = "1y"
+                # before가 있으면 더 긴 기간 요청
+                if before:
+                    period = "max"
                 else:
-                    period = "6mo"
+                    period = "1y"
                 interval = "1d"
             elif timeframe in ["1w", "week"]:
-                period = "10y" if limit > 200 else "5y"
+                period = "max" if before else "5y"
                 interval = "1wk"
             elif timeframe in ["1M", "month"]:
                 period = "max"
                 interval = "1mo"
             elif timeframe in ["1h", "hour"]:
-                period = "2mo" if limit > 200 else "1mo"
+                period = "2mo"
                 interval = "1h"
             else:
-                period = "1y"
+                period = "2y" if before else "1y"
                 interval = "1d"
 
             hist = stock.history(period=period, interval=interval)
@@ -364,6 +376,11 @@ class PriceService:
             candles = []
             for idx, row in hist.iterrows():
                 timestamp = int(idx.timestamp())
+
+                # before 필터링: before보다 오래된 데이터만 포함
+                if before and timestamp >= before:
+                    continue
+
                 candles.append({
                     "time": timestamp,
                     "open": float(row["Open"]),
@@ -373,21 +390,25 @@ class PriceService:
                     "volume": float(row["Volume"])
                 })
 
-            # limit 적용
+            # limit 적용 (가장 최근 데이터 기준)
             if len(candles) > limit:
                 candles = candles[-limit:]
+
+            # 더 이상 데이터가 없는지 표시
+            has_more = len(candles) == limit
 
             return {
                 "ticker": ticker,
                 "name": name,
                 "market": "US",
-                "candles": candles
+                "candles": candles,
+                "has_more": has_more
             }
         except Exception as e:
             print(f"yfinance 캔들 조회 오류: {e}")
         return None
 
-    async def _get_crypto_candles(self, ticker: str, timeframe: str, limit: int) -> Optional[Dict[str, Any]]:
+    async def _get_crypto_candles(self, ticker: str, timeframe: str, limit: int, before: int = None) -> Optional[Dict[str, Any]]:
         """암호화폐 캔들 데이터 (Binance)"""
         try:
             symbol = ticker.upper()
@@ -402,14 +423,20 @@ class PriceService:
             }
             interval = interval_map.get(timeframe, "1d")
 
+            params = {
+                "symbol": symbol,
+                "interval": interval,
+                "limit": min(limit, 1000)
+            }
+
+            # before 파라미터가 있으면 endTime으로 변환 (Binance는 ms 단위)
+            if before:
+                params["endTime"] = before * 1000
+
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     "https://api.binance.com/api/v3/klines",
-                    params={
-                        "symbol": symbol,
-                        "interval": interval,
-                        "limit": min(limit, 1000)
-                    },
+                    params=params,
                     timeout=10.0
                 )
 
@@ -439,7 +466,8 @@ class PriceService:
                         "ticker": symbol,
                         "name": name,
                         "market": "CRYPTO",
-                        "candles": candles
+                        "candles": candles,
+                        "has_more": len(candles) == limit
                     }
         except Exception as e:
             print(f"암호화폐 캔들 조회 오류: {e}")

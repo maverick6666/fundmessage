@@ -86,15 +86,16 @@ async def get_candles(
     ticker: str,
     market: str = Query(..., description="KOSPI, KOSDAQ, NASDAQ, NYSE, CRYPTO"),
     timeframe: str = Query("1d", description="1d, 1w, 1M, 1h 등"),
-    limit: int = Query(300, ge=1, le=1000),
+    limit: int = Query(200, ge=1, le=500),
+    before: Optional[int] = Query(None, description="이 타임스탬프 이전의 데이터 조회 (Unix timestamp)"),
     current_user: User = Depends(get_current_user)
 ):
     """캔들(OHLCV) 데이터 조회
 
-    - limit 기본값: 300 (약 1년치 일봉)
-    - 최대 1000개까지 요청 가능
+    - limit 기본값: 200
+    - before: 이 타임스탬프 이전의 과거 데이터를 조회 (lazy loading용)
     """
-    result = await price_service.get_candles(ticker, market, timeframe, limit)
+    result = await price_service.get_candles(ticker, market, timeframe, limit, before)
 
     if result is None:
         return APIResponse(

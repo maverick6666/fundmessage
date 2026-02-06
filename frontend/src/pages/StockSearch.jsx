@@ -33,6 +33,10 @@ export default function StockSearch() {
   const [error, setError] = useState(null);
   const [existingPosition, setExistingPosition] = useState(null);
 
+  // 차트 lazy loading 상태
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const [showBuyForm, setShowBuyForm] = useState(false);
 
   // 검색 자동완성
@@ -119,10 +123,12 @@ export default function StockSearch() {
     setStockInfo(null);
     setCandles([]);
     setExistingPosition(null);
+    setHasMore(false);
+    setLoadingMore(false);
 
     try {
-      // 캔들 데이터 조회 (종목 정보 포함) - 더 많은 데이터 요청
-      const result = await priceService.getCandles(searchTicker, searchMarket, timeframe, 500);
+      // 캔들 데이터 조회 (종목 정보 포함) - 200개 요청 (lazy loading으로 더 불러옴)
+      const result = await priceService.getCandles(searchTicker, searchMarket, timeframe, 200);
 
       if (result.success && result.data) {
         setStockInfo({
@@ -131,6 +137,7 @@ export default function StockSearch() {
           market: result.data.market,
         });
         setCandles(result.data.candles || []);
+        setHasMore(result.data.has_more === true);
 
         // 현재가 조회
         try {
@@ -193,13 +200,16 @@ export default function StockSearch() {
   // 타임프레임 변경 시 다시 조회
   const handleTimeframeChange = useCallback(async (newTimeframe) => {
     setTimeframe(newTimeframe);
+    setHasMore(false);
+    setLoadingMore(false);
 
     if (stockInfo) {
       setLoading(true);
       try {
-        const result = await priceService.getCandles(stockInfo.ticker, stockInfo.market || market, newTimeframe, 500);
+        const result = await priceService.getCandles(stockInfo.ticker, stockInfo.market || market, newTimeframe, 200);
         if (result.success && result.data) {
           setCandles(result.data.candles || []);
+          setHasMore(result.data.has_more === true);
         }
       } catch (err) {
         console.error('타임프레임 변경 오류:', err);
@@ -208,6 +218,41 @@ export default function StockSearch() {
       }
     }
   }, [stockInfo, market]);
+
+  // 과거 데이터 추가 로드 (lazy loading)
+  const handleLoadMore = useCallback(async (beforeTimestamp) => {
+    if (!stockInfo || loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+    try {
+      const result = await priceService.getCandles(
+        stockInfo.ticker,
+        stockInfo.market || market,
+        timeframe,
+        200,
+        beforeTimestamp
+      );
+
+      if (result.success && result.data && result.data.candles?.length > 0) {
+        // 기존 캔들 앞에 새로운 과거 데이터 추가
+        setCandles(prev => {
+          const newCandles = result.data.candles;
+          // 중복 제거: 시간을 기준으로 필터링
+          const existingTimes = new Set(prev.map(c => c.time));
+          const uniqueNewCandles = newCandles.filter(c => !existingTimes.has(c.time));
+          return [...uniqueNewCandles, ...prev];
+        });
+        setHasMore(result.data.has_more === true);
+      } else {
+        // 더 이상 데이터가 없음
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('과거 데이터 로드 오류:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [stockInfo, market, timeframe, loadingMore, hasMore]);
 
   // 엔터 키로 검색
   const handleKeyDown = (e) => {
@@ -410,7 +455,14 @@ export default function StockSearch() {
       {/* 차트 */}
       {(stockInfo || loading) && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 overflow-hidden">
-          <StockChart candles={candles} loading={loading} height={450} />
+          <StockChart
+            candles={candles}
+            loading={loading}
+            height={450}
+            hasMore={hasMore}
+            onLoadMore={handleLoadMore}
+            loadingMore={loadingMore}
+          />
         </div>
       )}
 

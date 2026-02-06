@@ -33,10 +33,13 @@ export const priceService = {
   },
 
   // 캔들(차트) 데이터 조회
-  async getCandles(ticker, market, timeframe = '1d', limit = 300) {
-    const response = await api.get('/prices/candles', {
-      params: { ticker, market, timeframe, limit }
-    });
+  // before: Unix timestamp - 이 시간 이전의 과거 데이터 조회 (lazy loading용)
+  async getCandles(ticker, market, timeframe = '1d', limit = 300, before = null) {
+    const params = { ticker, market, timeframe, limit };
+    if (before) {
+      params.before = before;
+    }
+    const response = await api.get('/prices/candles', { params });
     return response.data;
   }
 };
