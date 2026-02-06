@@ -15,7 +15,7 @@ import { Stats } from './pages/Stats';
 import { TeamManagement } from './pages/TeamManagement';
 import { Notifications } from './pages/Notifications';
 import { Settings } from './pages/Settings';
-import StockSearch from './pages/StockSearch';
+// StockSearch removed - redirects to /positions
 import { Reports } from './pages/Reports';
 import { ColumnEditor } from './pages/ColumnEditor';
 
@@ -100,11 +100,7 @@ function AppRoutes() {
 
       <Route
         path="/stock-search"
-        element={
-          <PrivateRoute>
-            <StockSearch />
-          </PrivateRoute>
-        }
+        element={<Navigate to="/positions" replace />}
       />
 
       <Route
