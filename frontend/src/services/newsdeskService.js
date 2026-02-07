@@ -38,5 +38,16 @@ export const newsdeskService = {
   async generateNewsDesk(options = {}) {
     const response = await api.post('/newsdesk/generate', options);
     return response.data.data;
+  },
+
+  /**
+   * 벤치마크 데이터 조회
+   * @param {string} period - 기간 (1W, 1M, 3M, 6M, 1Y)
+   */
+  async getBenchmarkData(period = '1M') {
+    const response = await api.get('/newsdesk/benchmarks', {
+      params: { period }
+    });
+    return response.data.data;
   }
 };
