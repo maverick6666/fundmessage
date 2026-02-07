@@ -23,5 +23,10 @@ export const statsService = {
   async getTeamRanking() {
     const response = await api.get('/stats/team-ranking');
     return response.data.data;
+  },
+
+  async getAssetHistory(period = '1m') {
+    const response = await api.get(`/stats/asset-history?period=${period}`);
+    return response.data.data;
   }
 };

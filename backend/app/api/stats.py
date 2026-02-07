@@ -11,6 +11,7 @@ from app.services.price_service import PriceService
 from app.models.position import Position, PositionStatus
 from app.models.attendance import Attendance
 from app.models.request import Request
+from app.models.asset_snapshot import AssetSnapshot
 from app.dependencies import get_current_user
 from app.models.user import User
 
@@ -89,6 +90,44 @@ async def get_exchange_rate(
     return APIResponse(
         success=True,
         data={"usd_krw": rate}
+    )
+
+
+@router.get("/asset-history", response_model=APIResponse)
+async def get_asset_history(
+    period: str = Query("1m", regex="^(1w|1m|3m|all)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """기간별 자산 히스토리 조회 (한국시간 기준)"""
+    today = datetime.now(KST).date()
+
+    if period == "1w":
+        start_date = today - timedelta(days=7)
+    elif period == "1m":
+        start_date = today - timedelta(days=30)
+    elif period == "3m":
+        start_date = today - timedelta(days=90)
+    else:
+        start_date = None
+
+    query = db.query(AssetSnapshot).order_by(AssetSnapshot.snapshot_date.asc())
+    if start_date:
+        query = query.filter(AssetSnapshot.snapshot_date >= start_date)
+
+    snapshots = query.all()
+
+    return APIResponse(
+        success=True,
+        data=[{
+            "date": s.snapshot_date.strftime("%m/%d"),
+            "value": float(s.total_krw) if s.total_krw else 0,
+            "krw_cash": float(s.krw_cash) if s.krw_cash else 0,
+            "krw_evaluation": float(s.krw_evaluation) if s.krw_evaluation else 0,
+            "usd_cash": float(s.usd_cash) if s.usd_cash else 0,
+            "usd_evaluation": float(s.usd_evaluation) if s.usd_evaluation else 0,
+            "exchange_rate": float(s.exchange_rate) if s.exchange_rate else None,
+        } for s in snapshots]
     )
 
 

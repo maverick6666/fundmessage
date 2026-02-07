@@ -68,10 +68,29 @@ export function Stats() {
   const [tickerFilter, setTickerFilter] = useState('open'); // open, closed, all
   const [tickerViewMode, setTickerViewMode] = useState('table'); // table, heatmap
   const [periodFilter, setPeriodFilter] = useState('all'); // 1w, 1m, 3m, all
+  const [chartData, setChartData] = useState([]);
+  const [chartLoading, setChartLoading] = useState(false);
 
   useEffect(() => {
     fetchStats();
   }, [user]);
+
+  // 자산 히스토리 데이터 로드
+  useEffect(() => {
+    const fetchAssetHistory = async () => {
+      setChartLoading(true);
+      try {
+        const data = await statsService.getAssetHistory(periodFilter);
+        setChartData(data || []);
+      } catch (error) {
+        console.error('Failed to fetch asset history:', error);
+        setChartData([]);
+      } finally {
+        setChartLoading(false);
+      }
+    };
+    fetchAssetHistory();
+  }, [periodFilter]);
 
   const fetchStats = async () => {
     if (!user) return;
@@ -106,27 +125,8 @@ export function Stats() {
     return true;
   }) || [];
 
-  // 더미 차트 데이터 (실제로는 API에서 가져와야 함) - 훅은 조건문 전에 있어야 함
-  const chartData = useMemo(() => {
-    // 실제 데이터가 없으면 더미 데이터 생성
-    const days = periodFilter === '1w' ? 7 : periodFilter === '1m' ? 30 : periodFilter === '3m' ? 90 : 180;
-    const data = [];
-    let value = 17000000; // 시작 자산
-
-    for (let i = days; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      // 랜덤 변동 (-2% ~ +2%)
-      const change = (Math.random() - 0.5) * 0.04;
-      value = value * (1 + change);
-      data.push({
-        date: `${date.getMonth() + 1}/${date.getDate()}`,
-        value: Math.round(value),
-        change: change
-      });
-    }
-    return data;
-  }, [periodFilter]);
+  // 차트 데이터가 없을 때 표시할 메시지
+  const hasChartData = chartData && chartData.length > 0;
 
   if (loading) {
     return <div className="text-center py-12 text-gray-500 dark:text-gray-400">로딩중...</div>;
@@ -226,41 +226,51 @@ export function Stats() {
                 {/* 수익 추이 차트 */}
                 <div className="mt-4 -mx-4 -mb-4">
                   <div className="h-40 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={totalReturnRate >= 0 ? '#10b981' : '#f43f5e'} stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor={totalReturnRate >= 0 ? '#10b981' : '#f43f5e'} stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <XAxis
-                          dataKey="date"
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 10, fill: '#6b7280' }}
-                          interval="preserveStartEnd"
-                        />
-                        <YAxis hide domain={['dataMin - 500000', 'dataMax + 500000']} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: 'rgba(17, 24, 39, 0.95)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '8px 12px'
-                          }}
-                          labelStyle={{ color: '#9ca3af', fontSize: '12px' }}
-                          formatter={(value) => [formatCurrency(value, 'KRX'), '자산']}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="value"
-                          stroke={totalReturnRate >= 0 ? '#10b981' : '#f43f5e'}
-                          strokeWidth={2}
-                          fill="url(#colorValue)"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    {chartLoading ? (
+                      <div className="h-full flex items-center justify-center text-gray-400">
+                        <span className="text-sm">차트 로딩중...</span>
+                      </div>
+                    ) : hasChartData ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={totalReturnRate >= 0 ? '#10b981' : '#f43f5e'} stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor={totalReturnRate >= 0 ? '#10b981' : '#f43f5e'} stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <XAxis
+                            dataKey="date"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 10, fill: '#6b7280' }}
+                            interval="preserveStartEnd"
+                          />
+                          <YAxis hide domain={['dataMin - 500000', 'dataMax + 500000']} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '8px 12px'
+                            }}
+                            labelStyle={{ color: '#9ca3af', fontSize: '12px' }}
+                            formatter={(value) => [formatCurrency(value, 'KRX'), '자산']}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            stroke={totalReturnRate >= 0 ? '#10b981' : '#f43f5e'}
+                            strokeWidth={2}
+                            fill="url(#colorValue)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-gray-400 dark:text-gray-500">
+                        <span className="text-sm">자산 히스토리 데이터가 없습니다</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>
