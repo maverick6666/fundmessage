@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { PositionNotesModal } from '../components/documents/PositionNotesModal';
 import { reportService } from '../services/reportService';
 import { columnService } from '../services/columnService';
-import { aiService } from '../services/aiService';
 import { positionService } from '../services/positionService';
+import { decisionNoteService } from '../services/decisionNoteService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import { useSidePanelStore } from '../stores/useSidePanelStore';
@@ -38,7 +38,6 @@ const TabIcons = {
 export function Reports() {
   const { user } = useAuth();
   const toast = useToast();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { openDocument, openColumnEditor } = useSidePanelStore();
 
@@ -60,7 +59,6 @@ export function Reports() {
   const [positionNotes, setPositionNotes] = useState([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
 
-  const [generatingReportId, setGeneratingReportId] = useState(null);
   const [deleteColumnId, setDeleteColumnId] = useState(null);
 
   useEffect(() => {
@@ -109,9 +107,21 @@ export function Reports() {
     openDocument(note, 'decision-note', fetchData);
   };
 
-  // Decision note click - open side panel
-  const handleDecisionNoteClick = (note) => {
-    openDocument(note, 'decision-note', fetchData);
+  // Decision note click - fetch full content then open side panel
+  const handleDecisionNoteClick = async (note) => {
+    if (!note.position?.id) {
+      openDocument(note, 'decision-note', fetchData);
+      return;
+    }
+    try {
+      // 전체 내용 가져오기 (목록 API는 200자로 잘려있음)
+      const fullNote = await decisionNoteService.getNote(note.position.id, note.id);
+      openDocument(fullNote, 'decision-note', fetchData);
+    } catch (error) {
+      console.error('Failed to fetch full note:', error);
+      // 실패 시 기존 데이터로 열기
+      openDocument(note, 'decision-note', fetchData);
+    }
   };
 
   // Column click - open side panel
@@ -121,23 +131,6 @@ export function Reports() {
       openDocument(data, 'column', fetchData);
     } catch (error) {
       console.error('Failed to fetch column:', error);
-    }
-  };
-
-  const handleGenerateReport = async (positionId) => {
-    setGeneratingReportId(positionId);
-    try {
-      const result = await aiService.generateOperationReport(positionId);
-      if (result.data?.content) {
-        toast.success('운용보고서가 생성되었습니다');
-        // Refresh notes for this position
-        const data = await positionService.getDecisionNotes(positionId);
-        setPositionNotes(data || []);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'AI 보고서 생성에 실패했습니다');
-    } finally {
-      setGeneratingReportId(null);
     }
   };
 
@@ -438,9 +431,8 @@ export function Reports() {
         }}
         position={selectedPosition}
         notes={positionNotes}
+        loading={loadingNotes}
         onNoteClick={handleNoteClick}
-        onGenerateReport={handleGenerateReport}
-        isGenerating={generatingReportId === selectedPosition?.id}
       />
 
       {/* 칼럼 삭제 확인 모달 */}

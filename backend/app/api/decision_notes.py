@@ -60,6 +60,28 @@ async def get_decision_notes(
     )
 
 
+@router.get("/{position_id}/notes/{note_id}", response_model=APIResponse)
+async def get_decision_note(
+    position_id: int,
+    note_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """단일 의사결정 노트 조회 (전체 내용 포함)"""
+    note = db.query(DecisionNote).filter(
+        DecisionNote.id == note_id,
+        DecisionNote.position_id == position_id
+    ).first()
+
+    if not note:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+
+    return APIResponse(
+        success=True,
+        data=note_to_dict(note)
+    )
+
+
 @router.post("/{position_id}/notes", response_model=APIResponse)
 async def create_decision_note(
     position_id: int,

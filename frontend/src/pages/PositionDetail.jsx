@@ -1309,13 +1309,23 @@ export function PositionDetail() {
             {isManagerOrAdmin() && !showNoteForm && (
               <div className="flex items-center gap-3">
                 <button
+                  onClick={() => setShowOperationReportModal(true)}
+                  className="text-sm text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium flex items-center gap-1"
+                  title="AI 운용보고서 생성"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  운용보고서
+                </button>
+                <button
                   onClick={() => setShowAIModal(true)}
                   className="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-medium flex items-center gap-1"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
-                  AI로 작성
+                  AI 의사결정서
                 </button>
                 {isManager() && (
                   <button
@@ -1601,15 +1611,28 @@ export function PositionDetail() {
                 AI가 분석하여 구조화된 운용보고서를 생성합니다.
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
-                * AI는 주어진 데이터만 정리합니다. 정보를 창작하지 않습니다.
+                * 생성된 보고서는 자동으로 의사결정 노트에 저장됩니다.
               </p>
               <Button
                 onClick={async () => {
                   setReportGenerating(true);
                   try {
                     const result = await aiService.generateOperationReport(parseInt(id));
-                    if (result.success) {
-                      setGeneratedReport(result.data.content);
+                    if (result.success && result.data.content) {
+                      // 자동으로 의사결정 노트로 저장
+                      const now = new Date();
+                      const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                      const title = `📊 운용보고서 (${dateStr})`;
+
+                      await decisionNoteService.createNote(parseInt(id), {
+                        title,
+                        content: result.data.content
+                      });
+
+                      toast.success('운용보고서가 저장되었습니다.');
+                      fetchDecisionNotes();
+                      setShowOperationReportModal(false);
+                      setGeneratedReport('');
                     } else {
                       toast.error(result.message || '보고서 생성에 실패했습니다.');
                     }
@@ -1622,7 +1645,7 @@ export function PositionDetail() {
                 loading={reportGenerating}
                 className="!bg-purple-600 hover:!bg-purple-700"
               >
-                보고서 생성
+                보고서 생성 및 저장
               </Button>
             </div>
           ) : (
@@ -1639,20 +1662,6 @@ export function PositionDetail() {
                     }}
                   >
                     복사
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setNoteTitle('운용보고서');
-                      setNoteContent(generatedReport);
-                      setShowNoteForm(true);
-                      setEditingNoteId(null);
-                      setShowOperationReportModal(false);
-                      setGeneratedReport('');
-                    }}
-                  >
-                    의사결정 노트로 저장
                   </Button>
                 </div>
               </div>

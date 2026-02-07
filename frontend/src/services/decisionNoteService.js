@@ -6,6 +6,12 @@ export const decisionNoteService = {
     return response.data.data;
   },
 
+  // 단일 노트 조회 (전체 내용 포함)
+  async getNote(positionId, noteId) {
+    const response = await api.get(`/positions/${positionId}/notes/${noteId}`);
+    return response.data.data;
+  },
+
   async createNote(positionId, { title, content, blocks }) {
     const response = await api.post(`/positions/${positionId}/notes`, { title, content, blocks });
     return response.data.data;
