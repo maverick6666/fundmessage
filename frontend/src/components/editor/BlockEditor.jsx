@@ -322,6 +322,22 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
           onKeyDown={(e) => handleKeyDown(e, block)}
           onFocus={() => setFocusedBlockId(block.id)}
+          onPaste={(e) => {
+            // 텍스트 블럭에서도 이미지 붙여넣기 지원
+            const items = e.clipboardData?.items;
+            if (items) {
+              for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                  e.preventDefault();
+                  const file = item.getAsFile();
+                  if (file) {
+                    insertImageFromFile(file, block.id);
+                  }
+                  return;
+                }
+              }
+            }
+          }}
           placeholder={index === 0 ? "여기에 내용을 작성하세요..." : ""}
           readOnly={readOnly}
           style={textStyle}
@@ -381,12 +397,12 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
       return (
         <div key={block.id} className="py-3">
           {block.data.url ? (
-            <div className="space-y-3">
+            <div className="space-y-3 flex flex-col items-center">
               <img
                 src={block.data.url}
                 alt={block.data.caption || ''}
-                className={`max-w-full rounded-lg ${
-                  isDark ? 'border border-white/10' : 'border border-gray-200'
+                className={`max-w-full rounded-lg shadow-sm ${
+                  isDark ? 'border-2 border-white/20' : 'border-2 border-gray-300'
                 }`}
               />
               {!readOnly && (
@@ -473,6 +489,21 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
             onChange={(e) => updateBlock(block.id, { text: e.target.value })}
             onKeyDown={(e) => handleKeyDown(e, block)}
             onFocus={() => setFocusedBlockId(block.id)}
+            onPaste={(e) => {
+              const items = e.clipboardData?.items;
+              if (items) {
+                for (const item of items) {
+                  if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    if (file) {
+                      insertImageFromFile(file, block.id);
+                    }
+                    return;
+                  }
+                }
+              }
+            }}
             placeholder="인용문..."
             readOnly={readOnly}
             style={{ fontFamily: "'Crimson Pro', serif", fontStyle: 'italic' }}
@@ -712,7 +743,7 @@ export function BlockRenderer({ blocks = [], isDark = false }) {
     divider: dark
       ? 'bg-gradient-to-r from-transparent via-white/20 to-transparent'
       : 'bg-gradient-to-r from-transparent via-gray-300 to-transparent',
-    imageBorder: dark ? 'border border-white/10' : 'border border-gray-200',
+    imageBorder: dark ? 'border-2 border-white/20 shadow-sm' : 'border-2 border-gray-300 shadow-sm',
   };
 
   return (
@@ -747,7 +778,7 @@ export function BlockRenderer({ blocks = [], isDark = false }) {
 
         if (block.type === 'image') {
           return (
-            <figure key={block.id} className="my-5">
+            <figure key={block.id} className="my-5 flex flex-col items-center">
               <img
                 src={block.data.url}
                 alt={block.data.caption || ''}

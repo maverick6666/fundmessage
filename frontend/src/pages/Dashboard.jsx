@@ -749,48 +749,112 @@ export function Dashboard() {
                       {teamRanking.members.find(m => m.id === selectedMemberId)?.full_name} 통계
                     </CardTitle>
                   </CardHeader>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+
+                  {/* 거래 통계 */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                     <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">총 거래</p>
-                      <p className="text-xl font-bold dark:text-gray-100">{selectedMemberStats.overall?.total_trades || 0}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">총 거래</p>
+                      <p className="text-lg font-bold dark:text-gray-100">{selectedMemberStats.overall?.total_trades || 0}</p>
                     </div>
                     <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">승률</p>
-                      <p className="text-xl font-bold dark:text-gray-100">{formatPercent(selectedMemberStats.overall?.win_rate || 0)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">승률</p>
+                      <p className="text-lg font-bold dark:text-gray-100">{formatPercent(selectedMemberStats.overall?.win_rate || 0)}</p>
                     </div>
                     <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">총 손익</p>
-                      <p className={`text-xl font-bold ${getProfitLossClass(selectedMemberStats.overall?.total_profit_loss)}`}>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">총 손익</p>
+                      <p className={`text-lg font-bold ${getProfitLossClass(selectedMemberStats.overall?.total_profit_loss)}`}>
                         {formatCurrency(selectedMemberStats.overall?.total_profit_loss || 0)}
                       </p>
                     </div>
                     <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">평균 수익률</p>
-                      <p className={`text-xl font-bold ${getProfitLossClass(selectedMemberStats.overall?.avg_profit_rate)}`}>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">평균 수익률</p>
+                      <p className={`text-lg font-bold ${getProfitLossClass(selectedMemberStats.overall?.avg_profit_rate)}`}>
                         {selectedMemberStats.overall?.avg_profit_rate >= 0 ? '+' : ''}{formatPercent(selectedMemberStats.overall?.avg_profit_rate || 0)}
                       </p>
                     </div>
                   </div>
+
+                  {/* 상세 통계 */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">성공</p>
+                      <p className="text-lg font-bold text-red-600 dark:text-red-400">{selectedMemberStats.overall?.winning_trades || 0}</p>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">실패</p>
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{selectedMemberStats.overall?.losing_trades || 0}</p>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">평균 보유</p>
+                      <p className="text-lg font-bold dark:text-gray-100">
+                        {selectedMemberStats.overall?.avg_holding_hours
+                          ? `${Math.round(selectedMemberStats.overall.avg_holding_hours / 24)}일`
+                          : '-'}
+                      </p>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">연속 출석</p>
+                      <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                        {selectedMemberStats.attendance?.streak || 0}일
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 출석 통계 */}
+                  {selectedMemberStats.attendance && (
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-medium text-blue-800 dark:text-blue-300">출석 현황</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">이번 달</p>
+                          <p className="text-xl font-bold text-blue-800 dark:text-blue-200">
+                            {selectedMemberStats.attendance.month_rate}%
+                            <span className="text-sm font-normal text-blue-600 dark:text-blue-400 ml-1">
+                              ({selectedMemberStats.attendance.month_present}/{selectedMemberStats.attendance.month_days}일)
+                            </span>
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">전체</p>
+                          <p className="text-xl font-bold text-blue-800 dark:text-blue-200">
+                            {selectedMemberStats.attendance.total_rate}%
+                            <span className="text-sm font-normal text-blue-600 dark:text-blue-400 ml-1">
+                              ({selectedMemberStats.attendance.total_present}/{selectedMemberStats.attendance.total_records}일)
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* 최고/최악 거래 */}
                   {(selectedMemberStats.best_trade || selectedMemberStats.worst_trade) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {selectedMemberStats.best_trade && (
                         <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                          <p className="text-sm text-gray-500 dark:text-gray-400">최고 거래</p>
-                          <p className="font-medium dark:text-gray-200">{selectedMemberStats.best_trade.ticker}</p>
-                          <p className="text-red-600 dark:text-red-400 font-medium">
-                            +{formatPercent(selectedMemberStats.best_trade.profit_rate)}
-                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">최고 거래</p>
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium dark:text-gray-200">{selectedMemberStats.best_trade.ticker}</p>
+                            <p className="text-red-600 dark:text-red-400 font-bold">
+                              +{formatPercent(selectedMemberStats.best_trade.profit_rate)}
+                            </p>
+                          </div>
                         </div>
                       )}
                       {selectedMemberStats.worst_trade && (
                         <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                          <p className="text-sm text-gray-500 dark:text-gray-400">최악 거래</p>
-                          <p className="font-medium dark:text-gray-200">{selectedMemberStats.worst_trade.ticker}</p>
-                          <p className="text-blue-600 dark:text-blue-400 font-medium">
-                            {formatPercent(selectedMemberStats.worst_trade.profit_rate)}
-                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">최악 거래</p>
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium dark:text-gray-200">{selectedMemberStats.worst_trade.ticker}</p>
+                            <p className="text-blue-600 dark:text-blue-400 font-bold">
+                              {formatPercent(selectedMemberStats.worst_trade.profit_rate)}
+                            </p>
+                          </div>
                         </div>
                       )}
                     </div>
