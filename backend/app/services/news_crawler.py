@@ -78,7 +78,7 @@ class NewsCrawler:
         self.naver_client_secret = os.getenv("NAVER_CLIENT_SECRET", "")
 
     def collect_all(self, target_date: date) -> int:
-        """모든 소스에서 뉴스 수집"""
+        """모든 소스에서 뉴스 수집 (단일 날짜)"""
         total = 0
 
         # 네이버 키워드 검색 (메인)
@@ -90,8 +90,41 @@ class NewsCrawler:
         print(f"=== Total collected: {total} articles ===")
         return total
 
-    def _collect_naver_news(self, target_date: date) -> int:
-        """네이버 검색 API로 뉴스 수집 (키워드 대폭 확대)"""
+    def collect_for_morning_briefing(self, briefing_date: date) -> int:
+        """아침 브리핑용 뉴스 수집 (어제 + 오늘 새벽)
+
+        예: 2월 8일 브리핑 = 2월 7일 전체 + 2월 8일 00:00~06:00
+        """
+        from datetime import timedelta
+
+        yesterday = briefing_date - timedelta(days=1)
+        total = 0
+
+        print(f"=== Collecting for {briefing_date} morning briefing ===")
+        print(f"    Yesterday: {yesterday}")
+        print(f"    Today early: {briefing_date}")
+
+        # 1. 어제 뉴스 수집
+        total += self._collect_naver_news(yesterday, newsdesk_date=briefing_date)
+        total += self._collect_yfinance_news(yesterday, newsdesk_date=briefing_date)
+
+        # 2. 오늘 새벽 뉴스 수집 (현재 시간까지)
+        total += self._collect_naver_news(briefing_date, newsdesk_date=briefing_date)
+        total += self._collect_yfinance_news(briefing_date, newsdesk_date=briefing_date)
+
+        print(f"=== Total collected: {total} articles ===")
+        return total
+
+    def _collect_naver_news(self, target_date: date, newsdesk_date: date = None) -> int:
+        """네이버 검색 API로 뉴스 수집
+
+        Args:
+            target_date: 수집할 뉴스의 발행일
+            newsdesk_date: 뉴스데스크에 저장할 날짜 (기본값: target_date)
+        """
+        if newsdesk_date is None:
+            newsdesk_date = target_date
+
         if not self.naver_client_id or not self.naver_client_secret:
             print("NAVER API credentials not set")
             return 0
@@ -127,17 +160,17 @@ class NewsCrawler:
                         if link in seen_links:
                             continue
 
-                        # 오늘 날짜 기사만 수집
+                        # target_date 날짜 기사만 수집
                         pub_date = self._parse_naver_date(item.get("pubDate"))
                         if pub_date and pub_date.date() != target_date:
-                            continue  # 오늘 기사가 아니면 스킵
+                            continue
 
                         seen_links.add(link)
 
-                        # DB 중복 체크
+                        # DB 중복 체크 (같은 뉴스데스크에 같은 링크 있는지)
                         existing = self.db.query(RawNews).filter(
                             RawNews.link == link,
-                            RawNews.newsdesk_date == target_date
+                            RawNews.newsdesk_date == newsdesk_date
                         ).first()
 
                         if existing:
@@ -149,7 +182,7 @@ class NewsCrawler:
                             description=self._clean_html(item.get("description", "")),
                             link=link,
                             pub_date=pub_date,
-                            newsdesk_date=target_date,
+                            newsdesk_date=newsdesk_date,
                         )
                         self.db.add(news)
                         collected += 1
@@ -158,14 +191,23 @@ class NewsCrawler:
                 except Exception as e:
                     print(f"Naver crawl error for '{keyword}': {e}")
 
-            print(f"[{category}] Collected {category_count} articles")
+            if category_count > 0:
+                print(f"[{category}] {target_date}: {category_count} articles")
 
         self.db.commit()
-        print(f"=== Naver total: {collected} articles ===")
+        print(f"=== Naver {target_date}: {collected} articles ===")
         return collected
 
-    def _collect_yfinance_news(self, target_date: date) -> int:
-        """yfinance로 해외 뉴스 수집"""
+    def _collect_yfinance_news(self, target_date: date, newsdesk_date: date = None) -> int:
+        """yfinance로 해외 뉴스 수집
+
+        Args:
+            target_date: 수집할 뉴스의 발행일
+            newsdesk_date: 뉴스데스크에 저장할 날짜 (기본값: target_date)
+        """
+        if newsdesk_date is None:
+            newsdesk_date = target_date
+
         try:
             import yfinance as yf
         except ImportError:
@@ -205,7 +247,7 @@ class NewsCrawler:
                     # DB 중복 체크
                     existing = self.db.query(RawNews).filter(
                         RawNews.link == link,
-                        RawNews.newsdesk_date == target_date
+                        RawNews.newsdesk_date == newsdesk_date
                     ).first()
 
                     if existing:
@@ -228,7 +270,7 @@ class NewsCrawler:
                         description=summary[:500] if summary else None,
                         link=link,
                         pub_date=pub_date,
-                        newsdesk_date=target_date,
+                        newsdesk_date=newsdesk_date,
                     )
                     self.db.add(news_item)
                     collected += 1
@@ -237,7 +279,7 @@ class NewsCrawler:
                 print(f"yfinance error for '{ticker_symbol}': {e}")
 
         self.db.commit()
-        print(f"=== yfinance total: {collected} articles ===")
+        print(f"=== yfinance {target_date}: {collected} articles ===")
         return collected
 
     def _clean_html(self, text: str) -> str:

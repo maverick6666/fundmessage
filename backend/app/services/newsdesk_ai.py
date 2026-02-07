@@ -48,11 +48,15 @@ class NewsDeskAI:
         return result
 
     def _prepare_news_text(self, raw_news: List[RawNews]) -> str:
-        """원본 뉴스를 텍스트로 변환"""
+        """원본 뉴스를 텍스트로 변환 (발행시간 포함)"""
         lines = []
         for i, news in enumerate(raw_news[:50], 1):  # 최대 50개
             source_label = "국내" if news.source == "naver" else "해외"
-            lines.append(f"[{i}] [{source_label}] {news.title}")
+            # 발행시간 표시 (어제 vs 오늘 구분용)
+            pub_time = ""
+            if news.pub_date:
+                pub_time = news.pub_date.strftime("%m/%d %H:%M")
+            lines.append(f"[{i}] [{source_label}] [{pub_time}] {news.title}")
             if news.description:
                 lines.append(f"    요약: {news.description[:200]}")
             lines.append("")
@@ -289,10 +293,14 @@ class NewsDeskAI:
 - sentiment: 전체 시장 감성 분석
 - top_stocks: 오늘 가장 많이 언급된 종목 3개
 
-## 중요: 날짜 정확성
-- 제공된 뉴스는 오늘 발행된 기사만 포함
-- 과거 사건을 오늘 일어난 것처럼 쓰지 마세요
-- "오늘", "금일" 표현은 실제 오늘 발생한 이벤트에만 사용
+## 중요: 날짜 범위와 시간 맥락
+- 뉴스 목록은 **어제 + 오늘 새벽** 기사를 모두 포함
+- 각 뉴스의 [MM/DD HH:MM] 발행시간을 참고하세요
+- 어제(전일) 뉴스: 장중/장후 동향, 실적 발표, 이벤트 결과
+- 오늘 새벽 뉴스: 야간장 움직임, 프리마켓, 해외 시장 마감
+- 칼럼 작성 시 시간 흐름을 자연스럽게 연결:
+  - "어제 장 마감 후... → 오늘 새벽 미국 시장에서는..."
+  - "전일 발표된 실적이... → 시간외에서 주가가..."
 
 JSON만 출력하세요."""
 

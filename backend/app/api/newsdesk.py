@@ -202,9 +202,9 @@ async def generate_newsdesk(
         db.refresh(newsdesk)
 
     try:
-        # 1. 뉴스 크롤링
+        # 1. 뉴스 크롤링 (어제 + 오늘 새벽)
         crawler = NewsCrawler(db)
-        collected_count = crawler.collect_all(target_date)
+        collected_count = crawler.collect_for_morning_briefing(target_date)
 
         # 2. 수집된 뉴스 조회
         raw_news = crawler.get_raw_news(target_date)
