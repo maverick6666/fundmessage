@@ -7,6 +7,7 @@ import { ConfirmModal } from '../components/common/ConfirmModal';
 import { EmptyState } from '../components/common/EmptyState';
 import { Input, Textarea } from '../components/common/Input';
 import { requestService } from '../services/requestService';
+import { discussionService } from '../services/discussionService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import {
@@ -49,6 +50,10 @@ export function Requests() {
   const [rejectReason, setRejectReason] = useState('');
   const [discussTitle, setDiscussTitle] = useState('');
   const [deleteRequestData, setDeleteRequestData] = useState(null);
+
+  // 열린 토론 경고 관련 상태
+  const [openDiscussionWarning, setOpenDiscussionWarning] = useState(null); // { request, action: 'approve' | 'reject' }
+  const [warningActionLoading, setWarningActionLoading] = useState(false);
 
   const handleDeleteClick = (request) => {
     setDeleteRequestData(request);
@@ -104,18 +109,78 @@ export function Requests() {
     }
   };
 
+  // 열린 토론 확인 후 승인 시도
   const handleApprove = async (request) => {
     if (approveLoading) return;
 
+    // 열린 토론이 있는지 확인 (status가 discussion이면 열린 토론 있음)
+    if (request.status === 'discussion' && request.discussion_id) {
+      setOpenDiscussionWarning({ request, action: 'approve' });
+      return;
+    }
+
+    await executeApprove(request);
+  };
+
+  // 실제 승인 실행
+  const executeApprove = async (request) => {
     setApproveLoading(request.id);
     try {
-      // 모달 없이 바로 승인 (요청자의 희망가/수량 사용)
       await requestService.approveRequest(request.id, {});
       fetchRequests();
     } catch (error) {
       toast.error(error.response?.data?.detail || '승인에 실패했습니다.');
     } finally {
       setApproveLoading(null);
+    }
+  };
+
+  // 거부 버튼 클릭 시
+  const openRejectModalWithCheck = (request) => {
+    // 열린 토론이 있는지 확인
+    if (request.status === 'discussion' && request.discussion_id) {
+      setOpenDiscussionWarning({ request, action: 'reject' });
+      return;
+    }
+    openRejectModal(request);
+  };
+
+  // 열린 토론 경고에서 "토론 종료 후 진행" 선택
+  const handleCloseDiscussionAndProceed = async () => {
+    if (!openDiscussionWarning) return;
+    const { request, action } = openDiscussionWarning;
+
+    setWarningActionLoading(true);
+    try {
+      // 토론 종료
+      await discussionService.closeDiscussion(request.discussion_id);
+
+      // 승인 또는 거부 진행
+      if (action === 'approve') {
+        setOpenDiscussionWarning(null);
+        await executeApprove(request);
+      } else {
+        setOpenDiscussionWarning(null);
+        openRejectModal(request);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || '토론 종료에 실패했습니다.');
+    } finally {
+      setWarningActionLoading(false);
+    }
+  };
+
+  // 열린 토론 경고에서 "그냥 진행" 선택
+  const handleProceedWithoutClosing = async () => {
+    if (!openDiscussionWarning) return;
+    const { request, action } = openDiscussionWarning;
+
+    setOpenDiscussionWarning(null);
+
+    if (action === 'approve') {
+      await executeApprove(request);
+    } else {
+      openRejectModal(request);
     }
   };
 
@@ -342,7 +407,7 @@ export function Requests() {
                         >
                           승인
                         </Button>
-                        <Button size="sm" variant="danger" onClick={() => openRejectModal(request)}>
+                        <Button size="sm" variant="danger" onClick={() => openRejectModalWithCheck(request)}>
                           거부
                         </Button>
                       </>
@@ -528,6 +593,48 @@ export function Requests() {
         confirmText="삭제"
         confirmVariant="danger"
       />
+
+      {/* 열린 토론 경고 모달 */}
+      <Modal
+        isOpen={!!openDiscussionWarning}
+        onClose={() => setOpenDiscussionWarning(null)}
+        title="⚠️ 열린 토론이 있습니다"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <p className="text-amber-800 dark:text-amber-300">
+              이 요청에 대한 의사결정 토론이 아직 진행 중입니다.
+            </p>
+            <p className="text-amber-700 dark:text-amber-400 text-sm mt-2">
+              토론을 종료하지 않고 {openDiscussionWarning?.action === 'approve' ? '승인' : '거부'}하면 토론이 열린 채로 남습니다.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2">
+            <Button
+              onClick={handleCloseDiscussionAndProceed}
+              loading={warningActionLoading}
+            >
+              토론 종료 후 {openDiscussionWarning?.action === 'approve' ? '승인' : '거부'}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleProceedWithoutClosing}
+              disabled={warningActionLoading}
+            >
+              그냥 {openDiscussionWarning?.action === 'approve' ? '승인' : '거부'}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setOpenDiscussionWarning(null)}
+              disabled={warningActionLoading}
+              className="text-gray-500"
+            >
+              취소
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
