@@ -25,9 +25,20 @@ export function Requests() {
   const toast = useToast();
   const canManage = isManagerOrAdmin();
   const [requests, setRequests] = useState([]);
+  const [allRequests, setAllRequests] = useState([]); // 건수 계산용
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('team'); // 'team', 'rejected', 'mine'
-  const [statusFilter, setStatusFilter] = useState('pending');
+  // 역할별 기본 탭/필터: 팀장은 팀요청+대기중, 팀원은 내요청+전체
+  const [activeTab, setActiveTab] = useState(() => canManage ? 'team' : 'mine');
+  const [statusFilter, setStatusFilter] = useState(() => canManage ? 'pending' : 'all');
+
+  // 상태별 건수 계산
+  const statusCounts = {
+    all: allRequests.length,
+    pending: allRequests.filter(r => r.status === 'pending').length,
+    discussion: allRequests.filter(r => r.status === 'discussion').length,
+    approved: allRequests.filter(r => r.status === 'approved').length,
+    rejected: allRequests.filter(r => r.status === 'rejected').length,
+  };
   const [expandedId, setExpandedId] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -62,10 +73,12 @@ export function Requests() {
     setLoading(true);
     try {
       let params = { limit: 50 };
+      let allParams = { limit: 100 }; // 건수 계산용
 
       if (activeTab === 'mine') {
         // 내 요청 탭
         params.requester_id = user.id;
+        allParams.requester_id = user.id;
         if (statusFilter !== 'all') {
           params.status = statusFilter;
         }
@@ -76,8 +89,13 @@ export function Requests() {
         }
       }
 
-      const data = await requestService.getRequests(params);
-      setRequests(data.requests);
+      // 필터링된 요청과 전체 요청 둘 다 가져오기
+      const [filteredData, allData] = await Promise.all([
+        requestService.getRequests(params),
+        requestService.getRequests(allParams)
+      ]);
+      setRequests(filteredData.requests);
+      setAllRequests(allData.requests);
     } catch (error) {
       console.error('Failed to fetch requests:', error);
     } finally {
@@ -165,7 +183,7 @@ export function Requests() {
         </button>
       </div>
 
-      {/* Status Filters */}
+      {/* Status Filters with Count Badges */}
       <div className="flex gap-2 flex-wrap">
         {activeTab === 'team' ? (
           // 팀 요청 현황: 전체, 대기중, 토론중, 승인됨, 거부됨
@@ -173,28 +191,52 @@ export function Requests() {
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 statusFilter === status
                   ? 'bg-primary-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
               {status === 'all' ? '전체' : getStatusLabel(status)}
+              {/* 대기중은 빨간 배지, 나머지는 회색 숫자 */}
+              {status === 'pending' && statusCounts.pending > 0 && (
+                <span className={`px-1.5 py-0.5 text-xs font-bold rounded-full ${
+                  statusFilter === status
+                    ? 'bg-white/20 text-white'
+                    : 'bg-rose-500 text-white'
+                }`}>
+                  {statusCounts.pending}
+                </span>
+              )}
+              {status === 'discussion' && statusCounts.discussion > 0 && (
+                <span className={`text-xs ${statusFilter === status ? 'text-white/70' : 'text-gray-400'}`}>
+                  {statusCounts.discussion}
+                </span>
+              )}
             </button>
           ))
         ) : (
-          // 내 요청: 전체, 승인됨, 거부됨
-          ['all', 'approved', 'rejected'].map(status => (
+          // 내 요청: 전체, 대기중, 승인됨, 거부됨
+          ['all', 'pending', 'approved', 'rejected'].map(status => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 statusFilter === status
                   ? 'bg-primary-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
               {status === 'all' ? '전체' : getStatusLabel(status)}
+              {status === 'pending' && statusCounts.pending > 0 && (
+                <span className={`px-1.5 py-0.5 text-xs font-bold rounded-full ${
+                  statusFilter === status
+                    ? 'bg-white/20 text-white'
+                    : 'bg-amber-500 text-white'
+                }`}>
+                  {statusCounts.pending}
+                </span>
+              )}
             </button>
           ))
         )}
@@ -204,7 +246,33 @@ export function Requests() {
       {loading ? (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">로딩중...</div>
       ) : requests.length === 0 ? (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">요청이 없습니다</div>
+        <div className="flex flex-col items-center justify-center py-16 px-4">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center mb-4 shadow-inner">
+            {statusFilter === 'pending' ? (
+              <svg className="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            )}
+          </div>
+          <p className="text-gray-600 dark:text-gray-300 font-medium text-center">
+            {statusFilter === 'pending'
+              ? '대기중인 요청이 없습니다'
+              : statusFilter === 'all'
+                ? '요청이 없습니다'
+                : `${getStatusLabel(statusFilter)} 요청이 없습니다`}
+          </p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-2 text-center max-w-md">
+            {statusFilter === 'pending'
+              ? '모든 요청이 처리되었습니다'
+              : activeTab === 'mine'
+                ? '새로운 매수/매도 요청을 제출해보세요'
+                : '팀원들의 요청이 여기에 표시됩니다'}
+          </p>
+        </div>
       ) : (
         <div className="grid gap-4">
           {requests.map(request => (
