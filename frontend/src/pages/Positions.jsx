@@ -4,7 +4,7 @@ import { Button } from '../components/common/Button';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { ProfitProgressBar } from '../components/common/ProfitProgressBar';
 import { StockChart } from '../components/charts/StockChart';
-import { QuickNumberButtons } from '../components/common/NumberInputWithQuickButtons';
+import { QuickPriceButtons } from '../components/common/NumberInputWithQuickButtons';
 import { usePositions } from '../hooks/usePositions';
 import { priceService } from '../services/priceService';
 import { positionService } from '../services/positionService';
@@ -1040,12 +1040,11 @@ function SimpleBuyForm({ stock, currentPrice, onSuccess, onCancel }) {
                   onChange={(e) => updateBuyOrder(index, 'price', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
                 />
-                <QuickNumberButtons
+                <QuickPriceButtons
                   onAdd={(num) => {
                     const currentPrice = parseFloat(order.price) || 0;
                     updateBuyOrder(index, 'price', String(currentPrice + num));
                   }}
-                  quickValues={[100, 500, 1000, 5000, 10000]}
                   className="mt-1"
                 />
               </div>
@@ -1060,14 +1059,6 @@ function SimpleBuyForm({ stock, currentPrice, onSuccess, onCancel }) {
                   value={order.quantity}
                   onChange={(e) => updateBuyOrder(index, 'quantity', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                />
-                <QuickNumberButtons
-                  onAdd={(num) => {
-                    const currentQty = parseFloat(order.quantity) || 0;
-                    updateBuyOrder(index, 'quantity', String(currentQty + num));
-                  }}
-                  quickValues={[1, 5, 10, 50, 100]}
-                  className="mt-1"
                 />
               </div>
             </div>
