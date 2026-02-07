@@ -32,6 +32,7 @@ export function Discussion() {
   const [exportLoading, setExportLoading] = useState(false);
   const [showChartModal, setShowChartModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [requestReopenLoading, setRequestReopenLoading] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -251,15 +252,24 @@ export function Discussion() {
             </Button>
           )}
           {isClosed && !isManagerOrAdmin() && (
-            <Button variant="secondary" size="sm" onClick={async () => {
-              try {
-                await discussionService.requestReopen(id);
-                toast.success('토론 재개 요청이 매니저에게 전송되었습니다.');
-              } catch (error) {
-                toast.error(error.response?.data?.detail || '요청에 실패했습니다.');
-              }
-            }}>
-              재개 요청
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={requestReopenLoading}
+              onClick={async () => {
+                if (requestReopenLoading) return;
+                setRequestReopenLoading(true);
+                try {
+                  await discussionService.requestReopen(id);
+                  toast.success('토론 재개 요청이 매니저에게 전송되었습니다.');
+                } catch (error) {
+                  toast.error(error.response?.data?.detail || '요청에 실패했습니다.');
+                } finally {
+                  setRequestReopenLoading(false);
+                }
+              }}
+            >
+              {requestReopenLoading ? '요청중...' : '재개 요청'}
             </Button>
           )}
           {!isClosed && isManagerOrAdmin() && (
