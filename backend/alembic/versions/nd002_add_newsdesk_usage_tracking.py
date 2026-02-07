@@ -1,7 +1,7 @@
 """Add generation_count and last_generated_at to newsdesk
 
 Revision ID: nd002
-Revises: nd001_create_newsdesk_tables
+Revises: nd001
 Create Date: 2026-02-08
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'nd002'
-down_revision = 'nd001_create_newsdesk_tables'
+down_revision = 'nd001'
 branch_labels = None
 depends_on = None
 
