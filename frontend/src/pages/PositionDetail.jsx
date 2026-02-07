@@ -90,6 +90,16 @@ export function PositionDetail() {
   const [savingPlan, setSavingPlan] = useState(false);
   const [planMemo, setPlanMemo] = useState('');
 
+  // 체결 확인 모달
+  const [executeConfirmModal, setExecuteConfirmModal] = useState({
+    show: false,
+    planType: null,
+    index: null,
+    item: null,
+    confirmMsg: '',
+    pnl: null
+  });
+
   useEffect(() => {
     fetchPosition();
     fetchDiscussions();
@@ -340,35 +350,48 @@ export function PositionDetail() {
 
   // 체크박스 토글 (팀장만)
   const handleTogglePlan = async (planType, index, completed) => {
-    // 완료 체크 시 확인 (실제 포지션에 영향을 주므로)
+    // 완료 체크 시 확인 모달 표시 (실제 포지션에 영향을 주므로)
     if (completed) {
-      let confirmMsg = '';
       let item = null;
+      let pnl = null;
+      let typeLabel = '';
 
       if (planType === 'buy') {
         item = position.buy_plan?.[index];
-        if (item?.price && item?.quantity) {
-          confirmMsg = `매수 체결: ${formatPriceQuantity(item.price, item.quantity, position.market)}\n\n이 작업은 보유 수량과 평균단가에 반영됩니다.\n체결 처리하시겠습니까?`;
-        }
+        typeLabel = '매수';
       } else if (planType === 'take_profit') {
         item = position.take_profit_targets?.[index];
+        typeLabel = '익절';
         if (item?.price && item?.quantity) {
-          const pnl = (parseFloat(item.price) - parseFloat(position.average_buy_price)) * parseFloat(item.quantity);
-          confirmMsg = `익절 체결: ${formatPriceQuantity(item.price, item.quantity, position.market)}\n예상 실현손익: ${formatCurrency(pnl, position.market)}\n\n이 작업은 보유 수량에서 차감되고 실현손익에 반영됩니다.\n체결 처리하시겠습니까?`;
+          pnl = (parseFloat(item.price) - parseFloat(position.average_buy_price)) * parseFloat(item.quantity);
         }
       } else if (planType === 'stop_loss') {
         item = position.stop_loss_targets?.[index];
+        typeLabel = '손절';
         if (item?.price && item?.quantity) {
-          const pnl = (parseFloat(item.price) - parseFloat(position.average_buy_price)) * parseFloat(item.quantity);
-          confirmMsg = `손절 체결: ${formatPriceQuantity(item.price, item.quantity, position.market)}\n예상 실현손익: ${formatCurrency(pnl, position.market)}\n\n이 작업은 보유 수량에서 차감되고 실현손익에 반영됩니다.\n체결 처리하시겠습니까?`;
+          pnl = (parseFloat(item.price) - parseFloat(position.average_buy_price)) * parseFloat(item.quantity);
         }
       }
 
-      if (confirmMsg && !window.confirm(confirmMsg)) {
+      if (item?.price && item?.quantity) {
+        setExecuteConfirmModal({
+          show: true,
+          planType,
+          index,
+          item,
+          typeLabel,
+          pnl
+        });
         return;
       }
     }
 
+    // 완료 해제 시 바로 처리
+    await executeTogglePlan(planType, index, completed);
+  };
+
+  // 실제 체결 처리
+  const executeTogglePlan = async (planType, index, completed) => {
     try {
       const updatedPosition = await positionService.togglePlanItem(id, planType, index, completed);
       setPosition(updatedPosition);
@@ -381,6 +404,13 @@ export function PositionDetail() {
     } catch (error) {
       toast.error(error.response?.data?.detail || '상태 변경에 실패했습니다.');
     }
+  };
+
+  // 체결 확인
+  const confirmExecute = async () => {
+    const { planType, index } = executeConfirmModal;
+    setExecuteConfirmModal({ show: false, planType: null, index: null, item: null, typeLabel: '', pnl: null });
+    await executeTogglePlan(planType, index, true);
   };
 
   // 계획 항목 추가
@@ -1291,6 +1321,71 @@ export function PositionDetail() {
           </div>
         )}
       </Card>
+
+      {/* 체결 확인 모달 */}
+      <Modal
+        isOpen={executeConfirmModal.show}
+        onClose={() => setExecuteConfirmModal({ show: false, planType: null, index: null, item: null, typeLabel: '', pnl: null })}
+        title={`${executeConfirmModal.typeLabel} 체결 확인`}
+      >
+        <div className="space-y-4">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm text-gray-500 dark:text-gray-400">체결 정보</span>
+              <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${
+                executeConfirmModal.planType === 'buy'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                  : executeConfirmModal.planType === 'take_profit'
+                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+              }`}>
+                {executeConfirmModal.typeLabel}
+              </span>
+            </div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+              {executeConfirmModal.item && formatPriceQuantity(executeConfirmModal.item.price, executeConfirmModal.item.quantity, position?.market)}
+            </div>
+            {executeConfirmModal.pnl !== null && (
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t dark:border-gray-700">
+                <span className="text-sm text-gray-500 dark:text-gray-400">예상 실현손익</span>
+                <span className={`text-lg font-semibold ${executeConfirmModal.pnl >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                  {formatCurrency(executeConfirmModal.pnl, position?.market)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+            <div className="flex gap-2">
+              <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div className="text-sm text-amber-800 dark:text-amber-200">
+                {executeConfirmModal.planType === 'buy' ? (
+                  <p>이 작업은 <strong>보유 수량</strong>과 <strong>평균단가</strong>에 반영됩니다.</p>
+                ) : (
+                  <p>이 작업은 <strong>보유 수량에서 차감</strong>되고 <strong>실현손익</strong>에 반영됩니다.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
+            <Button
+              variant="secondary"
+              onClick={() => setExecuteConfirmModal({ show: false, planType: null, index: null, item: null, typeLabel: '', pnl: null })}
+            >
+              취소
+            </Button>
+            <Button
+              variant={executeConfirmModal.planType === 'stop_loss' ? 'danger' : 'primary'}
+              onClick={confirmExecute}
+            >
+              체결 확인
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modals */}
       <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="포지션 종료">
