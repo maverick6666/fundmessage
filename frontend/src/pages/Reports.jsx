@@ -183,27 +183,25 @@ export function Reports() {
   return (
     <div className="space-y-6 min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
+      <div className="flex items-center justify-between gap-4">
+        <div className="shrink-0">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
             문서
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 whitespace-nowrap">
-            운용보고서, 의사결정서, 팀 칼럼을 관리합니다
-          </p>
         </div>
         {activeTab === 'columns' && (
-          <Button onClick={() => openColumnEditor(null, fetchData)} className="gap-2 whitespace-nowrap shrink-0">
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <Button onClick={() => openColumnEditor(null, fetchData)} className="gap-2 shrink-0">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
             </svg>
-            칼럼 작성
+            <span className="hidden sm:inline">칼럼 작성</span>
+            <span className="sm:hidden">작성</span>
           </Button>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1.5 bg-gray-100/80 dark:bg-gray-800/80 rounded-xl w-fit backdrop-blur-sm overflow-x-auto min-w-0">
+      <div className="flex gap-1 p-1 bg-gray-100/80 dark:bg-gray-800/80 rounded-lg shrink-0">
         {tabs.map((tab) => (
           <button
             key={tab.id}
