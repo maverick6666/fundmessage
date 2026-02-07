@@ -10,6 +10,7 @@ import { priceService } from '../services/priceService';
 import { reportService } from '../services/reportService';
 import { columnService } from '../services/columnService';
 import { statsService } from '../services/statsService';
+import { userService } from '../services/userService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import {
@@ -27,12 +28,15 @@ import {
 export function Dashboard() {
   const { user, isManagerOrAdmin, isManager } = useAuth();
   const toast = useToast();
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'team'
   const [positions, setPositions] = useState([]);
   const [requests, setRequests] = useState([]);
   const [teamSettings, setTeamSettings] = useState(null);
   const [reports, setReports] = useState([]);
   const [columns, setColumns] = useState([]);
   const [teamRanking, setTeamRanking] = useState({ members: [], avg_week_attendance_rate: 0 });
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [teamStats, setTeamStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showExchangeModal, setShowExchangeModal] = useState(false);
@@ -52,19 +56,23 @@ export function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const [positionData, requestData, settings, reportsData, columnsData, rankingData] = await Promise.all([
+      const [positionData, requestData, settings, reportsData, columnsData, rankingData, membersData, statsData] = await Promise.all([
         priceService.getPositionsWithPrices().catch(() => ({ positions: [] })),
         requestService.getRequests({ limit: 3 }),
         positionService.getTeamSettings().catch(() => null),
         reportService.getReports({ limit: 3 }).catch(() => ({ reports: [] })),
         columnService.getColumns({ limit: 3 }).catch(() => ({ columns: [] })),
-        statsService.getTeamRanking().catch(() => ({ members: [], avg_week_attendance_rate: 0 }))
+        statsService.getTeamRanking().catch(() => ({ members: [], avg_week_attendance_rate: 0 })),
+        userService.getTeamMembers().catch(() => ({ members: [] })),
+        statsService.getTeamStats().catch(() => null)
       ]);
       setPositions(positionData.positions || []);
       setRequests(requestData.requests);
       setReports(reportsData.reports || []);
       setColumns(columnsData.columns || []);
       setTeamRanking(rankingData || { members: [], avg_week_attendance_rate: 0 });
+      setTeamMembers(membersData.members || []);
+      setTeamStats(statsData);
       if (settings) {
         setTeamSettings(settings);
         setSettingsData({
@@ -233,22 +241,42 @@ export function Dashboard() {
   };
 
   return (
-    <div className="flex gap-6">
-      {/* Main Content */}
-      <div className="flex-1 space-y-6 min-w-0">
-        <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      {/* Header with Tabs */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>대시보드</h1>
-          {isManager() && (
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setShowExchangeModal(true)}>
-                환전
-              </Button>
-              <Button variant="secondary" onClick={() => setShowSettingsModal(true)}>
-                팀 설정
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-2">
+            {['dashboard', 'team'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === tab
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {tab === 'dashboard' ? '대시보드' : '팀 정보'}
+              </button>
+            ))}
+          </div>
         </div>
+        {isManager() && activeTab === 'dashboard' && (
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setShowExchangeModal(true)}>
+              환전
+            </Button>
+            <Button variant="secondary" onClick={() => setShowSettingsModal(true)}>
+              팀 설정
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Dashboard Tab Content */}
+      {activeTab === 'dashboard' && (
+      <>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -555,17 +583,19 @@ export function Dashboard() {
             </div>
           </Card>
         )}
-      </div>
+      </>
+      )}
 
-      {/* Team Ranking Section - Right Sidebar */}
-      <div className="hidden xl:block w-80 shrink-0">
-        <div className="sticky top-4">
-          <Card className="h-fit">
+      {/* Team Info Tab Content */}
+      {activeTab === 'team' && (
+        <div className="space-y-6">
+          {/* 팀원 랭킹 */}
+          <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>팀원 랭킹</CardTitle>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  주간 평균 {teamRanking.avg_week_attendance_rate}%
+                  주간 평균 출석률 {teamRanking.avg_week_attendance_rate}%
                 </span>
               </div>
             </CardHeader>
@@ -575,9 +605,8 @@ export function Dashboard() {
             ) : teamRanking.members.length === 0 ? (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400">팀원 정보가 없습니다</div>
             ) : (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {teamRanking.members.map((member) => {
-                  // 출석률 프로그레스바 색상: 평균보다 낮으면 빨간색, 높으면 초록색
                   const attendanceColor = member.week_attendance_rate >= teamRanking.avg_week_attendance_rate
                     ? 'bg-emerald-500'
                     : 'bg-red-500';
@@ -585,10 +614,9 @@ export function Dashboard() {
                   return (
                     <div
                       key={member.id}
-                      className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                      className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
                     >
-                      {/* 상단: 이름 + 역할 */}
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <span className="font-medium dark:text-gray-100">{member.full_name}</span>
                           <span className={`text-xs px-1.5 py-0.5 rounded ${getRoleBadgeClass(member.role)}`}>
@@ -597,8 +625,7 @@ export function Dashboard() {
                         </div>
                       </div>
 
-                      {/* 수익률 & 수익금 */}
-                      <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+                      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                         <div>
                           <span className="text-gray-500 dark:text-gray-400 text-xs">평균 수익률</span>
                           <p className={`font-medium ${getProfitLossClass(member.avg_profit_rate)}`}>
@@ -613,7 +640,6 @@ export function Dashboard() {
                         </div>
                       </div>
 
-                      {/* 주간 출석률 프로그레스바 */}
                       <div>
                         <div className="flex items-center justify-between text-xs mb-1">
                           <span className="text-gray-500 dark:text-gray-400">주간 출석률</span>
@@ -634,8 +660,96 @@ export function Dashboard() {
               </div>
             )}
           </Card>
+
+          {/* 팀원 목록 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>팀원 목록</CardTitle>
+            </CardHeader>
+            {teamMembers.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">팀원이 없습니다</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b dark:border-gray-700">
+                      <th className="py-2 text-left">이름</th>
+                      <th className="py-2 text-left">역할</th>
+                      <th className="py-2 text-left">이메일</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teamMembers.map((member) => (
+                      <tr key={member.id} className="border-b dark:border-gray-700">
+                        <td className="py-2 font-medium dark:text-gray-200">{member.full_name || member.username}</td>
+                        <td className="py-2">
+                          <span className={`text-xs px-2 py-0.5 rounded ${getRoleBadgeClass(member.role)}`}>
+                            {getRoleLabel(member.role)}
+                          </span>
+                        </td>
+                        <td className="py-2 text-gray-500 dark:text-gray-400">{member.email}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          {/* 리더보드 */}
+          {teamStats?.leaderboard && (
+            <Card>
+              <CardHeader>
+                <CardTitle>리더보드</CardTitle>
+              </CardHeader>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b dark:border-gray-700">
+                      <th className="py-2 text-left">순위</th>
+                      <th className="py-2 text-left">팀원</th>
+                      <th className="py-2 text-right">실현 손익</th>
+                      <th className="py-2 text-right">미실현 손익</th>
+                      <th className="py-2 text-right">총 손익</th>
+                      <th className="py-2 text-right">승률</th>
+                      <th className="py-2 text-right">거래</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teamStats.leaderboard.map((entry) => (
+                      <tr key={entry.rank} className="border-b dark:border-gray-700">
+                        <td className="py-2">
+                          {entry.rank === 1 && '🥇'}
+                          {entry.rank === 2 && '🥈'}
+                          {entry.rank === 3 && '🥉'}
+                          {entry.rank > 3 && entry.rank}
+                        </td>
+                        <td className="py-2 font-medium dark:text-gray-200">{entry.user.full_name || entry.user.username}</td>
+                        <td className={`py-2 text-right ${getProfitLossClass(entry.realized_pl)}`}>
+                          {formatCurrency(entry.realized_pl)}
+                        </td>
+                        <td className={`py-2 text-right ${getProfitLossClass(entry.unrealized_pl)}`}>
+                          {entry.unrealized_pl !== 0 ? formatCurrency(entry.unrealized_pl) : '-'}
+                        </td>
+                        <td className={`py-2 text-right font-medium ${getProfitLossClass(entry.total_profit_loss)}`}>
+                          {formatCurrency(entry.total_profit_loss)}
+                        </td>
+                        <td className="py-2 text-right">{formatPercent(entry.win_rate)}</td>
+                        <td className="py-2 text-right">
+                          {entry.closed_trades}
+                          {entry.open_trades > 0 && (
+                            <span className="text-green-600 dark:text-green-400 text-xs ml-1">+{entry.open_trades}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Team Settings Modal */}
       <Modal
