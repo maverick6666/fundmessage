@@ -29,7 +29,7 @@ class NewsCard(BaseModel):
     title: str
     summary: str  # 썸네일용 요약 (2-3문장)
     content: str  # 상세 내용 (사이드뷰어용)
-    source: str
+    source: Optional[str] = None  # AI 칼럼은 source 없음
     category: str  # 국내, 해외, AI칼럼
     keywords: List[str]
     sentiment: str
