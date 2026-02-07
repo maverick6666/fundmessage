@@ -175,7 +175,37 @@ class NewsDeskAI:
 
 ### 중복 방지
 - 어제 제목 리스트가 제공되면 동일/유사 제목 피할 것
-- 키워드는 중복 허용"""
+- 키워드는 중복 허용
+
+---
+
+## 탐욕/공포 감성 분석 가이드
+
+### 개념
+- CNN Fear & Greed Index에서 영감을 받은 시장 심리 지표
+- 기존 positive/negative/neutral 대신 탐욕(Greed)/공포(Fear) 스펙트럼 사용
+
+### 점수 기준
+- **0-25 (극도의 공포)**: 폭락, 패닉셀, 금융위기, 대규모 손실
+- **25-45 (공포)**: 하락세, 불안, 리스크 부각, 매도 우위
+- **45-55 (중립)**: 관망세, 혼조세, 방향성 모호
+- **55-75 (탐욕)**: 상승세, 호재, 투자 심리 개선, 매수 우위
+- **75-100 (극도의 탐욕)**: 급등, 과열, FOMO, 거품 우려
+
+### 키워드별 greed_score 판단
+- 해당 키워드 관련 뉴스의 전체적인 톤 분석
+- 상승/호재/성장/투자확대 → 0.6-1.0
+- 하락/악재/위축/리스크 → 0.0-0.4
+- 중립/혼조/관망 → 0.4-0.6
+
+### 카테고리 분류
+- 금융: 은행, 증권, 보험, 핀테크
+- 테크: AI, 반도체, 소프트웨어
+- 에너지: 원전, 태양광, 석유
+- 소비재: 유통, 식품, 엔터
+- 부동산: 건설, 분양, 임대
+- 가상화폐: 비트코인, 알트코인
+- 매크로: 금리, 환율, 정책"""
 
     def _get_yesterday_titles(self, target_date: date) -> Dict[str, List[str]]:
         """어제 뉴스데스크의 제목들 조회 (중복 방지용)"""
@@ -252,18 +282,16 @@ class NewsDeskAI:
     {{
       "keyword": "반도체",
       "count": 15,
-      "sentiment": "positive",
-      "sentiment_ratio": {{"positive": 0.7, "negative": 0.2, "neutral": 0.1}}
+      "greed_score": 0.75,
+      "category": "테크"
     }}
   ],
   "sentiment": {{
-    "positive_count": 25,
-    "negative_count": 10,
-    "neutral_count": 15,
-    "positive_ratio": 0.5,
-    "negative_ratio": 0.2,
-    "top_positive": ["반도체 호황", "실적 개선"],
-    "top_negative": ["금리 인상", "환율 불안"]
+    "greed_ratio": 0.65,
+    "fear_ratio": 0.35,
+    "overall_score": 65,
+    "top_greed": ["반도체 호황", "실적 개선", "AI 투자 확대"],
+    "top_fear": ["금리 인상", "환율 불안"]
   }},
   "top_stocks": [
     {{
@@ -290,7 +318,13 @@ class NewsDeskAI:
   - 두 칼럼은 서로 다른 뉴스를 활용하여 중복 내용 방지
 - news_cards: 뉴스 카드 6개 (국내 3개 + 해외 3개)
 - keywords: 상위 키워드 8-12개
-- sentiment: 전체 시장 감성 분석
+  - greed_score: 0.0(극도의 공포) ~ 1.0(극도의 탐욕)
+  - category: 금융/테크/에너지/소비재/부동산/가상화폐/매크로 등
+- sentiment: 전체 시장 탐욕/공포 지수
+  - greed_ratio + fear_ratio = 1.0
+  - overall_score: 0(극도의 공포) ~ 50(중립) ~ 100(극도의 탐욕)
+  - top_greed: 탐욕을 유발하는 키워드/이슈 (상승, 호재, 투자 확대 등)
+  - top_fear: 공포를 유발하는 키워드/이슈 (하락, 리스크, 불안 등)
 - top_stocks: 오늘 가장 많이 언급된 종목 3개
 
 ## 중요: 날짜 범위와 시간 맥락

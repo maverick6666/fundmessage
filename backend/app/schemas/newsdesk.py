@@ -8,19 +8,17 @@ from pydantic import BaseModel
 class KeywordBubble(BaseModel):
     keyword: str
     count: int  # 언급 횟수
-    sentiment: str  # positive, negative, neutral
-    sentiment_ratio: Dict[str, float]  # {"positive": 0.7, "negative": 0.3}
+    greed_score: float  # 0.0 (극도의 공포) ~ 1.0 (극도의 탐욕)
+    category: str  # 금융, 테크, 에너지, 소비재 등
 
 
-# === 호재/악재 감성 ===
+# === 탐욕/공포 감성 ===
 class SentimentData(BaseModel):
-    positive_count: int
-    negative_count: int
-    neutral_count: int
-    positive_ratio: float
-    negative_ratio: float
-    top_positive: List[str]  # 주요 호재 키워드
-    top_negative: List[str]  # 주요 악재 키워드
+    greed_ratio: float  # 탐욕 비율 (0.0 ~ 1.0)
+    fear_ratio: float   # 공포 비율 (0.0 ~ 1.0)
+    overall_score: int  # 종합 점수 (0=극도의 공포, 50=중립, 100=극도의 탐욕)
+    top_greed: List[str]  # 탐욕 유발 키워드
+    top_fear: List[str]   # 공포 유발 키워드
 
 
 # === 뉴스 카드 ===
