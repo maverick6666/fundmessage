@@ -142,6 +142,10 @@ async def get_team_ranking(
         total_profit = 0
         total_investment = 0
         position_count = 0
+        open_positions = 0
+        closed_positions = 0
+        winning_trades = 0
+        losing_trades = 0
 
         for pos in user_positions:
             avg_price = float(pos.average_buy_price) if pos.average_buy_price else 0
@@ -149,6 +153,7 @@ async def get_team_ranking(
 
             # 포지션 평가액 계산
             if pos.status == PositionStatus.OPEN.value:
+                open_positions += 1
                 # 열린 포지션: 실시간 시세 사용
                 current_price = price_data.get(pos.id, {}).get('current_price', avg_price)
                 if current_price and avg_price and quantity:
@@ -158,15 +163,25 @@ async def get_team_ranking(
                     total_investment += investment
                     position_count += 1
             else:
+                closed_positions += 1
                 # 종료된 포지션: 확정 수익 사용
                 if pos.profit_loss is not None:
                     total_profit += float(pos.profit_loss)
                     if avg_price and quantity:
                         total_investment += avg_price * quantity
                     position_count += 1
+                    # 승/패 계산
+                    if pos.profit_loss > 0:
+                        winning_trades += 1
+                    elif pos.profit_loss < 0:
+                        losing_trades += 1
 
         # 평균 수익률 계산
         avg_profit_rate = (total_profit / total_investment * 100) if total_investment > 0 else 0
+
+        # 승률 계산
+        total_trades = winning_trades + losing_trades
+        win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
 
         # 주간 출석률 계산
         week_attendances = db.query(Attendance).filter(
@@ -214,6 +229,12 @@ async def get_team_ranking(
             "avg_profit_rate": round(avg_profit_rate, 2),
             "total_profit": round(total_profit, 0),
             "position_count": position_count,
+            "total_trades": total_trades,
+            "win_rate": round(win_rate, 1),
+            "winning_trades": winning_trades,
+            "losing_trades": losing_trades,
+            "open_positions": open_positions,
+            "closed_positions": closed_positions,
             "week_attendance_rate": round(week_rate, 1),
             "month_attendance_rate": round(month_rate, 1),
             "total_attendance_rate": round(total_rate, 1),
