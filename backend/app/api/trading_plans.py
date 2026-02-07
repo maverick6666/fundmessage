@@ -27,6 +27,7 @@ def plan_to_response(plan: TradingPlan) -> TradingPlanResponse:
         take_profit_targets=plan.take_profit_targets,
         stop_loss_targets=plan.stop_loss_targets,
         memo=plan.memo,
+        changes=plan.changes,
         status=plan.status,
         user=UserBrief.model_validate(plan.user) if plan.user else None,
         created_at=plan.created_at,
@@ -80,6 +81,11 @@ async def create_trading_plan(
 
     next_version = (latest.version + 1) if latest else 1
 
+    # changes를 dict 리스트로 변환
+    changes_data = None
+    if plan_data.changes:
+        changes_data = [c.model_dump() for c in plan_data.changes]
+
     new_plan = TradingPlan(
         position_id=position_id,
         user_id=current_user.id,
@@ -88,6 +94,7 @@ async def create_trading_plan(
         take_profit_targets=plan_data.take_profit_targets,
         stop_loss_targets=plan_data.stop_loss_targets,
         memo=plan_data.memo,
+        changes=changes_data,
         status='draft'
     )
 

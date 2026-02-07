@@ -38,7 +38,7 @@ const TIMEFRAMES = [
 export function PositionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isManagerOrAdmin, isManager, adminMode } = useAuth();
+  const { user, isManagerOrAdmin, isManager, adminMode } = useAuth();
   const toast = useToast();
   const [position, setPosition] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -89,6 +89,8 @@ export function PositionDetail() {
   const [showPlanHistory, setShowPlanHistory] = useState(false);
   const [savingPlan, setSavingPlan] = useState(false);
   const [planMemo, setPlanMemo] = useState('');
+  // 변경 추적 (저장 전까지 누적)
+  const [pendingChanges, setPendingChanges] = useState([]);
 
   // 체결 확인 모달
   const [executeConfirmModal, setExecuteConfirmModal] = useState({
@@ -200,16 +202,22 @@ export function PositionDetail() {
 
   const handleSaveTradingPlan = async () => {
     if (!position) return;
+    if (pendingChanges.length === 0) {
+      toast.warning('저장할 변경사항이 없습니다.');
+      return;
+    }
     setSavingPlan(true);
     try {
       const planData = {
         buy_plan: position.buy_plan || [],
         take_profit_targets: position.take_profit_targets || [],
         stop_loss_targets: position.stop_loss_targets || [],
-        memo: planMemo || null
+        memo: planMemo || null,
+        changes: pendingChanges
       };
       await tradingPlanService.createPlan(id, planData);
       setPlanMemo('');
+      setPendingChanges([]); // 저장 후 초기화
       fetchTradingPlans();
       toast.success('매매계획이 저장되었습니다.');
     } catch (error) {
@@ -217,6 +225,21 @@ export function PositionDetail() {
     } finally {
       setSavingPlan(false);
     }
+  };
+
+  // 변경 기록 추가 헬퍼
+  const addPendingChange = (action, type, price, quantity, oldPrice = null, oldQuantity = null) => {
+    const change = {
+      action,
+      type,
+      user: user?.name || '알 수 없음',
+      price: price ? parseFloat(price) : null,
+      quantity: quantity ? parseFloat(quantity) : null,
+      old_price: oldPrice ? parseFloat(oldPrice) : null,
+      old_quantity: oldQuantity ? parseFloat(oldQuantity) : null,
+      timestamp: new Date().toISOString()
+    };
+    setPendingChanges(prev => [...prev, change]);
   };
 
   const handleSubmitTradingPlan = async (planId) => {
@@ -449,6 +472,7 @@ export function PositionDetail() {
     };
 
     const key = planType === 'buy' ? 'buy_plan' : planType === 'take_profit' ? 'take_profit_targets' : 'stop_loss_targets';
+    const deletedItem = currentPlans[key][index];
     const updatedPlans = { ...currentPlans, [key]: currentPlans[key].filter((_, i) => i !== index) };
 
     try {
@@ -460,6 +484,10 @@ export function PositionDetail() {
       setPosition(updatedPosition);
       setEditingPlanItem(null);
       if (showAuditLogs) fetchAuditLogs();
+      // 삭제 변경 기록
+      if (deletedItem?.price && deletedItem?.quantity) {
+        addPendingChange('delete', planType, deletedItem.price, deletedItem.quantity);
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
@@ -483,6 +511,11 @@ export function PositionDetail() {
     };
 
     const key = planType === 'buy' ? 'buy_plan' : planType === 'take_profit' ? 'take_profit_targets' : 'stop_loss_targets';
+    const existingItem = currentPlans[key][index];
+    const isNewItem = !existingItem?.price || !existingItem?.quantity;
+    const oldPrice = existingItem?.price;
+    const oldQuantity = existingItem?.quantity;
+
     currentPlans[key][index] = {
       ...currentPlans[key][index],
       price: parseFloat(editPlanData.price),
@@ -498,6 +531,12 @@ export function PositionDetail() {
       setPosition(updatedPosition);
       setEditingPlanItem(null);
       if (showAuditLogs) fetchAuditLogs();
+      // 변경 기록
+      if (isNewItem) {
+        addPendingChange('add', planType, editPlanData.price, editPlanData.quantity);
+      } else {
+        addPendingChange('modify', planType, editPlanData.price, editPlanData.quantity, oldPrice, oldQuantity);
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || '수정에 실패했습니다.');
     }
@@ -1051,6 +1090,32 @@ export function PositionDetail() {
             {/* 계획 저장 */}
             {position.status === 'open' && (
               <div className="pt-4 border-t dark:border-gray-700 space-y-2">
+                {/* 대기 중인 변경사항 표시 */}
+                {pendingChanges.length > 0 && (
+                  <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">
+                      저장되지 않은 변경사항 ({pendingChanges.length}건)
+                    </p>
+                    <div className="space-y-1 text-xs text-amber-700 dark:text-amber-300">
+                      {pendingChanges.slice(-3).map((c, i) => (
+                        <div key={i} className="flex items-center gap-1">
+                          <span className={`px-1 rounded text-[10px] ${
+                            c.action === 'add' ? 'bg-green-200 text-green-800' :
+                            c.action === 'modify' ? 'bg-blue-200 text-blue-800' :
+                            'bg-red-200 text-red-800'
+                          }`}>
+                            {c.action === 'add' ? '추가' : c.action === 'modify' ? '수정' : '삭제'}
+                          </span>
+                          <span>{c.type === 'buy' ? '매수' : c.type === 'take_profit' ? '익절' : '손절'}</span>
+                          <span>{formatCurrency(c.price, position.market)} ({formatQuantity(c.quantity, position.market)})</span>
+                        </div>
+                      ))}
+                      {pendingChanges.length > 3 && (
+                        <p className="text-[10px] text-amber-600">... 외 {pendingChanges.length - 3}건</p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <input
                   type="text"
                   placeholder="메모 (선택)"
@@ -1063,8 +1128,9 @@ export function PositionDetail() {
                   className="w-full"
                   onClick={handleSaveTradingPlan}
                   loading={savingPlan}
+                  disabled={pendingChanges.length === 0}
                 >
-                  현재 계획 저장
+                  현재 계획 저장 {pendingChanges.length > 0 && `(${pendingChanges.length}건)`}
                 </Button>
               </div>
             )}
@@ -1107,14 +1173,49 @@ export function PositionDetail() {
                         </div>
                       </div>
                       <p className="text-gray-500 dark:text-gray-400">
-                        {plan.user?.full_name} · {formatDate(plan.created_at)}
+                        {plan.user?.full_name || plan.user?.name} · {formatDate(plan.created_at)}
                       </p>
                       {plan.memo && (
-                        <p className="mt-1 text-gray-600 dark:text-gray-300">{plan.memo}</p>
+                        <p className="mt-1 text-gray-600 dark:text-gray-300 italic">&quot;{plan.memo}&quot;</p>
                       )}
-                      <div className="mt-1 text-gray-500 dark:text-gray-400">
-                        매수 {(plan.buy_plan || []).length}개 · 익절 {(plan.take_profit_targets || []).length}개 · 손절 {(plan.stop_loss_targets || []).length}개
-                      </div>
+                      {/* 변경 이력 표시 (JSON 형식) */}
+                      {plan.changes && plan.changes.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {plan.changes.map((c, i) => (
+                            <div key={i} className="flex items-center gap-1.5 text-[11px]">
+                              <span className={`px-1 py-0.5 rounded font-medium ${
+                                c.action === 'add' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' :
+                                c.action === 'modify' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' :
+                                'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
+                              }`}>
+                                {c.action === 'add' ? '추가' : c.action === 'modify' ? '수정' : '삭제'}
+                              </span>
+                              <span className="text-gray-600 dark:text-gray-400">{c.user}</span>
+                              <span className={`font-medium ${
+                                c.type === 'buy' ? 'text-gray-700 dark:text-gray-300' :
+                                c.type === 'take_profit' ? 'text-red-600 dark:text-red-400' :
+                                'text-blue-600 dark:text-blue-400'
+                              }`}>
+                                {c.type === 'buy' ? '매수' : c.type === 'take_profit' ? '익절' : '손절'}
+                              </span>
+                              <span className="text-gray-700 dark:text-gray-300">
+                                {formatCurrency(c.price, position?.market)} ({formatQuantity(c.quantity, position?.market)})
+                              </span>
+                              {c.action === 'modify' && c.old_price && (
+                                <span className="text-gray-400 dark:text-gray-500 line-through">
+                                  ← {formatCurrency(c.old_price, position?.market)} ({formatQuantity(c.old_quantity, position?.market)})
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* 변경 이력이 없으면 기존 요약 표시 */}
+                      {(!plan.changes || plan.changes.length === 0) && (
+                        <div className="mt-1 text-gray-500 dark:text-gray-400">
+                          매수 {(plan.buy_plan || []).length}개 · 익절 {(plan.take_profit_targets || []).length}개 · 손절 {(plan.stop_loss_targets || []).length}개
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
