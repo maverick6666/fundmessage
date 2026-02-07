@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import { useSidePanelStore } from '../stores/useSidePanelStore';
 import { formatRelativeTime } from '../utils/formatters';
+import { useAuthContext } from '../context/AuthContext';
 
 // Tab icons
 const TabIcons = {
@@ -30,7 +31,7 @@ const TabIcons = {
 };
 
 // Document Card Component - Brutalist Style
-function DocumentCard({ type, data, onClick }) {
+function DocumentCard({ type, data, onClick, onDelete, showDelete }) {
   const isColumn = type === 'column';
 
   // Brutalist color blocks - theme-harmonious colors
@@ -66,12 +67,29 @@ function DocumentCard({ type, data, onClick }) {
           <span className={`text-[10px] font-bold uppercase tracking-wider ${style.headerText}`}>
             {style.label}
           </span>
-          {/* Instagram-style blue verified badge - always blue regardless of theme */}
-          {isColumn && data.is_verified && (
-            <svg className="w-4 h-4 text-[#1DA1F2]" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z" />
-            </svg>
-          )}
+          <div className="flex items-center gap-1.5">
+            {/* Instagram-style blue verified badge - always blue regardless of theme */}
+            {isColumn && data.is_verified && (
+              <svg className="w-4 h-4 text-[#1DA1F2]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z" />
+              </svg>
+            )}
+            {/* 관리자 모드 삭제 버튼 */}
+            {showDelete && onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(data);
+                }}
+                className="p-0.5 rounded hover:bg-red-500/30 text-white/70 hover:text-white transition-colors"
+                title="삭제"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Content */}
@@ -127,6 +145,7 @@ function DocumentCard({ type, data, onClick }) {
 
 export function Reports() {
   const { user } = useAuth();
+  const { adminMode } = useAuthContext();
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const { openDocument, openColumnEditor } = useSidePanelStore();
@@ -346,6 +365,8 @@ export function Reports() {
                   type="column"
                   data={column}
                   onClick={() => handleColumnClick(column)}
+                  showDelete={adminMode}
+                  onDelete={(col) => setDeleteColumnId(col.id)}
                 />
               ))}
             </div>
