@@ -29,145 +29,96 @@ const TabIcons = {
   )
 };
 
-// Document Card Component - Clean & Structured Style
+// Document Card Component - Brutalist Style
 function DocumentCard({ type, data, onClick }) {
   const isColumn = type === 'column';
 
-  // Type-based theming - 더 절제된 색상
-  const getTypeTheme = () => {
-    switch (type) {
-      case 'decision':
-        return {
-          accent: 'bg-blue-500',
-          accentLight: 'bg-blue-50 dark:bg-blue-900/20',
-          text: 'text-blue-600 dark:text-blue-400'
-        };
-      case 'report':
-        return {
-          accent: 'bg-emerald-500',
-          accentLight: 'bg-emerald-50 dark:bg-emerald-900/20',
-          text: 'text-emerald-600 dark:text-emerald-400'
-        };
-      case 'column':
-        return {
-          accent: 'bg-violet-500',
-          accentLight: 'bg-violet-50 dark:bg-violet-900/20',
-          text: 'text-violet-600 dark:text-violet-400'
-        };
-      default:
-        return {
-          accent: 'bg-gray-400',
-          accentLight: 'bg-gray-50 dark:bg-gray-700',
-          text: 'text-gray-600 dark:text-gray-400'
-        };
+  // Brutalist color blocks - theme-harmonious colors
+  const typeStyles = {
+    decision: {
+      headerBg: 'bg-cyan-600 dark:bg-cyan-700',
+      headerText: 'text-white',
+      label: '의사결정'
+    },
+    report: {
+      headerBg: 'bg-teal-600 dark:bg-teal-700',
+      headerText: 'text-white',
+      label: '운용보고'
+    },
+    column: {
+      headerBg: 'bg-slate-700 dark:bg-slate-600',
+      headerText: 'text-white',
+      label: '칼럼'
     }
   };
 
-  const theme = getTypeTheme();
-
-  // Get badge info
-  const getBadge = () => {
-    if (isColumn) {
-      return data.is_verified ? {
-        icon: (
-          <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-        )
-      } : null;
-    }
-    if (data.position?.status === 'open') {
-      return {
-        text: '보유중',
-        className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-      };
-    }
-    return {
-      text: '종료',
-      className: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-    };
-  };
-
-  const badge = getBadge();
+  const style = typeStyles[type] || typeStyles.column;
 
   return (
     <button
       onClick={onClick}
-      className="group text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500 rounded-xl"
+      className="group text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-white"
     >
-      <div
-        className={`
-          relative overflow-hidden rounded-xl
-          bg-white dark:bg-gray-800
-          border border-gray-200 dark:border-gray-700
-          transition-all duration-200 ease-out
-          hover:border-gray-300 dark:hover:border-gray-600
-          hover:shadow-lg
-          aspect-[3/4] flex flex-col
-        `}
-      >
-        {/* Left Accent Bar */}
-        <div className={`absolute top-0 left-0 bottom-0 w-1 ${theme.accent}`} />
+      <div className="relative aspect-[3/4] overflow-hidden bg-stone-50 dark:bg-gray-900 border-2 border-black dark:border-gray-300 hover:border-black dark:hover:border-white transition-colors duration-150">
 
-        {/* Card Content - 세로 레이아웃 */}
-        <div className="pl-4 pr-4 py-4 flex flex-col h-full">
-          {/* Top: Title */}
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base leading-snug line-clamp-3 mb-auto">
+        {/* Top Color Block - 문서 유형 표시 */}
+        <div className={`${style.headerBg} px-2.5 py-1.5 flex items-center justify-between border-b-2 border-black dark:border-gray-300`}>
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${style.headerText}`}>
+            {style.label}
+          </span>
+          {/* Instagram-style blue verified badge - always blue regardless of theme */}
+          {isColumn && data.is_verified && (
+            <svg className="w-4 h-4 text-[#1DA1F2]" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z" />
+            </svg>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="h-[calc(100%-2rem)] px-2.5 py-2 flex flex-col">
+
+          {/* Title - 상단 배치, 볼드, 더 큰 폰트 */}
+          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight line-clamp-4 group-hover:underline decoration-2 underline-offset-2">
             {data.title}
           </h3>
 
-          {/* Middle: Badge + Time */}
-          <div className="flex items-center gap-2 mb-3 mt-3">
-            {badge && (
-              badge.icon ? (
-                badge.icon
-              ) : (
-                <span className={`text-xs font-medium px-2 py-0.5 rounded ${badge.className}`}>
-                  {badge.text}
-                </span>
-              )
-            )}
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Meta row */}
+          <div className="flex items-center justify-between gap-1 mb-1.5">
+            <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 uppercase">
               {formatRelativeTime(data.created_at)}
             </span>
+            {!isColumn && data.position?.status === 'open' && (
+              <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50 px-1.5 py-0.5">
+                OPEN
+              </span>
+            )}
           </div>
 
-          {/* Divider */}
-          <div className="h-px bg-gray-100 dark:bg-gray-700 mb-3" />
-
-          {/* Bottom: Meta Info */}
-          {isColumn ? (
-            // Column: Author
-            <div className="flex items-center gap-2">
-              <div className={`w-7 h-7 rounded-lg ${theme.accentLight} flex items-center justify-center ${theme.text} text-xs font-bold`}>
-                {data.author?.full_name?.charAt(0) || '?'}
-              </div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {data.author?.full_name || '익명'}
-              </span>
-            </div>
-          ) : (
-            // Decision/Report: Position
-            data.position && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={`w-7 h-7 rounded-lg ${theme.accentLight} flex items-center justify-center`}>
-                    <svg className={`w-4 h-4 ${theme.text}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 leading-tight">
-                      {data.position.ticker_name || data.position.ticker}
-                    </p>
-                  </div>
+          {/* Footer - 두꺼운 상단 보더 */}
+          <div className="pt-1.5 border-t-2 border-black/20 dark:border-white/20">
+            {isColumn ? (
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-slate-700/80 dark:bg-slate-500/80 flex items-center justify-center text-white text-xs font-bold ring-1 ring-black/10 dark:ring-white/10 shrink-0">
+                  {data.author?.full_name?.charAt(0) || '?'}
                 </div>
-                <span className="text-xs font-mono text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 px-1.5 py-0.5 rounded">
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
+                  {data.author?.full_name || '익명'}
+                </span>
+              </div>
+            ) : data.position && (
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 truncate">
+                  {data.position.ticker_name || data.position.ticker}
+                </span>
+                <span className="text-[9px] font-mono font-bold text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-1 py-0.5">
                   {data.position.market}
                 </span>
               </div>
-            )
-          )}
+            )}
+          </div>
         </div>
       </div>
     </button>
@@ -283,8 +234,8 @@ export function Reports() {
     </div>
   );
 
-  // Gallery grid classes - 더 큰 카드를 위해 컬럼 수 줄임
-  const gridClasses = "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5";
+  // Gallery grid classes - 6열 그리드 (카드 사이즈 2/3)
+  const gridClasses = "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3";
 
   return (
     <div className="space-y-6 min-w-0">
