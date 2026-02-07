@@ -51,7 +51,8 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
   const menuRef = useRef(null);
   const editorRef = useRef(null);
   const menuInputRef = useRef(null);
-  const hasInitializedRef = useRef(false);
+  // 내부에서 변경이 발생했는지 추적 (이미지 업로드, 텍스트 수정 등)
+  const internalChangeRef = useRef(false);
 
   // initialBlocks의 ID를 문자열로 변환하여 비교 (참조 대신 내용 기반)
   const initialBlockIds = useMemo(() =>
@@ -59,14 +60,17 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
     [initialBlocks]
   );
 
-  // Sync with initial blocks only on first load (when editing existing column)
+  // Sync with initial blocks only when data comes from external source (server fetch)
   useEffect(() => {
-    // 이미 초기화되었으면 무시 (이미지 업로드 등 내부 업데이트 보호)
-    if (hasInitializedRef.current) return;
+    // 내부 변경이면 무시 (이미지 업로드 등)
+    if (internalChangeRef.current) {
+      internalChangeRef.current = false;
+      return;
+    }
 
+    // 외부에서 블록 데이터가 로드된 경우에만 동기화
     if (initialBlocks.length > 0) {
       setBlocks(initialBlocks);
-      hasInitializedRef.current = true;
     }
   }, [initialBlockIds]);
 
@@ -89,6 +93,8 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
 
   const updateBlocks = useCallback((newBlocks) => {
     setBlocks(newBlocks);
+    // 내부 변경 표시 (useEffect에서 외부 동기화 방지)
+    internalChangeRef.current = true;
     onChange?.(newBlocks);
   }, [onChange]);
 
