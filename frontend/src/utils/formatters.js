@@ -84,14 +84,29 @@ export function formatPercent(value, decimals = 2) {
   return `${(value * 100).toFixed(decimals)}%`;
 }
 
+// 백엔드에서 UTC 시간을 반환하므로 'Z' 접미사 추가하여 UTC로 파싱
+function parseUTCDate(date) {
+  if (!date) return null;
+  // 이미 타임존 정보가 있으면 그대로 사용
+  if (date.endsWith('Z') || date.includes('+') || date.includes('-', 10)) {
+    return new Date(date);
+  }
+  // 타임존 정보가 없으면 UTC로 간주
+  return new Date(date + 'Z');
+}
+
 export function formatDate(date, formatStr = 'yyyy-MM-dd HH:mm') {
   if (!date) return '-';
-  return format(new Date(date), formatStr, { locale: ko });
+  const parsed = parseUTCDate(date);
+  if (!parsed) return '-';
+  return format(parsed, formatStr, { locale: ko });
 }
 
 export function formatRelativeTime(date) {
   if (!date) return '-';
-  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ko });
+  const parsed = parseUTCDate(date);
+  if (!parsed) return '-';
+  return formatDistanceToNow(parsed, { addSuffix: true, locale: ko });
 }
 
 export function formatHours(hours) {
