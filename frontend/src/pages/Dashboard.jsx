@@ -337,13 +337,55 @@ export function Dashboard() {
       {activeTab === 'dashboard' && (
       <>
 
+        {/* Action Required Banner - 액션 필요 섹션 */}
+        {(isManager() ? (pendingCount > 0 || unconfirmedCount > 0) : false) && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 rounded-r-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <span className="font-semibold text-amber-800 dark:text-amber-200">처리가 필요한 항목</span>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {pendingCount > 0 && (
+                <Link
+                  to="/requests?status=pending"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 rounded-lg border-2 border-amber-200 dark:border-amber-700 hover:border-amber-400 dark:hover:border-amber-500 transition-colors group"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-800/50 flex items-center justify-center">
+                    <span className="text-xl font-bold text-amber-700 dark:text-amber-300">{pendingCount}</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-amber-700 dark:group-hover:text-amber-400">대기중 요청</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">승인/거부 필요</p>
+                  </div>
+                </Link>
+              )}
+              {unconfirmedCount > 0 && (
+                <Link
+                  to="/positions?filter=unconfirmed"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 rounded-lg border-2 border-amber-200 dark:border-amber-700 hover:border-amber-400 dark:hover:border-amber-500 transition-colors group"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-800/50 flex items-center justify-center">
+                    <span className="text-xl font-bold text-amber-700 dark:text-amber-300">{unconfirmedCount}</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-amber-700 dark:group-hover:text-amber-400">미확인 포지션</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">체결 정보 확인 필요</p>
+                  </div>
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 원화 자본금 */}
         <Card>
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500 dark:text-gray-400">원화 자본금</p>
-            {isManager() && (
+            {isManager() && initialCapitalKrw > 0 && (
               <button
                 onClick={() => setShowSettingsModal(true)}
                 className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
@@ -354,13 +396,29 @@ export function Dashboard() {
               </button>
             )}
           </div>
-          <p className="text-2xl font-bold mt-1 dark:text-gray-100">
-            {initialCapitalKrw > 0 ? formatCurrency(initialCapitalKrw, 'KRX') : '-'}
-          </p>
-          {initialCapitalKrw > 0 && krwInvested > 0 && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              투자: {formatCurrency(krwInvested, 'KRX')} ({formatPercent(krwInvested / initialCapitalKrw)})
-            </p>
+          {initialCapitalKrw > 0 ? (
+            <>
+              <p className="text-2xl font-bold mt-1 dark:text-gray-100">
+                {formatCurrency(initialCapitalKrw, 'KRX')}
+              </p>
+              {krwInvested > 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  투자: {formatCurrency(krwInvested, 'KRX')} ({formatPercent(krwInvested / initialCapitalKrw)})
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="mt-2">
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-2">자본금을 설정하세요</p>
+              {isManager() && (
+                <button
+                  onClick={() => setShowSettingsModal(true)}
+                  className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium hover:underline"
+                >
+                  설정하기 →
+                </button>
+              )}
+            </div>
           )}
         </Card>
 
@@ -368,7 +426,7 @@ export function Dashboard() {
         <Card>
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500 dark:text-gray-400">달러 자본금</p>
-            {isManager() && (
+            {isManager() && initialCapitalUsd > 0 && (
               <button
                 onClick={() => setShowSettingsModal(true)}
                 className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
@@ -379,13 +437,29 @@ export function Dashboard() {
               </button>
             )}
           </div>
-          <p className="text-2xl font-bold mt-1 dark:text-gray-100">
-            {initialCapitalUsd > 0 ? formatCurrency(initialCapitalUsd, 'USD') : '-'}
-          </p>
-          {initialCapitalUsd > 0 && usdInvested > 0 && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              투자: {formatCurrency(usdInvested, 'USD')} ({formatPercent(usdInvested / initialCapitalUsd)})
-            </p>
+          {initialCapitalUsd > 0 ? (
+            <>
+              <p className="text-2xl font-bold mt-1 dark:text-gray-100">
+                {formatCurrency(initialCapitalUsd, 'USD')}
+              </p>
+              {usdInvested > 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  투자: {formatCurrency(usdInvested, 'USD')} ({formatPercent(usdInvested / initialCapitalUsd)})
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="mt-2">
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-2">자본금을 설정하세요</p>
+              {isManager() && (
+                <button
+                  onClick={() => setShowSettingsModal(true)}
+                  className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium hover:underline"
+                >
+                  설정하기 →
+                </button>
+              )}
+            </div>
           )}
         </Card>
 
@@ -457,9 +531,22 @@ export function Dashboard() {
                       )}
                     </div>
                     {position.profit_rate != null && (
-                      <span className={`text-sm font-medium shrink-0 whitespace-nowrap ${getProfitLossClass(position.profit_rate)}`}>
-                        {position.profit_rate >= 0 ? '+' : ''}{formatPercent(position.profit_rate)}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* 미니 수익률 바 */}
+                        <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              position.profit_rate >= 0 ? 'bg-emerald-500' : 'bg-rose-500'
+                            }`}
+                            style={{
+                              width: `${Math.min(Math.abs(position.profit_rate) * 5, 100)}%`
+                            }}
+                          />
+                        </div>
+                        <span className={`text-sm font-semibold whitespace-nowrap ${getProfitLossClass(position.profit_rate)}`}>
+                          {position.profit_rate >= 0 ? '+' : ''}{formatPercent(position.profit_rate)}
+                        </span>
+                      </div>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 text-sm">
