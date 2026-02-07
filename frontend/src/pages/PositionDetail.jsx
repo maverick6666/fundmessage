@@ -7,6 +7,7 @@ import { ConfirmModal } from '../components/common/ConfirmModal';
 import { Input } from '../components/common/Input';
 import { StockChart } from '../components/charts/StockChart';
 import { ProfitProgressBar, TargetProgressBar } from '../components/common/ProfitProgressBar';
+import { QuickNumberButtons } from '../components/common/NumberInputWithQuickButtons';
 import ReactMarkdown from 'react-markdown';
 import { AIDecisionNoteModal } from '../components/ai/AIDecisionNoteModal';
 import { aiService } from '../services/aiService';
@@ -706,35 +707,53 @@ export function PositionDetail() {
 
     if (isEditing && !isClosed) {
       return (
-        <div key={index} className={`flex items-center gap-2 text-sm p-2 rounded ${colorClass}`}>
-          <input
-            type="number"
-            step="any"
-            placeholder="가격"
-            value={editPlanData.price}
-            onChange={(e) => setEditPlanData({ ...editPlanData, price: e.target.value })}
-            className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded text-sm"
-            autoFocus
-          />
-          <span className="dark:text-gray-400">×</span>
-          <input
-            type="number"
-            step="any"
-            placeholder="수량"
-            value={editPlanData.quantity}
-            onChange={(e) => setEditPlanData({ ...editPlanData, quantity: e.target.value })}
-            className="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded text-sm"
-          />
-          <button onClick={handleSavePlanItem} className="p-1 text-green-600 hover:text-green-700" title="저장">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-            </svg>
-          </button>
-          <button onClick={cancelEditPlanItem} className="p-1 text-gray-400 hover:text-gray-600" title="취소">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        <div key={index} className={`text-sm p-3 rounded ${colorClass} space-y-2`}>
+          {/* 가격/수량 입력 */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <input
+                type="number"
+                step="any"
+                placeholder="가격"
+                value={editPlanData.price}
+                onChange={(e) => setEditPlanData({ ...editPlanData, price: e.target.value })}
+                className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded text-sm"
+                autoFocus
+              />
+            </div>
+            <span className="dark:text-gray-400 shrink-0">×</span>
+            <div className="w-28 shrink-0">
+              <input
+                type="number"
+                step="any"
+                placeholder="수량"
+                value={editPlanData.quantity}
+                onChange={(e) => setEditPlanData({ ...editPlanData, quantity: e.target.value })}
+                className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded text-sm"
+              />
+            </div>
+            <button onClick={handleSavePlanItem} className="p-1.5 text-green-600 hover:text-green-700 shrink-0" title="저장">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+            <button onClick={cancelEditPlanItem} className="p-1.5 text-gray-400 hover:text-gray-600 shrink-0" title="취소">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          {/* 수량 간편입력 버튼 */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500 dark:text-gray-400">수량:</span>
+            <QuickNumberButtons
+              onAdd={(num) => {
+                const current = parseFloat(editPlanData.quantity) || 0;
+                setEditPlanData({ ...editPlanData, quantity: String(current + num) });
+              }}
+              quickValues={[1, 5, 10, 50, 100]}
+            />
+          </div>
         </div>
       );
     }
