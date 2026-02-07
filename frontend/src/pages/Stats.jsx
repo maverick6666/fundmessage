@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle } from '../components/common/Card';
 import { AttendanceCalendar } from '../components/attendance/AttendanceCalendar';
 import { statsService } from '../services/statsService';
@@ -11,6 +11,36 @@ import {
   formatNumber,
   getProfitLossClass
 } from '../utils/formatters';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart
+} from 'recharts';
+
+// 기간 필터 옵션
+const PERIOD_OPTIONS = [
+  { key: '1w', label: '1주' },
+  { key: '1m', label: '1개월' },
+  { key: '3m', label: '분기' },
+  { key: 'all', label: '전체' }
+];
+
+// 히트맵 색상 스케일
+function getHeatmapColor(rate) {
+  if (rate === null || rate === undefined || rate === 0) return 'bg-slate-600';
+  if (rate <= -0.10) return 'bg-rose-700';
+  if (rate <= -0.05) return 'bg-rose-500';
+  if (rate < -0.01) return 'bg-rose-400';
+  if (rate < 0.01) return 'bg-slate-500';
+  if (rate < 0.05) return 'bg-emerald-400';
+  if (rate < 0.10) return 'bg-emerald-500';
+  return 'bg-emerald-700';
+}
 
 export function Stats() {
   const { user } = useAuth();
@@ -21,6 +51,8 @@ export function Stats() {
   const [exchangeRate, setExchangeRate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tickerFilter, setTickerFilter] = useState('open'); // open, closed, all
+  const [tickerViewMode, setTickerViewMode] = useState('table'); // table, heatmap
+  const [periodFilter, setPeriodFilter] = useState('all'); // 1w, 1m, 3m, all
 
   useEffect(() => {
     fetchStats();
@@ -59,29 +91,73 @@ export function Stats() {
     return true;
   }) || [];
 
+  // 더미 차트 데이터 (실제로는 API에서 가져와야 함) - 훅은 조건문 전에 있어야 함
+  const chartData = useMemo(() => {
+    // 실제 데이터가 없으면 더미 데이터 생성
+    const days = periodFilter === '1w' ? 7 : periodFilter === '1m' ? 30 : periodFilter === '3m' ? 90 : 180;
+    const data = [];
+    let value = 17000000; // 시작 자산
+
+    for (let i = days; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      // 랜덤 변동 (-2% ~ +2%)
+      const change = (Math.random() - 0.5) * 0.04;
+      value = value * (1 + change);
+      data.push({
+        date: `${date.getMonth() + 1}/${date.getDate()}`,
+        value: Math.round(value),
+        change: change
+      });
+    }
+    return data;
+  }, [periodFilter]);
+
   if (loading) {
     return <div className="text-center py-12 text-gray-500 dark:text-gray-400">로딩중...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold dark:text-gray-100">통계</h1>
+      {/* Header with title, tabs, and period filter */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <h1 className="text-2xl font-bold dark:text-gray-100">통계</h1>
 
-      {/* Tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {['team', 'my'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === tab
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-            }`}
-          >
-            {tab === 'team' ? '팀 전체' : '내 성과'}
-          </button>
-        ))}
+          {/* Period Filter */}
+          <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+            {PERIOD_OPTIONS.map(period => (
+              <button
+                key={period.key}
+                onClick={() => setPeriodFilter(period.key)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  periodFilter === period.key
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                {period.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 flex-wrap">
+          {['team', 'my'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              {tab === 'team' ? '팀 전체' : '내 성과'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Team Stats */}
@@ -119,11 +195,11 @@ export function Stats() {
 
         return (
         <div className="space-y-6">
-          {/* 전체 자산 요약 */}
+          {/* 전체 자산 요약 - 히어로 섹션 */}
           {totalKrwAsset !== null && (
             <div>
               <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">전체 자산 (KRW 환산)</h3>
-              <Card>
+              <Card className="overflow-hidden">
                 <div className="flex items-baseline gap-3 flex-wrap">
                   <p className="text-3xl font-bold">
                     {formatCurrency(totalKrwAsset, 'KRX')}
@@ -149,25 +225,68 @@ export function Stats() {
                     )}
                   </p>
                 )}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-sm">
-                  <div>
-                    <span className="text-gray-500 dark:text-gray-400">KRW 보유</span>
-                    <p className="font-medium dark:text-gray-200">{formatCurrency(krwCash, 'KRX')}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 dark:text-gray-400">KRW 평가</span>
-                    <p className="font-medium dark:text-gray-200">{krwEvaluation > 0 ? formatCurrency(krwEvaluation, 'KRX') : '-'}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 dark:text-gray-400">USD 보유</span>
-                    <p className="font-medium dark:text-gray-200">{formatCurrency(usdCash, 'USD')}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 dark:text-gray-400">USD 평가</span>
-                    <p className="font-medium dark:text-gray-200">{(usdEvaluation + usdtEvaluation) > 0 ? formatCurrency(usdEvaluation + usdtEvaluation, 'USD') : '-'}</p>
+
+                {/* 수익 추이 차트 */}
+                <div className="mt-4 -mx-4 -mb-4">
+                  <div className="h-40 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={totalReturnRate >= 0 ? '#10b981' : '#f43f5e'} stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor={totalReturnRate >= 0 ? '#10b981' : '#f43f5e'} stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <XAxis
+                          dataKey="date"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 10, fill: '#6b7280' }}
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis hide domain={['dataMin - 500000', 'dataMax + 500000']} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '8px 12px'
+                          }}
+                          labelStyle={{ color: '#9ca3af', fontSize: '12px' }}
+                          formatter={(value) => [formatCurrency(value, 'KRX'), '자산']}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="value"
+                          stroke={totalReturnRate >= 0 ? '#10b981' : '#f43f5e'}
+                          strokeWidth={2}
+                          fill="url(#colorValue)"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
               </Card>
+
+              {/* 보유 현황 카드 그리드 */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">KRW 보유</span>
+                  <p className="font-semibold text-lg dark:text-gray-200">{formatCurrency(krwCash, 'KRX')}</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">KRW 평가</span>
+                  <p className="font-semibold text-lg dark:text-gray-200">{krwEvaluation > 0 ? formatCurrency(krwEvaluation, 'KRX') : '-'}</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">USD 보유</span>
+                  <p className="font-semibold text-lg dark:text-gray-200">{formatCurrency(usdCash, 'USD')}</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">USD 평가</span>
+                  <p className="font-semibold text-lg dark:text-gray-200">{(usdEvaluation + usdtEvaluation) > 0 ? formatCurrency(usdEvaluation + usdtEvaluation, 'USD') : '-'}</p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -229,7 +348,36 @@ export function Stats() {
               </Card>
               <Card>
                 <p className="text-sm text-gray-500 dark:text-gray-400">승률</p>
-                <p className="text-2xl font-bold">{formatPercent(teamStats.closed_positions?.win_rate || 0)}</p>
+                <div className="flex items-center gap-3">
+                  {/* 원형 승률 표시 */}
+                  <div className="relative w-12 h-12">
+                    <svg className="w-12 h-12 transform -rotate-90">
+                      <circle
+                        cx="24"
+                        cy="24"
+                        r="20"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                        className="text-gray-200 dark:text-gray-700"
+                      />
+                      <circle
+                        cx="24"
+                        cy="24"
+                        r="20"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                        strokeDasharray={`${(teamStats.closed_positions?.win_rate || 0) * 125.6} 125.6`}
+                        className="text-emerald-500"
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">
+                      {Math.round((teamStats.closed_positions?.win_rate || 0) * 100)}%
+                    </span>
+                  </div>
+                  <p className="text-2xl font-bold">{formatPercent(teamStats.closed_positions?.win_rate || 0)}</p>
+                </div>
               </Card>
               <Card>
                 <p className="text-sm text-gray-500 dark:text-gray-400">실현 손익</p>
@@ -276,7 +424,7 @@ export function Stats() {
           {/* 종목별 현황 */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between w-full">
+              <div className="flex items-center justify-between w-full flex-wrap gap-2">
                 <CardTitle>
                   종목별 현황
                   <span className="ml-2 text-sm font-normal text-gray-400">
@@ -285,27 +433,98 @@ export function Stats() {
                     {tickerFilter === 'all' && `전체 ${filteredTickers.length}`}
                   </span>
                 </CardTitle>
-                <div className="flex gap-1">
-                  {[
-                    { key: 'open', label: '진행중' },
-                    { key: 'closed', label: '종료됨' },
-                    { key: 'all', label: '전체' }
-                  ].map(f => (
+                <div className="flex gap-2 items-center">
+                  {/* 뷰 모드 토글 */}
+                  <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-0.5 rounded-md">
                     <button
-                      key={f.key}
-                      onClick={() => setTickerFilter(f.key)}
-                      className={`px-3 py-1 text-xs rounded-full ${
-                        tickerFilter === f.key
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                      onClick={() => setTickerViewMode('table')}
+                      className={`p-1.5 rounded ${
+                        tickerViewMode === 'table'
+                          ? 'bg-white dark:bg-gray-700 shadow-sm'
+                          : 'text-gray-400 hover:text-gray-600'
                       }`}
+                      title="테이블 뷰"
                     >
-                      {f.label}
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                      </svg>
                     </button>
-                  ))}
+                    <button
+                      onClick={() => setTickerViewMode('heatmap')}
+                      className={`p-1.5 rounded ${
+                        tickerViewMode === 'heatmap'
+                          ? 'bg-white dark:bg-gray-700 shadow-sm'
+                          : 'text-gray-400 hover:text-gray-600'
+                      }`}
+                      title="히트맵 뷰"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* 필터 버튼 */}
+                  <div className="flex gap-1">
+                    {[
+                      { key: 'open', label: '진행중' },
+                      { key: 'closed', label: '종료됨' },
+                      { key: 'all', label: '전체' }
+                    ].map(f => (
+                      <button
+                        key={f.key}
+                        onClick={() => setTickerFilter(f.key)}
+                        className={`px-3 py-1 text-xs rounded-full ${
+                          tickerFilter === f.key
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </CardHeader>
+            {/* 히트맵 뷰 */}
+            {tickerViewMode === 'heatmap' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                {filteredTickers.length === 0 ? (
+                  <div className="col-span-full py-8 text-center text-gray-500 dark:text-gray-400">
+                    해당 종목이 없습니다
+                  </div>
+                ) : (
+                  filteredTickers.map((ticker, i) => {
+                    const rate = tickerFilter === 'open' ? ticker.unrealized_rate :
+                                 tickerFilter === 'closed' ? ticker.profit_rate :
+                                 ticker.avg_profit_rate;
+                    return (
+                      <div
+                        key={i}
+                        className={`${getHeatmapColor(rate)} rounded-lg p-3 flex flex-col items-center justify-center min-h-[100px] transition-transform hover:scale-105`}
+                      >
+                        <span className="font-semibold text-white text-sm text-center truncate w-full">
+                          {ticker.ticker_name || ticker.ticker}
+                        </span>
+                        <span className="text-white/70 text-xs mt-0.5">
+                          {ticker.ticker}
+                        </span>
+                        <span className="text-white font-bold text-lg mt-1">
+                          {rate !== 0 && rate !== null
+                            ? `${rate > 0 ? '+' : ''}${formatPercent(rate)}`
+                            : '-'
+                          }
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {/* 테이블 뷰 */}
+            {tickerViewMode === 'table' && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -424,6 +643,7 @@ export function Stats() {
                 </tbody>
               </table>
             </div>
+            )}
           </Card>
         </div>
         );
