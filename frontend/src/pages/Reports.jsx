@@ -393,11 +393,11 @@ export function Reports() {
                 <button
                   key={column.id}
                   onClick={() => handleColumnClick(column)}
-                  className="group text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600"
+                  className="group text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 min-w-0"
                 >
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-2">
+                  <div className="flex items-start justify-between gap-4 mb-3 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
                         {column.title}
                       </h3>
                       {column.is_verified && (

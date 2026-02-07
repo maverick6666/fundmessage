@@ -629,11 +629,11 @@ export function Positions() {
                     {/* Top Row: Ticker + Status */}
                     <div className="px-5 pt-4 pb-2 flex items-start justify-between">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 truncate max-w-[200px]">
                             {position.ticker_name || position.ticker}
                           </h3>
-                          <span className="text-sm text-gray-400 dark:text-gray-500 font-mono">{position.ticker}</span>
+                          <span className="text-sm text-gray-400 dark:text-gray-500 font-mono shrink-0">{position.ticker}</span>
                           {isOpen && !position.is_info_confirmed && (
                             <span className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-medium px-2 py-0.5 rounded-full">
                               미수정
