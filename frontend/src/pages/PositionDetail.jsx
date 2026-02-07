@@ -229,6 +229,7 @@ export function PositionDetail() {
       setPlanMemo('');
       setPendingChanges([]); // 저장 후 초기화
       fetchTradingPlans();
+      if (showAuditLogs) fetchAuditLogs(); // 감사 로그 새로고침
       toast.success('매매계획이 저장되었습니다.');
     } catch (error) {
       toast.error(error.response?.data?.detail || '저장에 실패했습니다.');
@@ -1301,171 +1302,228 @@ export function PositionDetail() {
         </Card>
       )}
 
-      {/* 의사결정 노트 */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between w-full">
-            <CardTitle>의사결정 노트</CardTitle>
-            {isManagerOrAdmin() && !showNoteForm && (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setShowOperationReportModal(true)}
-                  className="text-sm text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium flex items-center gap-1"
-                  title="AI 운용보고서 생성"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  운용보고서
-                </button>
-                <button
-                  onClick={() => setShowAIModal(true)}
-                  className="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-medium flex items-center gap-1"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                  AI 의사결정서
-                </button>
-                {isManager() && (
+      {/* 의사결정 노트 + 운용보고서 + 이력 (2열 레이아웃) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 왼쪽: 의사결정 노트 + 운용보고서 */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* 의사결정 노트 */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between w-full">
+                <CardTitle>의사결정 노트</CardTitle>
+                {isManagerOrAdmin() && !showNoteForm && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setShowAIModal(true)}
+                      className="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-medium flex items-center gap-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      AI 보고서
+                    </button>
+                    {isManager() && (
+                      <button
+                        onClick={() => { setShowNoteForm(true); setEditingNoteId(null); setNoteTitle(''); setNoteContent(''); }}
+                        className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                      >
+                        + 문서 추가
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+
+            {showNoteForm && (
+              <div className="mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                <input
+                  type="text"
+                  placeholder="노트 제목"
+                  value={noteTitle}
+                  onChange={(e) => setNoteTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <textarea
+                  placeholder="마크다운으로 작성할 수 있습니다..."
+                  value={noteContent}
+                  onChange={(e) => setNoteContent(e.target.value)}
+                  rows={8}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <div className="flex justify-end gap-2 mt-3">
+                  <Button variant="secondary" size="sm" onClick={() => { setShowNoteForm(false); setEditingNoteId(null); }}>취소</Button>
+                  <Button size="sm" onClick={handleSaveNote}>{editingNoteId ? '수정' : '저장'}</Button>
+                </div>
+              </div>
+            )}
+
+            {decisionNotes.filter(n => !n.title?.startsWith('📊')).length === 0 && !showNoteForm ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">작성된 의사결정 노트가 없습니다</p>
+            ) : (
+              <div className="space-y-2">
+                {decisionNotes.filter(n => !n.title?.startsWith('📊')).map(note => (
+                  <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                    <div
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={() => setExpandedNoteId(expandedNoteId === note.id ? null : note.id)}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <svg className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform shrink-0 ${expandedNoteId === note.id ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{note.title}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{note.author?.full_name} · {formatDate(note.updated_at || note.created_at)}</p>
+                        </div>
+                      </div>
+                      {isManager() && (
+                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => handleEditNote(note)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded" title="수정">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          <button onClick={() => handleDeleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded" title="삭제">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {expandedNoteId === note.id && (
+                      <div className="p-4 border-t border-gray-200 dark:border-gray-700 prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown>{note.content}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* 운용보고서 */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between w-full">
+                <CardTitle>운용보고서</CardTitle>
+                {isManagerOrAdmin() && (
                   <button
-                    onClick={() => { setShowNoteForm(true); setEditingNoteId(null); setNoteTitle(''); setNoteContent(''); }}
-                    className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                    onClick={() => setShowOperationReportModal(true)}
+                    className="text-sm text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium flex items-center gap-1"
+                    title="AI 운용보고서 생성"
                   >
-                    + 문서 추가
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    AI 생성
                   </button>
                 )}
               </div>
-            )}
-          </div>
-        </CardHeader>
-
-        {showNoteForm && (
-          <div className="mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-            <input
-              type="text"
-              placeholder="노트 제목"
-              value={noteTitle}
-              onChange={(e) => setNoteTitle(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-            <textarea
-              placeholder="마크다운으로 작성할 수 있습니다..."
-              value={noteContent}
-              onChange={(e) => setNoteContent(e.target.value)}
-              rows={8}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-            <div className="flex justify-end gap-2 mt-3">
-              <Button variant="secondary" size="sm" onClick={() => { setShowNoteForm(false); setEditingNoteId(null); }}>취소</Button>
-              <Button size="sm" onClick={handleSaveNote}>{editingNoteId ? '수정' : '저장'}</Button>
-            </div>
-          </div>
-        )}
-
-        {decisionNotes.length === 0 && !showNoteForm ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">작성된 의사결정 노트가 없습니다</p>
-        ) : (
-          <div className="space-y-2">
-            {decisionNotes.map(note => (
-              <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                <div
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onClick={() => setExpandedNoteId(expandedNoteId === note.id ? null : note.id)}
-                >
-                  <div className="flex items-center gap-3">
-                    <svg className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${expandedNoteId === note.id ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{note.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{note.author?.full_name} · {formatDate(note.updated_at || note.created_at)}</p>
-                    </div>
-                  </div>
-                  {isManager() && (
-                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => handleEditNote(note)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded" title="수정">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </CardHeader>
+            {decisionNotes.filter(n => n.title?.startsWith('📊')).length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">생성된 운용보고서가 없습니다</p>
+            ) : (
+              <div className="space-y-2">
+                {decisionNotes.filter(n => n.title?.startsWith('📊')).map(note => (
+                  <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                    <div
+                      className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                      onClick={() => setExpandedNoteId(expandedNoteId === note.id ? null : note.id)}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <svg className={`w-4 h-4 text-amber-500 dark:text-amber-400 transition-transform shrink-0 ${expandedNoteId === note.id ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                         </svg>
-                      </button>
-                      <button onClick={() => handleDeleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded" title="삭제">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{note.title}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{note.author?.full_name} · {formatDate(note.updated_at || note.created_at)}</p>
+                        </div>
+                      </div>
+                      {isManager() && (
+                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => handleDeleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded" title="삭제">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                {expandedNoteId === note.id && (
-                  <div className="p-4 border-t border-gray-200 dark:border-gray-700 prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown>{note.content}</ReactMarkdown>
+                    {expandedNoteId === note.id && (
+                      <div className="p-4 border-t border-gray-200 dark:border-gray-700 prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown>{note.content}</ReactMarkdown>
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      {/* 이력 */}
-      <Card>
-        <CardHeader><CardTitle>이력</CardTitle></CardHeader>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div><p className="text-gray-500 dark:text-gray-400">개설자</p><p className="font-medium dark:text-gray-200">{position.opened_by?.full_name || '-'}</p></div>
-          <div><p className="text-gray-500 dark:text-gray-400">개설 일시</p><p className="font-medium dark:text-gray-200">{formatDate(position.opened_at)}</p></div>
-          <div><p className="text-gray-500 dark:text-gray-400">정보 확인</p><p className="font-medium">{position.is_info_confirmed ? <span className="text-green-600 dark:text-green-400">완료</span> : <span className="text-yellow-600 dark:text-yellow-400">미확인</span>}</p></div>
-          {position.status === 'closed' && (
-            <>
-              <div><p className="text-gray-500 dark:text-gray-400">종료자</p><p className="font-medium dark:text-gray-200">{position.closed_by?.full_name || '-'}</p></div>
-              <div><p className="text-gray-500 dark:text-gray-400">종료 일시</p><p className="font-medium dark:text-gray-200">{formatDate(position.closed_at)}</p></div>
-            </>
-          )}
+            )}
+          </Card>
         </div>
 
-        <button onClick={toggleAuditLogs} className="mt-4 pt-4 border-t dark:border-gray-700 w-full flex items-center justify-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-          <span>{showAuditLogs ? '수정 이력 접기' : '수정 이력 보기'}</span>
-          <svg className={`w-4 h-4 transition-transform ${showAuditLogs ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
+        {/* 오른쪽: 이력 */}
+        <div className="lg:col-span-1">
+          <Card className="sticky top-20">
+            <CardHeader><CardTitle>이력</CardTitle></CardHeader>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">개설자</span><span className="font-medium dark:text-gray-200">{position.opened_by?.full_name || '-'}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">개설 일시</span><span className="font-medium dark:text-gray-200">{formatDate(position.opened_at)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">정보 확인</span><span className="font-medium">{position.is_info_confirmed ? <span className="text-green-600 dark:text-green-400">완료</span> : <span className="text-yellow-600 dark:text-yellow-400">미확인</span>}</span></div>
+              {position.status === 'closed' && (
+                <>
+                  <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">종료자</span><span className="font-medium dark:text-gray-200">{position.closed_by?.full_name || '-'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500 dark:text-gray-400">종료 일시</span><span className="font-medium dark:text-gray-200">{formatDate(position.closed_at)}</span></div>
+                </>
+              )}
+            </div>
 
-        {showAuditLogs && (
-          <div className="mt-4 space-y-2">
-            {auditLogs.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">수정 이력이 없습니다</p>
-            ) : (
-              auditLogs.map(log => (
-                <div key={log.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">{log.user?.full_name || '알 수 없음'}</span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(log.created_at)}</span>
-                  </div>
-                  {log.field_name ? (
-                    <p className="text-gray-600 dark:text-gray-400">
-                      <span className="font-medium">{formatFieldName(log.field_name)}</span>{': '}
-                      <span className="text-red-500 dark:text-red-400 line-through">{log.old_value ?? '-'}</span>{' → '}
-                      <span className="text-green-600 dark:text-green-400">{log.new_value ?? '-'}</span>
-                    </p>
-                  ) : log.changes ? (
-                    <div className="space-y-1">
-                      {Object.entries(log.changes).map(([field, vals]) => (
-                        <p key={field} className="text-gray-600 dark:text-gray-400">
-                          <span className="font-medium">{formatFieldName(field)}</span>{': '}
-                          <span className="text-red-500 dark:text-red-400 line-through">{vals.old ?? '-'}</span>{' → '}
-                          <span className="text-green-600 dark:text-green-400">{vals.new ?? '-'}</span>
+            <button onClick={toggleAuditLogs} className="mt-4 pt-4 border-t dark:border-gray-700 w-full flex items-center justify-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+              <span>{showAuditLogs ? '수정 이력 접기' : '수정 이력 보기'}</span>
+              <svg className={`w-4 h-4 transition-transform ${showAuditLogs ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showAuditLogs && (
+              <div className="mt-4 space-y-2 max-h-[400px] overflow-y-auto">
+                {auditLogs.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">수정 이력이 없습니다</p>
+                ) : (
+                  auditLogs.map(log => (
+                    <div key={log.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{log.user?.full_name || '알 수 없음'}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(log.created_at)}</span>
+                      </div>
+                      {log.field_name ? (
+                        <p className="text-gray-600 dark:text-gray-400">
+                          <span className="font-medium">{formatFieldName(log.field_name)}</span>{': '}
+                          <span className="text-red-500 dark:text-red-400 line-through">{log.old_value ?? '-'}</span>{' → '}
+                          <span className="text-green-600 dark:text-green-400">{log.new_value ?? '-'}</span>
                         </p>
-                      ))}
+                      ) : log.changes ? (
+                        <div className="space-y-1">
+                          {Object.entries(log.changes).map(([field, vals]) => (
+                            <p key={field} className="text-gray-600 dark:text-gray-400">
+                              <span className="font-medium">{formatFieldName(field)}</span>{': '}
+                              <span className="text-red-500 dark:text-red-400 line-through">{vals.old ?? '-'}</span>{' → '}
+                              <span className="text-green-600 dark:text-green-400">{vals.new ?? '-'}</span>
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-600 dark:text-gray-400">{log.action}</p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-gray-600 dark:text-gray-400">{log.action}</p>
-                  )}
-                </div>
-              ))
+                  ))
+                )}
+              </div>
             )}
-          </div>
-        )}
-      </Card>
+          </Card>
+        </div>
+      </div>
 
       {/* 체결 확인 모달 */}
       <Modal

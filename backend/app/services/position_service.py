@@ -508,7 +508,8 @@ class PositionService:
         buy_plan: Optional[list] = None,
         take_profit_targets: Optional[list] = None,
         stop_loss_targets: Optional[list] = None,
-        user_id: int = None
+        user_id: int = None,
+        skip_audit: bool = True  # 기본적으로 개별 수정은 감사 로그 스킵 (매매계획 저장 시 한번에 기록)
     ) -> Position:
         """매매 계획 수정 (분할매수, 익절, 손절)"""
         position = self.get_position_by_id(position_id)
@@ -538,8 +539,9 @@ class PositionService:
         self.db.commit()
         self.db.refresh(position)
 
-        # Audit log - 실제 변경사항이 있을 때만 기록
-        if user_id and change_descriptions:
+        # Audit log - skip_audit=False이고 실제 변경사항이 있을 때만 기록
+        # (개별 항목 수정은 스킵, 매매계획 저장 시 한번에 기록)
+        if not skip_audit and user_id and change_descriptions:
             audit_service = AuditService(self.db)
             audit_service.log_change(
                 entity_type='position',

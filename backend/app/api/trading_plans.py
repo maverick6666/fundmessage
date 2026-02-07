@@ -14,6 +14,7 @@ from app.schemas.trading_plan import (
 from app.schemas.user import UserBrief
 from app.schemas.common import APIResponse
 from app.dependencies import get_current_user
+from app.services.audit_service import AuditService
 
 router = APIRouter()
 
@@ -101,6 +102,47 @@ async def create_trading_plan(
     db.add(new_plan)
     db.commit()
     db.refresh(new_plan)
+
+    # 감사 로그 기록 - 변경사항을 사람이 읽기 좋은 형식으로
+    if changes_data:
+        audit_service = AuditService(db)
+        change_descriptions = []
+
+        type_labels = {
+            'buy': '매수계획',
+            'take_profit': '익절계획',
+            'stop_loss': '손절계획'
+        }
+        action_labels = {
+            'add': '추가',
+            'modify': '수정',
+            'delete': '삭제'
+        }
+
+        for change in changes_data:
+            type_label = type_labels.get(change.get('type'), change.get('type'))
+            action_label = action_labels.get(change.get('action'), change.get('action'))
+            price = change.get('price')
+            quantity = change.get('quantity')
+            old_price = change.get('old_price')
+            old_quantity = change.get('old_quantity')
+
+            if change.get('action') == 'modify' and old_price and old_quantity:
+                desc = f"{type_label} {action_label}: ₩{old_price:,.0f}({old_quantity:,.0f}주) → ₩{price:,.0f}({quantity:,.0f}주)"
+            elif price and quantity:
+                desc = f"{type_label} {action_label}: ₩{price:,.0f}({quantity:,.0f}주)"
+            else:
+                desc = f"{type_label} {action_label}"
+
+            change_descriptions.append(desc)
+
+        if change_descriptions:
+            audit_service.log_change(
+                entity_type='position',
+                entity_id=position_id,
+                action='매매계획 저장: ' + ', '.join(change_descriptions),
+                user_id=current_user.id
+            )
 
     return APIResponse(
         success=True,
