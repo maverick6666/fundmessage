@@ -32,7 +32,9 @@ export function Dashboard() {
   const [positions, setPositions] = useState([]);
   const [requests, setRequests] = useState([]);
   const [teamSettings, setTeamSettings] = useState(null);
-  const [reports, setReports] = useState([]);
+  const [decisionNotes, setDecisionNotes] = useState([]);
+  const [operationReports, setOperationReports] = useState([]);
+  const [showDecisionNotes, setShowDecisionNotes] = useState(true); // true: 의사결정서, false: 운용보고서
   const [columns, setColumns] = useState([]);
   const [showVerifiedColumns, setShowVerifiedColumns] = useState(true); // 기본: 검증된 칼럼만
   const [teamRanking, setTeamRanking] = useState({ members: [], avg_week_attendance_rate: 0 });
@@ -72,6 +74,25 @@ export function Dashboard() {
     fetchColumns(showVerifiedColumns);
   }, [showVerifiedColumns]);
 
+  // 보고서 필터 변경 시 다시 fetch
+  const fetchReports = async (isDecision) => {
+    try {
+      if (isDecision) {
+        const data = await reportService.getDecisionNotes({ limit: 3 });
+        setDecisionNotes(data.notes || []);
+      } else {
+        const data = await reportService.getOperationReports({ limit: 3 });
+        setOperationReports(data.notes || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch reports:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports(showDecisionNotes);
+  }, [showDecisionNotes]);
+
   // 팀원 클릭 시 상세 통계 조회
   const handleMemberClick = async (memberId) => {
     if (selectedMemberId === memberId) {
@@ -94,11 +115,11 @@ export function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const [positionData, requestData, settings, reportsData, columnsData, rankingData, membersData, statsData] = await Promise.all([
+      const [positionData, requestData, settings, decisionData, columnsData, rankingData, membersData, statsData] = await Promise.all([
         priceService.getPositionsWithPrices().catch(() => ({ positions: [] })),
         requestService.getRequests({ limit: 3 }),
         positionService.getTeamSettings().catch(() => null),
-        reportService.getReports({ limit: 3 }).catch(() => ({ reports: [] })),
+        reportService.getDecisionNotes({ limit: 3 }).catch(() => ({ notes: [] })),
         columnService.getColumns({ limit: 3, verified: true }).catch(() => ({ columns: [] })),
         statsService.getTeamRanking().catch(() => ({ members: [], avg_week_attendance_rate: 0 })),
         userService.getTeamMembers().catch(() => ({ members: [] })),
@@ -106,7 +127,7 @@ export function Dashboard() {
       ]);
       setPositions(positionData.positions || []);
       setRequests(requestData.requests);
-      setReports(reportsData.reports || []);
+      setDecisionNotes(decisionData.notes || []);
       setColumns(columnsData.columns || []);
       setTeamRanking(rankingData || { members: [], avg_week_attendance_rate: 0 });
       setTeamMembers(membersData.members || []);
@@ -513,39 +534,116 @@ export function Dashboard() {
 
         {/* Recent Reports and Columns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Reports */}
+          {/* Reports with tabs */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>최근 보고서</CardTitle>
-                <Link to="/reports" className="text-sm text-primary-600 hover:text-primary-700">
+                <div className="flex items-center gap-3">
+                  <CardTitle>보고서</CardTitle>
+                  {/* 필터 토글 */}
+                  <div className="flex rounded-lg overflow-hidden border dark:border-gray-600">
+                    <button
+                      onClick={() => setShowDecisionNotes(true)}
+                      className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                        showDecisionNotes
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      의사결정서
+                    </button>
+                    <button
+                      onClick={() => setShowDecisionNotes(false)}
+                      className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                        !showDecisionNotes
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      운용보고서
+                    </button>
+                  </div>
+                </div>
+                <Link to={`/reports?tab=${showDecisionNotes ? 'decisions' : 'operations'}`} className="text-sm text-primary-600 hover:text-primary-700">
                   전체보기
                 </Link>
               </div>
             </CardHeader>
 
-            {reports.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">보고서가 없습니다</div>
+            {showDecisionNotes ? (
+              // 의사결정서 목록
+              decisionNotes.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">의사결정서가 없습니다</div>
+              ) : (
+                <div className="space-y-3">
+                  {decisionNotes.map(note => (
+                    <Link
+                      key={note.id}
+                      to={note.position ? `/positions/${note.position.id}` : '#'}
+                      className="block p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors min-w-0"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
+                        <span className="font-medium dark:text-gray-100 truncate min-w-0">{note.title}</span>
+                        {note.position && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
+                            note.position.status === 'open'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                          }`}>
+                            {note.position.status === 'open' ? '보유중' : '종료'}
+                          </span>
+                        )}
+                      </div>
+                      {note.position && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                          {note.position.ticker_name || note.position.ticker} · {note.position.ticker}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        <span>{note.author?.full_name}</span>
+                        <span>{formatRelativeTime(note.created_at)}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )
             ) : (
-              <div className="space-y-3">
-                {reports.map(report => (
-                  <Link
-                    key={report.position_id}
-                    to={`/positions/${report.position_id}`}
-                    className="block p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors min-w-0"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
-                      <span className="font-medium dark:text-gray-100 truncate min-w-0">{report.ticker_name || report.ticker}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 whitespace-nowrap">{report.note_count}개 노트</span>
-                    </div>
-                    {report.latest_note && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                        {report.latest_note.title}
-                      </p>
-                    )}
-                  </Link>
-                ))}
-              </div>
+              // 운용보고서 목록
+              operationReports.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">운용보고서가 없습니다</div>
+              ) : (
+                <div className="space-y-3">
+                  {operationReports.map(note => (
+                    <Link
+                      key={note.id}
+                      to={note.position ? `/positions/${note.position.id}` : '#'}
+                      className="block p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors min-w-0"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
+                        <span className="font-medium dark:text-gray-100 truncate min-w-0">{note.title}</span>
+                        {note.position && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
+                            note.position.status === 'open'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                          }`}>
+                            {note.position.status === 'open' ? '보유중' : '종료'}
+                          </span>
+                        )}
+                      </div>
+                      {note.position && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                          {note.position.ticker_name || note.position.ticker} · {note.position.ticker}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        <span>{note.author?.full_name}</span>
+                        <span>{formatRelativeTime(note.created_at)}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )
             )}
           </Card>
 
