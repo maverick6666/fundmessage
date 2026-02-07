@@ -729,14 +729,18 @@ export function Dashboard() {
                   </div>
 
                   {/* 출석 현황 (한 줄) */}
-                  <div className="flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div className="flex gap-4 text-sm">
-                      <span className="text-blue-700 dark:text-blue-300">주간 <strong>{member.week_attendance_rate}%</strong></span>
-                      <span className="text-blue-700 dark:text-blue-300">월간 <strong>{member.month_attendance_rate || 0}%</strong></span>
-                      <span className="text-blue-700 dark:text-blue-300">전체 <strong>{member.total_attendance_rate || 0}%</strong></span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/30 rounded">
+                      <p className="text-xs text-blue-600 dark:text-blue-400">이번주</p>
+                      <p className="font-bold text-blue-700 dark:text-blue-300">{member.week_attendance_rate}%</p>
+                    </div>
+                    <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/30 rounded">
+                      <p className="text-xs text-blue-600 dark:text-blue-400">이번달</p>
+                      <p className="font-bold text-blue-700 dark:text-blue-300">{member.month_attendance_rate || 0}%</p>
+                    </div>
+                    <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/30 rounded">
+                      <p className="text-xs text-blue-600 dark:text-blue-400">전체</p>
+                      <p className="font-bold text-blue-700 dark:text-blue-300">{member.total_attendance_rate || 0}%</p>
                     </div>
                   </div>
                 </Card>
