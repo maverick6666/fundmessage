@@ -78,25 +78,16 @@ async def generate_newsdesk_job():
 
 
 def init_scheduler():
-    """스케줄러 초기화"""
-    # 오전 5시 30분
+    """스케줄러 초기화 - 하루 1번 (05:30)"""
     scheduler.add_job(
         generate_newsdesk_job,
         CronTrigger(hour=5, minute=30),
-        id="newsdesk_morning",
-        replace_existing=True
-    )
-
-    # 오후 5시 30분
-    scheduler.add_job(
-        generate_newsdesk_job,
-        CronTrigger(hour=17, minute=30),
-        id="newsdesk_afternoon",
+        id="newsdesk_daily",
         replace_existing=True
     )
 
     scheduler.start()
-    logger.info("NewsDesk scheduler initialized (05:30, 17:30)")
+    logger.info("NewsDesk scheduler initialized (05:30 daily)")
 
 
 def shutdown_scheduler():
