@@ -61,6 +61,7 @@ async def get_columns(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     author_id: Optional[int] = None,
+    verified: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -69,6 +70,9 @@ async def get_columns(
 
     if author_id:
         query = query.filter(TeamColumn.author_id == author_id)
+
+    if verified is not None:
+        query = query.filter(TeamColumn.is_verified == verified)
 
     total = query.count()
     columns = query.order_by(TeamColumn.created_at.desc()).offset(skip).limit(limit).all()

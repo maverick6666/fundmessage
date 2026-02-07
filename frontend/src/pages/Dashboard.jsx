@@ -34,6 +34,7 @@ export function Dashboard() {
   const [teamSettings, setTeamSettings] = useState(null);
   const [reports, setReports] = useState([]);
   const [columns, setColumns] = useState([]);
+  const [showVerifiedColumns, setShowVerifiedColumns] = useState(true); // 기본: 검증된 칼럼만
   const [teamRanking, setTeamRanking] = useState({ members: [], avg_week_attendance_rate: 0 });
   const [teamMembers, setTeamMembers] = useState([]);
   const [teamStats, setTeamStats] = useState(null);
@@ -56,6 +57,20 @@ export function Dashboard() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // 칼럼 필터 변경 시 다시 fetch
+  const fetchColumns = async (verified) => {
+    try {
+      const data = await columnService.getColumns({ limit: 3, verified: verified ? true : null });
+      setColumns(data.columns || []);
+    } catch (error) {
+      console.error('Failed to fetch columns:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchColumns(showVerifiedColumns);
+  }, [showVerifiedColumns]);
 
   // 팀원 클릭 시 상세 통계 조회
   const handleMemberClick = async (memberId) => {
@@ -84,7 +99,7 @@ export function Dashboard() {
         requestService.getRequests({ limit: 3 }),
         positionService.getTeamSettings().catch(() => null),
         reportService.getReports({ limit: 3 }).catch(() => ({ reports: [] })),
-        columnService.getColumns({ limit: 3 }).catch(() => ({ columns: [] })),
+        columnService.getColumns({ limit: 3, verified: true }).catch(() => ({ columns: [] })),
         statsService.getTeamRanking().catch(() => ({ members: [], avg_week_attendance_rate: 0 })),
         userService.getTeamMembers().catch(() => ({ members: [] })),
         statsService.getTeamStats().catch(() => null)
@@ -534,11 +549,36 @@ export function Dashboard() {
             )}
           </Card>
 
-          {/* Recent Columns */}
+          {/* Columns */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>최근 칼럼</CardTitle>
+                <div className="flex items-center gap-3">
+                  <CardTitle>칼럼</CardTitle>
+                  {/* 필터 토글 */}
+                  <div className="flex rounded-lg overflow-hidden border dark:border-gray-600">
+                    <button
+                      onClick={() => setShowVerifiedColumns(true)}
+                      className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                        showVerifiedColumns
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      검증됨
+                    </button>
+                    <button
+                      onClick={() => setShowVerifiedColumns(false)}
+                      className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                        !showVerifiedColumns
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      전체
+                    </button>
+                  </div>
+                </div>
                 <Link to="/reports?tab=columns" className="text-sm text-primary-600 hover:text-primary-700">
                   전체보기
                 </Link>
@@ -546,7 +586,9 @@ export function Dashboard() {
             </CardHeader>
 
             {columns.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">작성된 칼럼이 없습니다</div>
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                {showVerifiedColumns ? '검증된 칼럼이 없습니다' : '작성된 칼럼이 없습니다'}
+              </div>
             ) : (
               <div className="space-y-3">
                 {columns.map(column => (
@@ -554,7 +596,16 @@ export function Dashboard() {
                     key={column.id}
                     className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
                   >
-                    <p className="font-medium dark:text-gray-100 mb-1 line-clamp-1">{column.title}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-medium dark:text-gray-100 line-clamp-1 flex-1">{column.title}</p>
+                      {column.is_verified && (
+                        <span className="shrink-0" title="검증됨">
+                          <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
                       <span>{column.author?.full_name}</span>
                       <span>{formatRelativeTime(column.created_at)}</span>
