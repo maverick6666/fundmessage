@@ -57,6 +57,7 @@ export function Dashboard() {
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [selectedMemberStats, setSelectedMemberStats] = useState(null);
   const [memberStatsLoading, setMemberStatsLoading] = useState(false);
+  const [usdKrwRate, setUsdKrwRate] = useState(null); // 환율 (1 USD = ? KRW)
 
   useEffect(() => {
     fetchData();
@@ -117,7 +118,7 @@ export function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const [positionData, requestData, settings, decisionData, columnsData, rankingData, membersData, statsData] = await Promise.all([
+      const [positionData, requestData, settings, decisionData, columnsData, rankingData, membersData, statsData, rateData] = await Promise.all([
         priceService.getPositionsWithPrices().catch(() => ({ positions: [] })),
         requestService.getRequests({ limit: 3 }),
         positionService.getTeamSettings().catch(() => null),
@@ -125,7 +126,8 @@ export function Dashboard() {
         columnService.getColumns({ limit: 3, verified: true }).catch(() => ({ columns: [] })),
         statsService.getTeamRanking().catch(() => ({ members: [], avg_week_attendance_rate: 0 })),
         userService.getTeamMembers().catch(() => ({ members: [] })),
-        statsService.getTeamStats().catch(() => null)
+        statsService.getTeamStats().catch(() => null),
+        statsService.getExchangeRate().catch(() => null)
       ]);
       setPositions(positionData.positions || []);
       setRequests(requestData.requests);
@@ -134,6 +136,9 @@ export function Dashboard() {
       setTeamRanking(rankingData || { members: [], avg_week_attendance_rate: 0 });
       setTeamMembers(membersData.members || []);
       setTeamStats(statsData);
+      if (rateData?.usd_krw) {
+        setUsdKrwRate(rateData.usd_krw);
+      }
       if (settings) {
         setTeamSettings(settings);
         setSettingsData({
@@ -438,6 +443,11 @@ export function Dashboard() {
               <p className="text-2xl font-bold mt-1 dark:text-gray-100">
                 {formatCurrency(initialCapitalUsd, 'USD')}
               </p>
+              {usdKrwRate && (
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  ≈{formatCurrency(initialCapitalUsd * usdKrwRate, 'KRX')}
+                </p>
+              )}
               {usdInvested > 0 && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   투자: {formatCurrency(usdInvested, 'USD')} ({formatPercent(usdInvested / initialCapitalUsd)})
@@ -487,6 +497,11 @@ export function Dashboard() {
           <p className="text-2xl font-bold mt-1 dark:text-gray-100">
             {usdTotalAssets > 0 ? formatCurrency(usdTotalAssets, 'USD') : '-'}
           </p>
+          {usdTotalAssets > 0 && usdKrwRate && (
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              ≈{formatCurrency(usdTotalAssets * usdKrwRate, 'KRX')}
+            </p>
+          )}
         </Card>
         </div>
 
