@@ -34,4 +34,15 @@ npm-debug.log*
 # Temporary files
 tmp/
 temp/
-tp.PNG
+
+# Test artifacts
+.playwright-mcp/
+frontend/test-results/
+playwright-report/
+
+# Screenshots (root level)
+*.png
+*.PNG
+
+# Windows artifacts
+nul
