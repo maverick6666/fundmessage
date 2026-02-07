@@ -1018,8 +1018,8 @@ function PositionCard({
       position.stop_loss_targets
     );
 
-    // 프로그레스 50% 이상일 때만 색상 적용
-    if (progress >= 50) {
+    // 프로그레스 70% 이상일 때만 색상 적용 (타겟에 충분히 가까울 때만)
+    if (progress >= 70) {
       if (direction === 'loss') {
         cardColorClass = 'position-danger'; // 손절 위험
       } else if (direction === 'profit') {
