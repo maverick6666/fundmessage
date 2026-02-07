@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createChart } from 'lightweight-charts';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { newsdeskService } from '../services/newsdeskService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
@@ -343,110 +345,200 @@ function BenchmarkToggles({ selected, onChange }) {
   );
 }
 
-// 키워드 버블 컴포넌트
-function KeywordBubble({ keyword, count, sentimentScore, isSelected, onClick, index }) {
-  const size = Math.max(48, Math.min(96, 40 + count * 4));
+// 키워드 트리맵 타일 컴포넌트 (탐욕/공포 스타일)
+function KeywordTile({ keyword, count, greedScore, category, isSelected, onClick, index, totalCount }) {
+  // greedScore: 0.0 (극도의 공포) ~ 1.0 (극도의 탐욕)
+  const score = greedScore ?? 0.5;
 
-  const getBubbleColor = () => {
-    if (sentimentScore > 0.3) return 'bg-emerald-500/20 border-emerald-500/50 text-emerald-700 dark:text-emerald-300';
-    if (sentimentScore < -0.3) return 'bg-rose-500/20 border-rose-500/50 text-rose-700 dark:text-rose-300';
-    return 'bg-slate-500/20 border-slate-500/50 text-slate-700 dark:text-slate-300';
+  // 크기 계산 (count 기반, 전체 비율로 조정)
+  const minSize = 1;
+  const maxSize = 3;
+  const sizeRatio = Math.min(count / Math.max(totalCount * 0.3, 1), 1);
+  const flexGrow = minSize + (maxSize - minSize) * sizeRatio;
+
+  // 탐욕/공포 색상 (초록 ~ 빨강 그라데이션)
+  const getGreedFearColor = () => {
+    if (score >= 0.7) return 'bg-emerald-500/90 text-white border-emerald-600';
+    if (score >= 0.55) return 'bg-emerald-400/80 text-white border-emerald-500';
+    if (score >= 0.45) return 'bg-slate-400/70 text-white border-slate-500';
+    if (score >= 0.3) return 'bg-rose-400/80 text-white border-rose-500';
+    return 'bg-rose-500/90 text-white border-rose-600';
+  };
+
+  // 감성 라벨
+  const getSentimentLabel = () => {
+    if (score >= 0.7) return '극도의 탐욕';
+    if (score >= 0.55) return '탐욕';
+    if (score >= 0.45) return '중립';
+    if (score >= 0.3) return '공포';
+    return '극도의 공포';
   };
 
   const selectedStyle = isSelected
-    ? 'ring-2 ring-offset-2 ring-primary-500 dark:ring-offset-gray-900 scale-110'
-    : 'hover:scale-105';
+    ? 'ring-2 ring-offset-1 ring-black dark:ring-white scale-[1.02] z-10'
+    : 'hover:scale-[1.01] hover:z-10';
 
   return (
     <button
       onClick={onClick}
       className={`
-        relative flex items-center justify-center rounded-full border-2
-        transition-all duration-300 cursor-pointer font-medium
-        ${getBubbleColor()} ${selectedStyle}
+        relative flex flex-col items-center justify-center p-3 min-h-[72px]
+        border-2 transition-all duration-200 cursor-pointer
+        ${getGreedFearColor()} ${selectedStyle}
       `}
       style={{
-        width: size,
-        height: size,
-        animationDelay: `${index * 100}ms`
+        flex: `${flexGrow} 1 0`,
+        animationDelay: `${index * 50}ms`
       }}
+      title={`${keyword}: ${getSentimentLabel()} (${Math.round(score * 100)}점)`}
     >
-      <span className="text-xs text-center leading-tight px-1 line-clamp-2">
+      <span className="text-sm font-bold text-center leading-tight line-clamp-1">
         {keyword}
       </span>
-      <span className="absolute -bottom-1 -right-1 text-[10px] bg-white dark:bg-gray-800 px-1 rounded-full border">
-        {count}
-      </span>
+      <div className="flex items-center gap-1.5 mt-1">
+        <span className="text-xs opacity-80">{count}회</span>
+        {category && (
+          <span className="text-[10px] px-1.5 py-0.5 bg-black/20 rounded">
+            {category}
+          </span>
+        )}
+      </div>
+      {/* 감성 인디케이터 바 */}
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/10">
+        <div
+          className="h-full bg-white/40 transition-all duration-300"
+          style={{ width: `${score * 100}%` }}
+        />
+      </div>
     </button>
   );
 }
 
-// 감성 게이지 컴포넌트
-function SentimentGauge({ sentiment, selectedKeyword }) {
-  const positiveRatio = sentiment?.positive_ratio || 0.33;
-  const negativeRatio = sentiment?.negative_ratio || 0.33;
-  const neutralRatio = sentiment?.neutral_ratio || 0.34;
+// 탐욕/공포 게이지 컴포넌트 (Fear & Greed Index 스타일)
+function GreedFearGauge({ sentiment, selectedKeyword }) {
+  // 새로운 스키마: greed_ratio, fear_ratio, overall_score
+  const greedRatio = sentiment?.greed_ratio ?? 0.5;
+  const fearRatio = sentiment?.fear_ratio ?? 0.5;
+  const overallScore = sentiment?.overall_score ?? 50;
+  const topGreed = sentiment?.top_greed || [];
+  const topFear = sentiment?.top_fear || [];
+
+  // 점수에 따른 라벨
+  const getScoreLabel = (score) => {
+    if (score >= 75) return { text: '극도의 탐욕', color: 'text-emerald-500' };
+    if (score >= 55) return { text: '탐욕', color: 'text-emerald-400' };
+    if (score >= 45) return { text: '중립', color: 'text-slate-400' };
+    if (score >= 25) return { text: '공포', color: 'text-rose-400' };
+    return { text: '극도의 공포', color: 'text-rose-500' };
+  };
+
+  const label = getScoreLabel(overallScore);
+
+  // 게이지 포인터 위치 (0~100 → 0%~100%)
+  const pointerPosition = `${overallScore}%`;
 
   return (
     <div className="bg-white dark:bg-gray-800 border-2 border-black dark:border-gray-600 p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100">
-          시장 감성
+          탐욕/공포 지수
         </h3>
         {selectedKeyword && (
-          <span className="text-xs px-2 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded">
+          <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded font-medium">
             {selectedKeyword}
           </span>
         )}
       </div>
 
-      <div className="h-8 flex rounded overflow-hidden border border-gray-200 dark:border-gray-700">
-        <div
-          className="bg-gradient-to-r from-emerald-400 to-emerald-500 flex items-center justify-center transition-all duration-500"
-          style={{ width: `${positiveRatio * 100}%` }}
-        >
-          {positiveRatio > 0.15 && (
-            <span className="text-xs font-bold text-white">
-              {Math.round(positiveRatio * 100)}%
-            </span>
-          )}
+      {/* 메인 점수 표시 */}
+      <div className="text-center mb-4">
+        <div className="text-4xl font-black tabular-nums text-gray-900 dark:text-gray-100">
+          {overallScore}
         </div>
-        <div
-          className="bg-gradient-to-r from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-700 flex items-center justify-center transition-all duration-500"
-          style={{ width: `${neutralRatio * 100}%` }}
-        >
-          {neutralRatio > 0.15 && (
-            <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
-              {Math.round(neutralRatio * 100)}%
-            </span>
-          )}
-        </div>
-        <div
-          className="bg-gradient-to-r from-rose-400 to-rose-500 flex items-center justify-center transition-all duration-500"
-          style={{ width: `${negativeRatio * 100}%` }}
-        >
-          {negativeRatio > 0.15 && (
-            <span className="text-xs font-bold text-white">
-              {Math.round(negativeRatio * 100)}%
-            </span>
-          )}
+        <div className={`text-sm font-bold ${label.color}`}>
+          {label.text}
         </div>
       </div>
 
-      <div className="flex justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-emerald-500" />
-          호재
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-slate-400" />
-          중립
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-rose-500" />
-          악재
-        </span>
+      {/* 게이지 바 */}
+      <div className="relative h-6 rounded-full overflow-hidden bg-gradient-to-r from-rose-500 via-slate-400 to-emerald-500">
+        {/* 포인터 */}
+        <div
+          className="absolute top-0 bottom-0 w-1 bg-white shadow-lg transition-all duration-500 ease-out"
+          style={{ left: pointerPosition, transform: 'translateX(-50%)' }}
+        >
+          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-white" />
+        </div>
       </div>
+
+      {/* 스케일 라벨 */}
+      <div className="flex justify-between mt-1.5 text-[10px] text-gray-500 dark:text-gray-400">
+        <span>0</span>
+        <span>25</span>
+        <span>50</span>
+        <span>75</span>
+        <span>100</span>
+      </div>
+
+      {/* 비율 바 */}
+      <div className="flex gap-2 mt-4">
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-rose-500 font-medium">공포</span>
+            <span className="text-xs text-gray-500">{Math.round(fearRatio * 100)}%</span>
+          </div>
+          <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-rose-500 rounded-full transition-all duration-500"
+              style={{ width: `${fearRatio * 100}%` }}
+            />
+          </div>
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-emerald-500 font-medium">탐욕</span>
+            <span className="text-xs text-gray-500">{Math.round(greedRatio * 100)}%</span>
+          </div>
+          <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+              style={{ width: `${greedRatio * 100}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 탐욕/공포 요인 */}
+      {(topGreed.length > 0 || topFear.length > 0) && (
+        <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+          {topFear.length > 0 && (
+            <div>
+              <div className="text-[10px] font-bold text-rose-500 uppercase mb-1.5">공포 요인</div>
+              <ul className="space-y-1">
+                {topFear.slice(0, 3).map((item, idx) => (
+                  <li key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-rose-400" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {topGreed.length > 0 && (
+            <div>
+              <div className="text-[10px] font-bold text-emerald-500 uppercase mb-1.5">탐욕 요인</div>
+              <ul className="space-y-1">
+                {topGreed.slice(0, 3).map((item, idx) => (
+                  <li key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -493,7 +585,7 @@ function NewsCard({ card, type = 'news', onClick }) {
             )}
           </div>
 
-          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-2">
+          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
             {card.title}
           </h3>
 
@@ -687,19 +779,47 @@ function FallbackUI({ status, errorMessage, onGenerate, onViewPrevious, generati
   );
 }
 
-// 사이드 패널용 문서 뷰어
+// 사이드 패널용 문서 뷰어 (마크다운 렌더링)
 function NewsDetailPanel({ content, onClose }) {
   if (!content) return null;
 
+  const bodyContent = content.content || content.detail || content.summary || '';
+
+  // 종목 분석의 경우 detail 필드 사용
+  const displayContent = content.type === 'stock' ? (content.detail || content.reason || '') : bodyContent;
+
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-        <h2 className="text-lg font-bold dark:text-gray-100">
-          {content.type === 'column' ? 'AI 칼럼' : content.type === 'stock' ? '종목 분석' : '뉴스 상세'}
-        </h2>
+      <div className="flex items-center justify-between p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+        <div className="flex items-center gap-2">
+          {content.type === 'column' && (
+            <span className="w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            </span>
+          )}
+          {content.type === 'stock' && (
+            <span className="w-6 h-6 bg-gradient-to-br from-orange-400 to-red-500 rounded flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" />
+              </svg>
+            </span>
+          )}
+          {content.type === 'news' && (
+            <span className="w-6 h-6 bg-gray-900 dark:bg-gray-100 rounded flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 text-white dark:text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9" />
+              </svg>
+            </span>
+          )}
+          <h2 className="text-lg font-bold dark:text-gray-100">
+            {content.type === 'column' ? 'AI 칼럼' : content.type === 'stock' ? '종목 분석' : '뉴스 상세'}
+          </h2>
+        </div>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+          className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -707,25 +827,78 @@ function NewsDetailPanel({ content, onClose }) {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        <h3 className="text-xl font-bold mb-4 dark:text-gray-100">{content.title}</h3>
+      <div className="flex-1 overflow-y-auto p-5">
+        {/* 제목 */}
+        <h3 className="text-xl font-bold mb-3 dark:text-gray-100 leading-tight">
+          {content.title || content.name}
+        </h3>
 
-        {content.source && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            출처: {content.source}
-          </p>
-        )}
-
-        <div className="prose dark:prose-invert max-w-none">
-          {content.content || content.summary}
+        {/* 메타 정보 */}
+        <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
+          {content.source && (
+            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
+              {content.source}
+            </span>
+          )}
+          {content.category && (
+            <span className="px-2 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded">
+              {content.category}
+            </span>
+          )}
+          {content.market && (
+            <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded font-mono text-xs">
+              {content.market}
+            </span>
+          )}
+          {content.ticker && (
+            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded font-mono text-xs">
+              {content.ticker}
+            </span>
+          )}
         </div>
 
+        {/* 본문 - 마크다운 렌더링 */}
+        <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-bold prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-ul:text-gray-700 dark:prose-ul:text-gray-300 prose-ol:text-gray-700 dark:prose-ol:text-gray-300">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {displayContent}
+          </ReactMarkdown>
+        </div>
+
+        {/* 관련 뉴스 (종목의 경우) */}
+        {content.related_news && content.related_news.length > 0 && (
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">관련 뉴스</h4>
+            <ul className="space-y-2">
+              {content.related_news.map((news, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <span className="text-primary-500 mt-0.5">•</span>
+                  <span>{news}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 키워드 */}
+        {content.keywords && content.keywords.length > 0 && (
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-wrap gap-2">
+              {content.keywords.map((kw, idx) => (
+                <span key={idx} className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
+                  #{kw}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 원문 링크 */}
         {content.url && (
           <a
             href={content.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 mt-4 text-primary-600 hover:text-primary-700 text-sm"
+            className="inline-flex items-center gap-1 mt-6 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 text-sm font-medium"
           >
             원문 보기
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1003,30 +1176,47 @@ export function NewsDesk() {
 
         {/* 오른쪽: 시각화 영역 (2/5) */}
         <div className="lg:col-span-2 space-y-4">
-          {/* 키워드 버블 */}
+          {/* 탐욕/공포 게이지 (상단 배치) */}
+          <GreedFearGauge sentiment={sentiment} selectedKeyword={selectedKeyword} />
+
+          {/* 키워드 트리맵 */}
           {keywords.length > 0 && (
             <div className="bg-white dark:bg-gray-800 border-2 border-black dark:border-gray-600 p-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100 mb-4">
-                키워드 클라우드
+              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100 mb-3">
+                키워드 히트맵
               </h3>
-              <div className="flex flex-wrap gap-3 justify-center py-4">
+              <div className="flex flex-wrap gap-1">
                 {keywords.map((kw, idx) => (
-                  <KeywordBubble
+                  <KeywordTile
                     key={idx}
                     keyword={kw.keyword}
                     count={kw.count}
-                    sentimentScore={kw.sentiment_score || 0}
+                    greedScore={kw.greed_score}
+                    category={kw.category}
                     isSelected={selectedKeyword === kw.keyword}
                     onClick={() => handleKeywordClick(kw.keyword)}
                     index={idx}
+                    totalCount={keywords.reduce((sum, k) => sum + k.count, 0)}
                   />
                 ))}
               </div>
+              {/* 범례 */}
+              <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400">
+                  <div className="w-3 h-3 bg-rose-500 rounded-sm" />
+                  <span>공포</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400">
+                  <div className="w-3 h-3 bg-slate-400 rounded-sm" />
+                  <span>중립</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400">
+                  <div className="w-3 h-3 bg-emerald-500 rounded-sm" />
+                  <span>탐욕</span>
+                </div>
+              </div>
             </div>
           )}
-
-          {/* 감성 게이지 */}
-          <SentimentGauge sentiment={sentiment} selectedKeyword={selectedKeyword} />
         </div>
       </div>
 
