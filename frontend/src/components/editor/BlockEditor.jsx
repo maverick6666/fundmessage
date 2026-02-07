@@ -184,30 +184,29 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
     // 타겟 블록이 없으면 현재 포커스된 블록 사용
     let blockId = targetBlockId || focusedBlockId;
 
-    // 블록이 없거나 이미 이미지가 있으면 새 블록 생성
+    // 블록이 없으면 새 블록 생성
     if (!blockId) {
       const lastBlock = blocks[blocks.length - 1];
       const newBlock = addBlockAfter(lastBlock.id, 'image');
       blockId = newBlock.id;
-    } else {
-      // 현재 블록을 이미지 블록으로 변환
-      const currentBlock = blocks.find(b => b.id === blockId);
-      if (currentBlock && currentBlock.type !== 'image') {
-        const newBlocks = blocks.map(b =>
-          b.id === blockId ? { ...b, type: 'image', data: { url: '', caption: '' } } : b
-        );
-        updateBlocks(newBlocks);
-      }
     }
 
     setUploadingBlockId(blockId);
     try {
       const result = await uploadService.uploadImage(file);
-      updateBlock(blockId, {
-        url: result.url,
-        caption: '',
-        filename: result.filename
+
+      // 블록 타입 변환과 이미지 URL 업데이트를 한번에 처리
+      setBlocks(prevBlocks => {
+        const newBlocks = prevBlocks.map(b =>
+          b.id === blockId
+            ? { ...b, type: 'image', data: { url: result.url, caption: '', filename: result.filename } }
+            : b
+        );
+        internalChangeRef.current = true;
+        onChange?.(newBlocks);
+        return newBlocks;
       });
+
       toast.success('이미지가 업로드되었습니다');
     } catch (error) {
       console.error('이미지 업로드 실패:', error);
@@ -215,7 +214,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
     } finally {
       setUploadingBlockId(null);
     }
-  }, [focusedBlockId, blocks, addBlockAfter, updateBlocks, updateBlock, toast]);
+  }, [focusedBlockId, blocks, addBlockAfter, onChange, toast]);
 
   // 클립보드 붙여넣기 핸들러 (이미지 지원)
   const handlePaste = useCallback((e) => {
