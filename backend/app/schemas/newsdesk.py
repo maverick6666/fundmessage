@@ -81,3 +81,16 @@ class KeywordSentimentResponse(BaseModel):
     keyword: str
     sentiment: SentimentData
     related_news: List[Dict[str, str]]  # title, summary
+
+
+# === 벤치마크 데이터 ===
+class BenchmarkDataPoint(BaseModel):
+    time: int  # Unix timestamp
+    value: float
+
+
+class BenchmarkResponse(BaseModel):
+    kospi: List[BenchmarkDataPoint]
+    nasdaq: List[BenchmarkDataPoint]
+    sp500: List[BenchmarkDataPoint]
+    fund: Optional[List[BenchmarkDataPoint]] = None  # 팀 수익률
