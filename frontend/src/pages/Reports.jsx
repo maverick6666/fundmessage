@@ -69,8 +69,11 @@ function DocumentCard({ type, data, onClick }) {
   const getBadge = () => {
     if (isColumn) {
       return data.is_verified ? {
-        text: '검증됨',
-        className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+        icon: (
+          <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+        )
       } : null;
     }
     if (data.position?.status === 'open') {
@@ -100,34 +103,39 @@ function DocumentCard({ type, data, onClick }) {
           transition-all duration-200 ease-out
           hover:border-gray-300 dark:hover:border-gray-600
           hover:shadow-lg
+          aspect-[3/4] flex flex-col
         `}
       >
         {/* Left Accent Bar */}
         <div className={`absolute top-0 left-0 bottom-0 w-1 ${theme.accent}`} />
 
-        {/* Card Content - 체계적 레이아웃 */}
-        <div className="pl-4 pr-4 py-4">
-          {/* Header: Badge + Time */}
-          <div className="flex items-center justify-between mb-3">
+        {/* Card Content - 세로 레이아웃 */}
+        <div className="pl-4 pr-4 py-4 flex flex-col h-full">
+          {/* Top: Title */}
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base leading-snug line-clamp-3 mb-auto">
+            {data.title}
+          </h3>
+
+          {/* Middle: Badge + Time */}
+          <div className="flex items-center gap-2 mb-3 mt-3">
             {badge && (
-              <span className={`text-xs font-medium px-2 py-0.5 rounded ${badge.className}`}>
-                {badge.text}
-              </span>
+              badge.icon ? (
+                badge.icon
+              ) : (
+                <span className={`text-xs font-medium px-2 py-0.5 rounded ${badge.className}`}>
+                  {badge.text}
+                </span>
+              )
             )}
             <span className="text-xs text-gray-400 dark:text-gray-500">
               {formatRelativeTime(data.created_at)}
             </span>
           </div>
 
-          {/* Title */}
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-snug line-clamp-2 mb-3">
-            {data.title}
-          </h3>
-
           {/* Divider */}
           <div className="h-px bg-gray-100 dark:bg-gray-700 mb-3" />
 
-          {/* Meta Info */}
+          {/* Bottom: Meta Info */}
           {isColumn ? (
             // Column: Author
             <div className="flex items-center gap-2">
