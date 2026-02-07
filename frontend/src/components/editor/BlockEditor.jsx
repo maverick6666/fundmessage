@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { uploadService } from '../../services/uploadService';
 import { useToast } from '../../context/ToastContext';
 
@@ -51,13 +51,24 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
   const menuRef = useRef(null);
   const editorRef = useRef(null);
   const menuInputRef = useRef(null);
+  const hasInitializedRef = useRef(false);
 
-  // Sync with initial blocks when they change
+  // initialBlocks의 ID를 문자열로 변환하여 비교 (참조 대신 내용 기반)
+  const initialBlockIds = useMemo(() =>
+    initialBlocks.map(b => b.id).join(','),
+    [initialBlocks]
+  );
+
+  // Sync with initial blocks only on first load (when editing existing column)
   useEffect(() => {
+    // 이미 초기화되었으면 무시 (이미지 업로드 등 내부 업데이트 보호)
+    if (hasInitializedRef.current) return;
+
     if (initialBlocks.length > 0) {
       setBlocks(initialBlocks);
+      hasInitializedRef.current = true;
     }
-  }, [initialBlocks]);
+  }, [initialBlockIds]);
 
   // 메뉴 위치 조정 (화면 하단 overflow 방지)
   useEffect(() => {

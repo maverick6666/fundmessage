@@ -159,7 +159,7 @@ export function SidePanel() {
         )}
 
         {/* 패널 컨텐츠 */}
-        <div className={`flex-1 ${(panelType === 'column-editor' || panelType === 'note-editor') ? '' : 'overflow-y-auto'}`}>
+        <div className={`flex-1 min-h-0 ${(panelType === 'column-editor' || panelType === 'note-editor') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           {panelType === 'document' && panelData?.document && (
             <DocumentPanel
               document={panelData.document}
