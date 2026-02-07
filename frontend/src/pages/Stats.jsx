@@ -278,10 +278,16 @@ export function Stats() {
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
                   <span className="text-xs text-gray-500 dark:text-gray-400">USD 보유</span>
                   <p className="font-semibold text-lg dark:text-gray-200">{formatCurrency(usdCash, 'USD')}</p>
+                  {exchangeRate && usdCash > 0 && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">≈{formatCurrency(usdCash * exchangeRate, 'KRX')}</p>
+                  )}
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
                   <span className="text-xs text-gray-500 dark:text-gray-400">USD 평가</span>
                   <p className="font-semibold text-lg dark:text-gray-200">{(usdEvaluation + usdtEvaluation) > 0 ? formatCurrency(usdEvaluation + usdtEvaluation, 'USD') : '-'}</p>
+                  {exchangeRate && (usdEvaluation + usdtEvaluation) > 0 && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">≈{formatCurrency((usdEvaluation + usdtEvaluation) * exchangeRate, 'KRX')}</p>
+                  )}
                 </div>
               </div>
             </div>
