@@ -12,8 +12,8 @@ export const decisionNoteService = {
     return response.data.data;
   },
 
-  async createNote(positionId, { title, content, blocks }) {
-    const response = await api.post(`/positions/${positionId}/notes`, { title, content, blocks });
+  async createNote(positionId, { title, content, blocks, note_type }) {
+    const response = await api.post(`/positions/${positionId}/notes`, { title, content, blocks, note_type });
     return response.data.data;
   },
 

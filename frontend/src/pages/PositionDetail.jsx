@@ -7,7 +7,7 @@ import { ConfirmModal } from '../components/common/ConfirmModal';
 import { Input } from '../components/common/Input';
 import { StockChart } from '../components/charts/StockChart';
 import { ProfitProgressBar, TargetProgressBar } from '../components/common/ProfitProgressBar';
-import { QuickNumberButtons } from '../components/common/NumberInputWithQuickButtons';
+import { QuickPriceButtons } from '../components/common/NumberInputWithQuickButtons';
 import ReactMarkdown from 'react-markdown';
 import { AIDecisionNoteModal } from '../components/ai/AIDecisionNoteModal';
 import { aiService } from '../services/aiService';
@@ -77,6 +77,10 @@ export function PositionDetail() {
   const [showOperationReportModal, setShowOperationReportModal] = useState(false);
   const [generatedReport, setGeneratedReport] = useState('');
   const [reportGenerating, setReportGenerating] = useState(false);
+  // 운용보고서 폼
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportTitle, setReportTitle] = useState('');
+  const [reportContent, setReportContent] = useState('');
 
   // 인라인 편집 상태
   const [editingInfo, setEditingInfo] = useState(false);
@@ -308,6 +312,28 @@ export function PositionDetail() {
     setNoteTitle(note.title);
     setNoteContent(note.content);
     setShowNoteForm(true);
+  };
+
+  // 운용보고서 저장
+  const handleSaveReport = async () => {
+    if (!reportTitle.trim() || !reportContent.trim()) {
+      toast.warning('제목과 내용을 입력해주세요.');
+      return;
+    }
+    try {
+      await decisionNoteService.createNote(id, {
+        title: reportTitle,
+        content: reportContent,
+        note_type: 'report'
+      });
+      setShowReportForm(false);
+      setReportTitle('');
+      setReportContent('');
+      fetchDecisionNotes();
+      toast.success('운용보고서가 저장되었습니다.');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || '저장에 실패했습니다.');
+    }
   };
 
   const handleDeleteNote = (noteId) => {
@@ -744,17 +770,13 @@ export function PositionDetail() {
               </svg>
             </button>
           </div>
-          {/* 수량 간편입력 버튼 */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-500 dark:text-gray-400">수량:</span>
-            <QuickNumberButtons
-              onAdd={(num) => {
-                const current = parseFloat(editPlanData.quantity) || 0;
-                setEditPlanData({ ...editPlanData, quantity: String(current + num) });
-              }}
-              quickValues={[1, 5, 10, 50, 100]}
-            />
-          </div>
+          {/* 가격 간편입력 버튼 */}
+          <QuickPriceButtons
+            onAdd={(num) => {
+              const current = parseFloat(editPlanData.price) || 0;
+              setEditPlanData({ ...editPlanData, price: String(current + num) });
+            }}
+          />
         </div>
       );
     }
@@ -1358,11 +1380,11 @@ export function PositionDetail() {
               </div>
             )}
 
-            {decisionNotes.filter(n => !n.title?.startsWith('📊')).length === 0 && !showNoteForm ? (
+            {decisionNotes.filter(n => n.note_type !== 'report').length === 0 && !showNoteForm ? (
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">작성된 의사결정 노트가 없습니다</p>
             ) : (
               <div className="space-y-2">
-                {decisionNotes.filter(n => !n.title?.startsWith('📊')).map(note => (
+                {decisionNotes.filter(n => n.note_type !== 'report').map(note => (
                   <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                     <div
                       className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -1408,25 +1430,58 @@ export function PositionDetail() {
             <CardHeader>
               <div className="flex items-center justify-between w-full">
                 <CardTitle>운용보고서</CardTitle>
-                {isManagerOrAdmin() && (
-                  <button
-                    onClick={() => setShowOperationReportModal(true)}
-                    className="text-sm text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium flex items-center gap-1"
-                    title="AI 운용보고서 생성"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                    AI 생성
-                  </button>
+                {isManagerOrAdmin() && !showReportForm && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setShowOperationReportModal(true)}
+                      className="text-sm text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium flex items-center gap-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      AI 보고서
+                    </button>
+                    {isManager() && (
+                      <button
+                        onClick={() => { setShowReportForm(true); setReportTitle(''); setReportContent(''); }}
+                        className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                      >
+                        + 문서 추가
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </CardHeader>
-            {decisionNotes.filter(n => n.title?.startsWith('📊')).length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">생성된 운용보고서가 없습니다</p>
+
+            {showReportForm && (
+              <div className="mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                <input
+                  type="text"
+                  placeholder="보고서 제목"
+                  value={reportTitle}
+                  onChange={(e) => setReportTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <textarea
+                  placeholder="마크다운으로 작성할 수 있습니다..."
+                  value={reportContent}
+                  onChange={(e) => setReportContent(e.target.value)}
+                  rows={8}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <div className="flex justify-end gap-2 mt-3">
+                  <Button variant="secondary" size="sm" onClick={() => setShowReportForm(false)}>취소</Button>
+                  <Button size="sm" onClick={handleSaveReport}>저장</Button>
+                </div>
+              </div>
+            )}
+
+            {decisionNotes.filter(n => n.note_type === 'report').length === 0 && !showReportForm ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">작성된 운용보고서가 없습니다</p>
             ) : (
               <div className="space-y-2">
-                {decisionNotes.filter(n => n.title?.startsWith('📊')).map(note => (
+                {decisionNotes.filter(n => n.note_type === 'report').map(note => (
                   <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                     <div
                       className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30"
@@ -1677,14 +1732,15 @@ export function PositionDetail() {
                   try {
                     const result = await aiService.generateOperationReport(parseInt(id));
                     if (result.success && result.data.content) {
-                      // 자동으로 의사결정 노트로 저장
+                      // 자동으로 운용보고서로 저장
                       const now = new Date();
                       const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-                      const title = `📊 운용보고서 (${dateStr})`;
+                      const title = `운용보고서 (${dateStr})`;
 
                       await decisionNoteService.createNote(parseInt(id), {
                         title,
-                        content: result.data.content
+                        content: result.data.content,
+                        note_type: 'report'
                       });
 
                       toast.success('운용보고서가 저장되었습니다.');

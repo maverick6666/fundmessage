@@ -14,6 +14,7 @@ class DecisionNote(Base):
     title = Column(String(200), nullable=False)
     content = Column(Text, nullable=False)  # markdown (fallback)
     blocks = Column(JSON, nullable=True)  # 블록 에디터 데이터
+    note_type = Column(String(20), default='decision')  # 'decision' | 'report' (운용보고서)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)

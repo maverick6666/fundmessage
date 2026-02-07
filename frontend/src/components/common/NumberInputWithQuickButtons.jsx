@@ -131,59 +131,32 @@ export function NumberInputWithQuickButtons({
 }
 
 /**
- * 간단한 빠른 버튼 (인라인용)
- * 단위 선택 후 숫자 클릭하면 바로 추가
+ * 가격 빠른 입력 버튼 (인라인용)
+ * 100, 500, 1k, 5k, 10k, 50k
  */
-export function QuickNumberButtons({
+export function QuickPriceButtons({
   onAdd,
-  quickValues = [1, 5, 10, 50, 100],
-  showUnits = true,
   className = ''
 }) {
-  // 현재 선택된 단위
-  const [unitMultiplier, setUnitMultiplier] = useState(1);
-
-  const handleNumberClick = (num) => {
-    // 숫자 클릭 즉시 추가
-    onAdd(num * unitMultiplier);
-  };
+  const priceButtons = [
+    { label: '100', value: 100 },
+    { label: '500', value: 500 },
+    { label: '1k', value: 1000 },
+    { label: '5k', value: 5000 },
+    { label: '10k', value: 10000 },
+    { label: '50k', value: 50000 },
+  ];
 
   return (
     <div className={`flex items-center gap-1 flex-wrap ${className}`}>
-      {/* 단위 버튼 (먼저 선택) */}
-      {showUnits && (
-        <>
-          {[
-            { label: '1', value: 1 },
-            { label: '천', value: 1000 },
-            { label: '만', value: 10000 },
-          ].map(({ label, value }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setUnitMultiplier(value)}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
-                unitMultiplier === value
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-          <span className="text-gray-300 dark:text-gray-600 mx-1">|</span>
-        </>
-      )}
-
-      {/* 숫자 버튼들 */}
-      {quickValues.map((num) => (
+      {priceButtons.map(({ label, value }) => (
         <button
-          key={num}
+          key={value}
           type="button"
-          onClick={() => handleNumberClick(num)}
+          onClick={() => onAdd(value)}
           className="px-2 py-1 text-xs rounded transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
         >
-          +{num}{unitMultiplier === 1000 ? '천' : unitMultiplier === 10000 ? '만' : ''}
+          +{label}
         </button>
       ))}
     </div>

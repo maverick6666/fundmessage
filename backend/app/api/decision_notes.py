@@ -17,6 +17,7 @@ class DecisionNoteCreate(BaseModel):
     title: str
     content: str
     blocks: Optional[List[Any]] = None
+    note_type: Optional[str] = 'decision'  # 'decision' | 'report'
 
 
 class DecisionNoteUpdate(BaseModel):
@@ -32,6 +33,7 @@ def note_to_dict(note: DecisionNote) -> dict:
         "title": note.title,
         "content": note.content,
         "blocks": note.blocks,
+        "note_type": note.note_type or 'decision',
         "author": {
             "id": note.author.id,
             "username": note.author.username,
@@ -99,6 +101,7 @@ async def create_decision_note(
         title=note_data.title,
         content=note_data.content,
         blocks=note_data.blocks,
+        note_type=note_data.note_type or 'decision',
         created_by=current_user.id
     )
     db.add(note)
