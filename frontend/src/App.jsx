@@ -19,6 +19,7 @@ import { Settings } from './pages/Settings';
 // StockSearch removed - redirects to /positions
 import { Reports } from './pages/Reports';
 import { ColumnEditor } from './pages/ColumnEditor';
+import { NewsDesk } from './pages/NewsDesk';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -168,6 +169,15 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Reports />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/newsdesk"
+        element={
+          <PrivateRoute>
+            <NewsDesk />
           </PrivateRoute>
         }
       />
