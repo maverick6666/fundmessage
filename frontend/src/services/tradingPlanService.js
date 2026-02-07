@@ -24,5 +24,11 @@ export const tradingPlanService = {
   async deletePlan(positionId, planId) {
     const response = await api.delete(`/positions/${positionId}/plans/${planId}`);
     return response.data;
+  },
+
+  // 체결 기록 생성
+  async createExecution(positionId, data) {
+    const response = await api.post(`/positions/${positionId}/executions`, data);
+    return response.data.data;
   }
 };

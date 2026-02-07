@@ -8,7 +8,7 @@ from app.models.trading_plan import TradingPlan
 from app.models.position import Position
 from app.models.user import User
 from app.schemas.trading_plan import (
-    TradingPlanCreate, TradingPlanSubmit,
+    TradingPlanCreate, TradingPlanSubmit, ExecutionCreate,
     TradingPlanResponse, TradingPlanListResponse
 )
 from app.schemas.user import UserBrief
@@ -24,11 +24,21 @@ def plan_to_response(plan: TradingPlan) -> TradingPlanResponse:
         id=plan.id,
         position_id=plan.position_id,
         version=plan.version,
+        record_type=plan.record_type or 'plan_saved',
         buy_plan=plan.buy_plan,
         take_profit_targets=plan.take_profit_targets,
         stop_loss_targets=plan.stop_loss_targets,
         memo=plan.memo,
         changes=plan.changes,
+        plan_type=plan.plan_type,
+        execution_index=plan.execution_index,
+        target_price=float(plan.target_price) if plan.target_price else None,
+        target_quantity=float(plan.target_quantity) if plan.target_quantity else None,
+        executed_price=float(plan.executed_price) if plan.executed_price else None,
+        executed_quantity=float(plan.executed_quantity) if plan.executed_quantity else None,
+        executed_amount=float(plan.executed_amount) if plan.executed_amount else None,
+        profit_loss=float(plan.profit_loss) if plan.profit_loss else None,
+        profit_rate=float(plan.profit_rate) if plan.profit_rate else None,
         status=plan.status,
         user=UserBrief.model_validate(plan.user) if plan.user else None,
         created_at=plan.created_at,
@@ -91,12 +101,13 @@ async def create_trading_plan(
         position_id=position_id,
         user_id=current_user.id,
         version=next_version,
+        record_type='plan_saved',
         buy_plan=plan_data.buy_plan,
         take_profit_targets=plan_data.take_profit_targets,
         stop_loss_targets=plan_data.stop_loss_targets,
         memo=plan_data.memo,
         changes=changes_data,
-        status='draft'
+        status='submitted'  # 저장 즉시 submitted
     )
 
     db.add(new_plan)
@@ -232,4 +243,112 @@ async def delete_trading_plan(
     return APIResponse(
         success=True,
         message="매매계획이 삭제되었습니다"
+    )
+
+
+@router.post("/{position_id}/executions", response_model=APIResponse, status_code=201)
+async def create_execution_record(
+    position_id: int,
+    execution_data: ExecutionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """체결 기록 생성 (팀장만)
+
+    체크박스로 계획 항목 체결 시 호출.
+    포지션의 해당 계획 항목을 completed=True로 업데이트하고,
+    이력에 체결 기록을 추가합니다.
+    """
+    # 팀장 권한 확인
+    if not current_user.is_manager_or_admin():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="체결 기록은 팀장만 추가할 수 있습니다"
+        )
+
+    position = db.query(Position).filter(Position.id == position_id).first()
+    if not position:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Position not found")
+
+    if position.status != 'open':
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="종료된 포지션에는 체결 기록을 추가할 수 없습니다")
+
+    # 체결 금액 계산
+    executed_amount = float(execution_data.executed_price) * float(execution_data.executed_quantity)
+
+    # 손익 계산 (익절/손절만)
+    profit_loss = None
+    profit_rate = None
+    if execution_data.plan_type in ['take_profit', 'stop_loss']:
+        avg_price = float(position.average_buy_price) if position.average_buy_price else 0
+        if avg_price > 0:
+            profit_loss = (float(execution_data.executed_price) - avg_price) * float(execution_data.executed_quantity)
+            investment = avg_price * float(execution_data.executed_quantity)
+            profit_rate = profit_loss / investment if investment > 0 else 0
+
+    # 최신 버전 번호 확인
+    latest = db.query(TradingPlan).filter(
+        TradingPlan.position_id == position_id
+    ).order_by(TradingPlan.version.desc()).first()
+
+    next_version = (latest.version + 1) if latest else 1
+
+    # 체결 기록 생성
+    execution_record = TradingPlan(
+        position_id=position_id,
+        user_id=current_user.id,
+        version=next_version,
+        record_type='execution',
+        plan_type=execution_data.plan_type,
+        execution_index=execution_data.execution_index,
+        target_price=execution_data.target_price,
+        target_quantity=execution_data.target_quantity,
+        executed_price=execution_data.executed_price,
+        executed_quantity=execution_data.executed_quantity,
+        executed_amount=executed_amount,
+        profit_loss=profit_loss,
+        profit_rate=profit_rate,
+        status='submitted'
+    )
+
+    db.add(execution_record)
+
+    # 포지션의 해당 계획 항목을 completed=True로 업데이트
+    plan_key = {
+        'buy': 'buy_plan',
+        'take_profit': 'take_profit_targets',
+        'stop_loss': 'stop_loss_targets'
+    }.get(execution_data.plan_type)
+
+    if plan_key:
+        plans = getattr(position, plan_key) or []
+        if plans and len(plans) >= execution_data.execution_index:
+            # 해당 인덱스의 항목을 completed=True로 업데이트
+            idx = execution_data.execution_index - 1  # 1-based to 0-based
+            if idx >= 0 and idx < len(plans):
+                plans[idx]['completed'] = True
+                setattr(position, plan_key, plans)
+
+    db.commit()
+    db.refresh(execution_record)
+
+    # 감사 로그
+    type_labels = {
+        'buy': '매수',
+        'take_profit': '익절',
+        'stop_loss': '손절'
+    }
+    type_label = type_labels.get(execution_data.plan_type, execution_data.plan_type)
+    audit_service = AuditService(db)
+    audit_service.log_change(
+        entity_type='position',
+        entity_id=position_id,
+        action=f"{execution_data.execution_index}차 {type_label} 체결: 계획 ₩{execution_data.target_price:,.0f} → 실제 ₩{execution_data.executed_price:,.0f} × {execution_data.executed_quantity:,.0f}",
+        user_id=current_user.id
+    )
+
+    return APIResponse(
+        success=True,
+        data=plan_to_response(execution_record),
+        message=f"{execution_data.execution_index}차 {type_label} 체결이 기록되었습니다"
     )

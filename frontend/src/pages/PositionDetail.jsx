@@ -99,14 +99,16 @@ export function PositionDetail() {
   // 변경 추적 (저장 전까지 누적)
   const [pendingChanges, setPendingChanges] = useState([]);
 
-  // 체결 확인 모달
+  // 체결 확인 모달 (가격/수량 수정 가능)
   const [executeConfirmModal, setExecuteConfirmModal] = useState({
     show: false,
     planType: null,
     index: null,
     item: null,
-    confirmMsg: '',
-    pnl: null
+    typeLabel: '',
+    // 실제 체결 가격/수량 (사용자가 수정 가능)
+    executedPrice: '',
+    executedQuantity: '',
   });
 
   // 커스텀 확인 모달 상태들
@@ -116,6 +118,9 @@ export function PositionDetail() {
   const [deletePositionConfirm, setDeletePositionConfirm] = useState(false);
   const [earlyCloseConfirm, setEarlyCloseConfirm] = useState(false);
   const [deleteDiscussionConfirm, setDeleteDiscussionConfirm] = useState({ show: false, discussion: null });
+
+  // 계획 저장 확인 모달
+  const [savePlanConfirm, setSavePlanConfirm] = useState(false);
 
   useEffect(() => {
     fetchPosition();
@@ -215,12 +220,20 @@ export function PositionDetail() {
     }
   };
 
-  const handleSaveTradingPlan = async () => {
+  // 계획 저장 확인 모달 표시
+  const showSavePlanConfirmModal = () => {
     if (!position) return;
     if (pendingChanges.length === 0) {
       toast.warning('저장할 변경사항이 없습니다.');
       return;
     }
+    setSavePlanConfirm(true);
+  };
+
+  // 실제 계획 저장 실행
+  const handleSaveTradingPlan = async () => {
+    if (!position) return;
+    setSavePlanConfirm(false);
     setSavingPlan(true);
     try {
       const planData = {
@@ -241,6 +254,30 @@ export function PositionDetail() {
     } finally {
       setSavingPlan(false);
     }
+  };
+
+  // 계획 요약 생성 (모달 표시용)
+  const formatPlanSummary = () => {
+    if (!position) return { buy: [], takeProfit: [], stopLoss: [] };
+
+    const buyPlan = (position.buy_plan || []).filter(p => !p.completed);
+    const takeProfitTargets = (position.take_profit_targets || []).filter(p => !p.completed);
+    const stopLossTargets = (position.stop_loss_targets || []).filter(p => !p.completed);
+
+    return {
+      buy: buyPlan.map(p => ({
+        price: p.price,
+        quantity: p.quantity
+      })),
+      takeProfit: takeProfitTargets.map(p => ({
+        price: p.price,
+        quantity: p.quantity
+      })),
+      stopLoss: stopLossTargets.map(p => ({
+        price: p.price,
+        quantity: p.quantity
+      }))
+    };
   };
 
   // 변경 기록 추가 헬퍼
@@ -421,10 +458,9 @@ export function PositionDetail() {
 
   // 체크박스 토글 (팀장만)
   const handleTogglePlan = async (planType, index, completed) => {
-    // 완료 체크 시 확인 모달 표시 (실제 포지션에 영향을 주므로)
+    // 완료 체크 시 체결 모달 표시 (가격/수량 수정 가능)
     if (completed) {
       let item = null;
-      let pnl = null;
       let typeLabel = '';
 
       if (planType === 'buy') {
@@ -433,15 +469,9 @@ export function PositionDetail() {
       } else if (planType === 'take_profit') {
         item = position.take_profit_targets?.[index];
         typeLabel = '익절';
-        if (item?.price && item?.quantity) {
-          pnl = (parseFloat(item.price) - parseFloat(position.average_buy_price)) * parseFloat(item.quantity);
-        }
       } else if (planType === 'stop_loss') {
         item = position.stop_loss_targets?.[index];
         typeLabel = '손절';
-        if (item?.price && item?.quantity) {
-          pnl = (parseFloat(item.price) - parseFloat(position.average_buy_price)) * parseFloat(item.quantity);
-        }
       }
 
       if (item?.price && item?.quantity) {
@@ -451,7 +481,9 @@ export function PositionDetail() {
           index,
           item,
           typeLabel,
-          pnl
+          // 계획 가격/수량을 기본값으로 설정 (사용자가 수정 가능)
+          executedPrice: cleanNumberInput(item.price),
+          executedQuantity: cleanNumberInput(item.quantity),
         });
         return;
       }
@@ -461,27 +493,54 @@ export function PositionDetail() {
     await executeTogglePlan(planType, index, completed);
   };
 
-  // 실제 체결 처리
+  // 실제 체결 처리 (체결 취소용 - completed=false)
   const executeTogglePlan = async (planType, index, completed) => {
     try {
       const updatedPosition = await positionService.togglePlanItem(id, planType, index, completed);
       setPosition(updatedPosition);
       if (showAuditLogs) fetchAuditLogs();
-
-      // 잔량이 0이 되면 포지션 종료 안내
-      if (updatedPosition.total_quantity <= 0) {
-        toast.info('모든 수량이 체결되었습니다. 포지션 종료 버튼을 눌러 마무리하세요.');
-      }
+      fetchTradingPlans(); // 이력 새로고침
     } catch (error) {
       toast.error(error.response?.data?.detail || '상태 변경에 실패했습니다.');
     }
   };
 
-  // 체결 확인
+  // 체결 확인 (모달에서 확인 버튼 클릭 시)
   const confirmExecute = async () => {
-    const { planType, index } = executeConfirmModal;
-    setExecuteConfirmModal({ show: false, planType: null, index: null, item: null, typeLabel: '', pnl: null });
-    await executeTogglePlan(planType, index, true);
+    const { planType, index, item, executedPrice, executedQuantity } = executeConfirmModal;
+
+    if (!executedPrice || !executedQuantity) {
+      toast.warning('체결 가격과 수량을 입력해주세요.');
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      // 체결 기록 API 호출
+      await tradingPlanService.createExecution(id, {
+        plan_type: planType,
+        execution_index: index + 1, // 1-based
+        target_price: parseFloat(item.price),
+        target_quantity: parseFloat(item.quantity),
+        executed_price: parseFloat(executedPrice),
+        executed_quantity: parseFloat(executedQuantity),
+      });
+
+      setExecuteConfirmModal({
+        show: false, planType: null, index: null, item: null, typeLabel: '',
+        executedPrice: '', executedQuantity: ''
+      });
+
+      // 포지션과 이력 새로고침
+      fetchPosition();
+      fetchTradingPlans();
+
+      toast.success('체결이 기록되었습니다.');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || '체결 기록에 실패했습니다.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   // 계획 항목 추가
@@ -1187,7 +1246,7 @@ export function PositionDetail() {
                 <Button
                   size="sm"
                   className="w-full"
-                  onClick={handleSaveTradingPlan}
+                  onClick={showSavePlanConfirmModal}
                   loading={savingPlan}
                   disabled={pendingChanges.length === 0}
                 >
@@ -1199,20 +1258,27 @@ export function PositionDetail() {
             {/* 계획 이력 */}
             {showPlanHistory && tradingPlans.length > 0 && (
               <div className="pt-4 border-t dark:border-gray-700">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">저장된 계획</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">매매 이력</p>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {tradingPlans.map(plan => (
-                    <div key={plan.id} className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-xs">
+                    <div key={plan.id} className={`p-2 rounded-lg text-xs ${
+                      plan.record_type === 'execution'
+                        ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
+                        : 'bg-gray-50 dark:bg-gray-700/50'
+                    }`}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium dark:text-gray-200">v{plan.version}</span>
                         <div className="flex items-center gap-2">
-                          <span className={`px-1.5 py-0.5 rounded ${
-                            plan.status === 'submitted'
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                          <span className="font-medium dark:text-gray-200">v{plan.version}</span>
+                          {/* 유형 배지 */}
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            plan.record_type === 'execution'
+                              ? 'bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200'
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
                           }`}>
-                            {plan.status === 'submitted' ? '제출됨' : '임시저장'}
+                            {plan.record_type === 'execution' ? '체결' : '계획저장'}
                           </span>
+                        </div>
+                        <div className="flex items-center gap-2">
                           {plan.status === 'draft' && (
                             <>
                               <button
@@ -1236,45 +1302,102 @@ export function PositionDetail() {
                       <p className="text-gray-500 dark:text-gray-400">
                         {plan.user?.full_name || plan.user?.name} · {formatDate(plan.created_at)}
                       </p>
-                      {plan.memo && (
-                        <p className="mt-1 text-gray-600 dark:text-gray-300 italic">&quot;{plan.memo}&quot;</p>
-                      )}
-                      {/* 변경 이력 표시 (JSON 형식) */}
-                      {plan.changes && plan.changes.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          {plan.changes.map((c, i) => (
-                            <div key={i} className="flex items-center gap-1.5 text-[11px]">
-                              <span className={`px-1 py-0.5 rounded font-medium ${
-                                c.action === 'add' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' :
-                                c.action === 'modify' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' :
-                                'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
-                              }`}>
-                                {c.action === 'add' ? '추가' : c.action === 'modify' ? '수정' : '삭제'}
+
+                      {/* 체결 기록 표시 */}
+                      {plan.record_type === 'execution' && (
+                        <div className="mt-2 p-2 bg-white dark:bg-gray-800 rounded border border-amber-100 dark:border-amber-900">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`font-medium ${
+                              plan.plan_type === 'buy' ? 'text-gray-700 dark:text-gray-300' :
+                              plan.plan_type === 'take_profit' ? 'text-red-600 dark:text-red-400' :
+                              'text-blue-600 dark:text-blue-400'
+                            }`}>
+                              {plan.execution_index}차 {plan.plan_type === 'buy' ? '매수' : plan.plan_type === 'take_profit' ? '익절' : '손절'}
+                            </span>
+                          </div>
+                          <div className="space-y-0.5 text-[11px]">
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500 dark:text-gray-400 w-12">계획:</span>
+                              <span className="text-gray-600 dark:text-gray-300">
+                                {formatCurrency(plan.target_price, position?.market)} × {formatQuantity(plan.target_quantity, position?.market)}
                               </span>
-                              <span className="text-gray-600 dark:text-gray-400">{c.user}</span>
-                              <span className={`font-medium ${
-                                c.type === 'buy' ? 'text-gray-700 dark:text-gray-300' :
-                                c.type === 'take_profit' ? 'text-red-600 dark:text-red-400' :
-                                'text-blue-600 dark:text-blue-400'
-                              }`}>
-                                {c.type === 'buy' ? '매수' : c.type === 'take_profit' ? '익절' : '손절'}
-                              </span>
-                              <span className="text-gray-700 dark:text-gray-300">
-                                {formatCurrency(c.price, position?.market)} ({formatQuantity(c.quantity, position?.market)})
-                              </span>
-                              {c.action === 'modify' && c.old_price && (
-                                <span className="text-gray-400 dark:text-gray-500 line-through">
-                                  ← {formatCurrency(c.old_price, position?.market)} ({formatQuantity(c.old_quantity, position?.market)})
-                                </span>
-                              )}
                             </div>
-                          ))}
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500 dark:text-gray-400 w-12">실제:</span>
+                              <span className="font-medium text-gray-700 dark:text-gray-200">
+                                {formatCurrency(plan.executed_price, position?.market)} × {formatQuantity(plan.executed_quantity, position?.market)}
+                              </span>
+                              <span className="text-gray-500 dark:text-gray-400">
+                                = {formatCurrency(plan.executed_amount, position?.market)}
+                              </span>
+                            </div>
+                            {plan.profit_loss != null && (
+                              <div className="flex items-center gap-2 pt-1 border-t border-amber-100 dark:border-amber-800 mt-1">
+                                <span className="text-gray-500 dark:text-gray-400 w-12">손익:</span>
+                                <span className={plan.profit_loss >= 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-blue-600 dark:text-blue-400 font-medium'}>
+                                  {plan.profit_loss >= 0 ? '+' : ''}{formatCurrency(plan.profit_loss, position?.market)}
+                                  ({plan.profit_rate >= 0 ? '+' : ''}{formatPercent(plan.profit_rate * 100)})
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
-                      {/* 변경 이력이 없으면 기존 요약 표시 */}
-                      {(!plan.changes || plan.changes.length === 0) && (
-                        <div className="mt-1 text-gray-500 dark:text-gray-400">
-                          매수 {(plan.buy_plan || []).length}개 · 익절 {(plan.take_profit_targets || []).length}개 · 손절 {(plan.stop_loss_targets || []).length}개
+
+                      {/* 계획 저장 표시 */}
+                      {plan.record_type !== 'execution' && (
+                        <div className="mt-2 space-y-1.5">
+                          {/* 매수 계획 */}
+                          <div className="text-[11px]">
+                            <span className="text-gray-500 dark:text-gray-400">매수: </span>
+                            {(plan.buy_plan || []).length > 0 ? (
+                              <span className="text-gray-700 dark:text-gray-300">
+                                {plan.buy_plan.map((p, i) => (
+                                  <span key={i}>
+                                    {i > 0 && ', '}
+                                    {formatCurrency(p.price, position?.market)} × {formatQuantity(p.quantity, position?.market)}
+                                  </span>
+                                ))}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 dark:text-gray-500">없음</span>
+                            )}
+                          </div>
+                          {/* 익절 계획 */}
+                          <div className="text-[11px]">
+                            <span className="text-red-500 dark:text-red-400">익절: </span>
+                            {(plan.take_profit_targets || []).length > 0 ? (
+                              <span className="text-gray-700 dark:text-gray-300">
+                                {plan.take_profit_targets.map((p, i) => (
+                                  <span key={i}>
+                                    {i > 0 && ', '}
+                                    {formatCurrency(p.price, position?.market)} × {formatQuantity(p.quantity, position?.market)}
+                                  </span>
+                                ))}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 dark:text-gray-500">없음</span>
+                            )}
+                          </div>
+                          {/* 손절 계획 */}
+                          <div className="text-[11px]">
+                            <span className="text-blue-500 dark:text-blue-400">손절: </span>
+                            {(plan.stop_loss_targets || []).length > 0 ? (
+                              <span className="text-gray-700 dark:text-gray-300">
+                                {plan.stop_loss_targets.map((p, i) => (
+                                  <span key={i}>
+                                    {i > 0 && ', '}
+                                    {formatCurrency(p.price, position?.market)} × {formatQuantity(p.quantity, position?.market)}
+                                  </span>
+                                ))}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 dark:text-gray-500">없음</span>
+                            )}
+                          </div>
+                          {plan.memo && (
+                            <p className="text-gray-600 dark:text-gray-300 italic text-[11px]">&quot;{plan.memo}&quot;</p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1581,16 +1704,20 @@ export function PositionDetail() {
         </div>
       </div>
 
-      {/* 체결 확인 모달 */}
+      {/* 체결 확인 모달 (가격/수량 수정 가능) */}
       <Modal
         isOpen={executeConfirmModal.show}
-        onClose={() => setExecuteConfirmModal({ show: false, planType: null, index: null, item: null, typeLabel: '', pnl: null })}
-        title={`${executeConfirmModal.typeLabel} 체결 확인`}
+        onClose={() => setExecuteConfirmModal({
+          show: false, planType: null, index: null, item: null, typeLabel: '',
+          executedPrice: '', executedQuantity: ''
+        })}
+        title={`${executeConfirmModal.index + 1}차 ${executeConfirmModal.typeLabel} 체결`}
       >
         <div className="space-y-4">
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-500 dark:text-gray-400">체결 정보</span>
+          {/* 계획 가격 표시 */}
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">계획 가격</span>
               <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${
                 executeConfirmModal.planType === 'buy'
                   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
@@ -1601,46 +1728,75 @@ export function PositionDetail() {
                 {executeConfirmModal.typeLabel}
               </span>
             </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+            <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
               {executeConfirmModal.item && formatPriceQuantity(executeConfirmModal.item.price, executeConfirmModal.item.quantity, position?.market)}
             </div>
-            {executeConfirmModal.pnl !== null && (
-              <div className="flex items-center gap-2 mt-3 pt-3 border-t dark:border-gray-700">
-                <span className="text-sm text-gray-500 dark:text-gray-400">예상 실현손익</span>
-                <span className={`text-lg font-semibold ${executeConfirmModal.pnl >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                  {formatCurrency(executeConfirmModal.pnl, position?.market)}
-                </span>
-              </div>
-            )}
           </div>
 
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-            <div className="flex gap-2">
-              <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <div className="text-sm text-amber-800 dark:text-amber-200">
-                {executeConfirmModal.planType === 'buy' ? (
-                  <p>이 작업은 <strong>보유 수량</strong>과 <strong>평균단가</strong>에 반영됩니다.</p>
-                ) : (
-                  <p>이 작업은 <strong>보유 수량에서 차감</strong>되고 <strong>실현손익</strong>에 반영됩니다.</p>
-                )}
-              </div>
+          {/* 실제 체결 가격/수량 입력 */}
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">실제 체결 정보 입력</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="체결 가격"
+                type="number"
+                step="any"
+                value={executeConfirmModal.executedPrice}
+                onChange={(e) => setExecuteConfirmModal({ ...executeConfirmModal, executedPrice: e.target.value })}
+              />
+              <Input
+                label="체결 수량"
+                type="number"
+                step="any"
+                value={executeConfirmModal.executedQuantity}
+                onChange={(e) => setExecuteConfirmModal({ ...executeConfirmModal, executedQuantity: e.target.value })}
+              />
             </div>
           </div>
+
+          {/* 체결 금액 및 손익 계산 */}
+          {executeConfirmModal.executedPrice && executeConfirmModal.executedQuantity && (
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500 dark:text-gray-400">체결 금액</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">
+                  {formatCurrency(parseFloat(executeConfirmModal.executedPrice) * parseFloat(executeConfirmModal.executedQuantity), position?.market)}
+                </span>
+              </div>
+              {(executeConfirmModal.planType === 'take_profit' || executeConfirmModal.planType === 'stop_loss') && position?.average_buy_price && (
+                <div className="flex justify-between text-sm pt-2 border-t dark:border-gray-700">
+                  <span className="text-gray-500 dark:text-gray-400">실현 손익</span>
+                  {(() => {
+                    const pnl = (parseFloat(executeConfirmModal.executedPrice) - parseFloat(position.average_buy_price)) * parseFloat(executeConfirmModal.executedQuantity);
+                    const rate = pnl / (parseFloat(position.average_buy_price) * parseFloat(executeConfirmModal.executedQuantity)) * 100;
+                    return (
+                      <span className={`font-semibold ${pnl >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                        {formatCurrency(pnl, position?.market)} ({pnl >= 0 ? '+' : ''}{rate.toFixed(2)}%)
+                      </span>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
             <Button
               variant="secondary"
-              onClick={() => setExecuteConfirmModal({ show: false, planType: null, index: null, item: null, typeLabel: '', pnl: null })}
+              onClick={() => setExecuteConfirmModal({
+                show: false, planType: null, index: null, item: null, typeLabel: '',
+                executedPrice: '', executedQuantity: ''
+              })}
+              disabled={actionLoading}
             >
               취소
             </Button>
             <Button
               variant={executeConfirmModal.planType === 'stop_loss' ? 'danger' : 'primary'}
               onClick={confirmExecute}
+              loading={actionLoading}
             >
-              체결 확인
+              체결 완료
             </Button>
           </div>
         </div>
@@ -1874,6 +2030,106 @@ export function PositionDetail() {
         confirmText="삭제"
         confirmVariant="danger"
       />
+
+      {/* 계획 저장 확인 모달 */}
+      <Modal
+        isOpen={savePlanConfirm}
+        onClose={() => setSavePlanConfirm(false)}
+        title="매매계획 저장"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            현재 매매계획을 이력에 저장합니다.
+          </p>
+
+          {/* 계획 요약 표시 */}
+          {(() => {
+            const summary = formatPlanSummary();
+            return (
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3 text-sm">
+                {/* 매수 계획 */}
+                <div>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">매수 계획</span>
+                  {summary.buy.length > 0 ? (
+                    <div className="mt-1 space-y-1">
+                      {summary.buy.map((item, i) => (
+                        <div key={i} className="text-gray-600 dark:text-gray-400 pl-3">
+                          • {formatCurrency(item.price, position?.market)} × {formatQuantity(item.quantity, position?.market)}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-500 ml-2">없음</span>
+                  )}
+                </div>
+
+                {/* 익절 계획 */}
+                <div>
+                  <span className="font-medium text-red-600 dark:text-red-400">익절 계획</span>
+                  {summary.takeProfit.length > 0 ? (
+                    <div className="mt-1 space-y-1">
+                      {summary.takeProfit.map((item, i) => (
+                        <div key={i} className="text-gray-600 dark:text-gray-400 pl-3">
+                          • {formatCurrency(item.price, position?.market)} × {formatQuantity(item.quantity, position?.market)}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-500 ml-2">없음</span>
+                  )}
+                </div>
+
+                {/* 손절 계획 */}
+                <div>
+                  <span className="font-medium text-blue-600 dark:text-blue-400">손절 계획</span>
+                  {summary.stopLoss.length > 0 ? (
+                    <div className="mt-1 space-y-1">
+                      {summary.stopLoss.map((item, i) => (
+                        <div key={i} className="text-gray-600 dark:text-gray-400 pl-3">
+                          • {formatCurrency(item.price, position?.market)} × {formatQuantity(item.quantity, position?.market)}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-500 ml-2">없음</span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 메모 표시 */}
+          {planMemo && (
+            <div className="text-sm">
+              <span className="text-gray-500 dark:text-gray-400">메모: </span>
+              <span className="italic text-gray-600 dark:text-gray-300">{planMemo}</span>
+            </div>
+          )}
+
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            이 내용이 매매계획 이력에 추가됩니다.
+          </p>
+
+          <div className="flex gap-2 justify-end pt-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setSavePlanConfirm(false)}
+            >
+              취소
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSaveTradingPlan}
+              loading={savingPlan}
+            >
+              저장
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
