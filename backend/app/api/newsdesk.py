@@ -101,8 +101,23 @@ async def get_benchmark_data(
         except Exception:
             result[name] = []
 
-    # 팀 수익률 (포지션 기반 계산) - 추후 구현
-    result["fund"] = []
+    # 팀 수익률 (AssetSnapshot 기반)
+    from app.models.asset_snapshot import AssetSnapshot
+
+    fund_snapshots = db.query(AssetSnapshot).filter(
+        AssetSnapshot.snapshot_date >= start_date.date()
+    ).order_by(AssetSnapshot.snapshot_date.asc()).all()
+
+    if fund_snapshots and len(fund_snapshots) > 0:
+        result["fund"] = [
+            {
+                "time": int(datetime.combine(s.snapshot_date, datetime.min.time()).timestamp()),
+                "value": float(s.total_krw) if s.total_krw else 0
+            }
+            for s in fund_snapshots
+        ]
+    else:
+        result["fund"] = []
 
     return APIResponse(success=True, data=result)
 
