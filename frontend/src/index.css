@@ -125,6 +125,190 @@
 }
 
 /* ============================================
+   THEME: Ocean Depth (Deep Sea)
+   ============================================ */
+.theme-ocean-depth {
+  --color-bg-primary: #0c1929;
+  --color-bg-secondary: #0f2942;
+  --color-bg-tertiary: #133a5c;
+  --color-text-primary: #e0f2fe;
+  --color-text-secondary: #7dd3fc;
+  --color-text-muted: #38bdf8;
+  --color-border: #164e63;
+  --color-accent: #06b6d4;
+  --color-accent-hover: #22d3ee;
+  --color-success: #2dd4bf;
+  --color-danger: #f87171;
+  --color-warning: #fbbf24;
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --border-radius: 0.75rem;
+  --shadow-sm: 0 2px 8px rgba(6, 182, 212, 0.1);
+  --shadow-md: 0 8px 24px rgba(6, 182, 212, 0.15);
+}
+
+/* ============================================
+   THEME: Neon Tokyo (Cyberpunk)
+   ============================================ */
+.theme-neon-tokyo {
+  --color-bg-primary: #09090b;
+  --color-bg-secondary: #18181b;
+  --color-bg-tertiary: #27272a;
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #d4d4d8;
+  --color-text-muted: #a1a1aa;
+  --color-border: #3f3f46;
+  --color-accent: #e879f9;
+  --color-accent-hover: #f0abfc;
+  --color-success: #22d3ee;
+  --color-danger: #fb7185;
+  --color-warning: #fcd34d;
+  --font-sans: 'JetBrains Mono', 'SF Mono', monospace;
+  --font-display: 'JetBrains Mono', 'SF Mono', monospace;
+  --border-radius: 0.25rem;
+  --shadow-sm: 0 0 10px rgba(232, 121, 249, 0.2);
+  --shadow-md: 0 0 30px rgba(232, 121, 249, 0.3);
+}
+
+/* ============================================
+   THEME: Arctic Frost (Nordic)
+   ============================================ */
+.theme-arctic-frost {
+  --color-bg-primary: #f1f5f9;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #e2e8f0;
+  --color-text-primary: #1e293b;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+  --color-border: #cbd5e1;
+  --color-accent: #0ea5e9;
+  --color-accent-hover: #0284c7;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --border-radius: 0.5rem;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+/* ============================================
+   THEME: Sunset Trading (Warm)
+   ============================================ */
+.theme-sunset-trading {
+  --color-bg-primary: #fffbf5;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #fef3e2;
+  --color-text-primary: #431407;
+  --color-text-secondary: #78350f;
+  --color-text-muted: #a16207;
+  --color-border: #fed7aa;
+  --color-accent: #ea580c;
+  --color-accent-hover: #c2410c;
+  --color-success: #16a34a;
+  --color-danger: #dc2626;
+  --color-warning: #d97706;
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --border-radius: 1rem;
+  --shadow-sm: 0 2px 8px rgba(234, 88, 12, 0.08);
+  --shadow-md: 0 8px 24px rgba(234, 88, 12, 0.12);
+}
+
+/* ============================================
+   THEME: Monochrome Pro (Swiss)
+   ============================================ */
+.theme-monochrome-pro {
+  --color-bg-primary: #0a0a0a;
+  --color-bg-secondary: #141414;
+  --color-bg-tertiary: #1f1f1f;
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted: #737373;
+  --color-border: #2a2a2a;
+  --color-accent: #ffffff;
+  --color-accent-hover: #e5e5e5;
+  --color-success: #a3a3a3;
+  --color-danger: #fafafa;
+  --color-warning: #d4d4d4;
+  --font-sans: 'Helvetica Neue', 'Arial', sans-serif;
+  --font-display: 'Helvetica Neue', 'Arial', sans-serif;
+  --border-radius: 0;
+  --shadow-sm: none;
+  --shadow-md: none;
+}
+
+/* ============================================
+   THEME: Cherry Blossom (Spring)
+   ============================================ */
+.theme-cherry-blossom {
+  --color-bg-primary: #fdf2f8;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #fce7f3;
+  --color-text-primary: #831843;
+  --color-text-secondary: #9d174d;
+  --color-text-muted: #be185d;
+  --color-border: #fbcfe8;
+  --color-accent: #ec4899;
+  --color-accent-hover: #db2777;
+  --color-success: #059669;
+  --color-danger: #e11d48;
+  --color-warning: #d97706;
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --border-radius: 1rem;
+  --shadow-sm: 0 2px 8px rgba(236, 72, 153, 0.08);
+  --shadow-md: 0 8px 24px rgba(236, 72, 153, 0.12);
+}
+
+/* ============================================
+   THEME: Midnight Blue (Classic)
+   ============================================ */
+.theme-midnight-blue {
+  --color-bg-primary: #020617;
+  --color-bg-secondary: #0f172a;
+  --color-bg-tertiary: #1e293b;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #64748b;
+  --color-border: #334155;
+  --color-accent: #fbbf24;
+  --color-accent-hover: #f59e0b;
+  --color-success: #34d399;
+  --color-danger: #f87171;
+  --color-warning: #fbbf24;
+  --font-sans: 'Source Serif 4', 'Georgia', serif;
+  --font-display: 'Cormorant Garamond', 'Georgia', serif;
+  --border-radius: 0.375rem;
+  --shadow-sm: 0 1px 3px rgba(251, 191, 36, 0.1);
+  --shadow-md: 0 8px 24px rgba(251, 191, 36, 0.15);
+}
+
+/* ============================================
+   THEME: Forest Green (Nature)
+   ============================================ */
+.theme-forest-green {
+  --color-bg-primary: #052e16;
+  --color-bg-secondary: #14532d;
+  --color-bg-tertiary: #166534;
+  --color-text-primary: #ecfdf5;
+  --color-text-secondary: #a7f3d0;
+  --color-text-muted: #6ee7b7;
+  --color-border: #22543d;
+  --color-accent: #4ade80;
+  --color-accent-hover: #22c55e;
+  --color-success: #4ade80;
+  --color-danger: #fca5a5;
+  --color-warning: #fcd34d;
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --border-radius: 0.75rem;
+  --shadow-sm: 0 2px 8px rgba(74, 222, 128, 0.1);
+  --shadow-md: 0 8px 24px rgba(74, 222, 128, 0.15);
+}
+
+/* ============================================
    BASE STYLES
    ============================================ */
 @layer base {
@@ -416,6 +600,158 @@
     background: rgba(139, 92, 246, 0.1);
     color: #a78bfa;
     border: 1px solid rgba(139, 92, 246, 0.2);
+  }
+}
+
+/* Ocean Depth Theme Specifics */
+.theme-ocean-depth {
+  & .card {
+    background: linear-gradient(180deg, rgba(6, 182, 212, 0.05) 0%, transparent 100%);
+    border: 1px solid rgba(6, 182, 212, 0.15);
+  }
+  & .card:hover {
+    border-color: rgba(6, 182, 212, 0.3);
+  }
+  & .btn-primary {
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+  }
+}
+
+/* Neon Tokyo Theme Specifics */
+.theme-neon-tokyo {
+  & .card {
+    border: 1px solid rgba(232, 121, 249, 0.2);
+    box-shadow: 0 0 20px rgba(232, 121, 249, 0.05);
+  }
+  & .card:hover {
+    border-color: rgba(232, 121, 249, 0.5);
+    box-shadow: 0 0 30px rgba(232, 121, 249, 0.15);
+  }
+  & .btn-primary {
+    background: linear-gradient(135deg, #e879f9 0%, #22d3ee 100%);
+    text-shadow: 0 0 10px rgba(232, 121, 249, 0.5);
+  }
+  & .btn-primary:hover {
+    box-shadow: 0 0 25px rgba(232, 121, 249, 0.5);
+  }
+  & .badge {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.65rem;
+  }
+
+  /* Neon glow text for profits */
+  & .text-green-500, & .text-green-600 {
+    color: #22d3ee !important;
+    text-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  }
+  & .text-red-500, & .text-red-600 {
+    color: #fb7185 !important;
+    text-shadow: 0 0 10px rgba(251, 113, 133, 0.5);
+  }
+}
+
+/* Arctic Frost Theme Specifics */
+.theme-arctic-frost {
+  & .card {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+  & .btn-primary {
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  }
+}
+
+/* Sunset Trading Theme Specifics */
+.theme-sunset-trading {
+  & .card {
+    background: linear-gradient(135deg, rgba(234, 88, 12, 0.02) 0%, transparent 100%);
+    border: 1px solid rgba(234, 88, 12, 0.15);
+  }
+  & .btn-primary {
+    background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+  }
+  & .btn-primary:hover {
+    box-shadow: 0 4px 20px rgba(234, 88, 12, 0.3);
+  }
+}
+
+/* Monochrome Pro Theme Specifics */
+.theme-monochrome-pro {
+  & .card {
+    border: 1px solid #2a2a2a;
+  }
+  & .card:hover {
+    border-color: #fafafa;
+  }
+  & .btn-primary {
+    background: #fafafa;
+    color: #0a0a0a;
+    font-weight: 600;
+  }
+  & .btn-primary:hover {
+    background: #e5e5e5;
+  }
+  & .badge {
+    border: 1px solid currentColor;
+    background: transparent;
+    font-weight: 500;
+  }
+  /* High contrast P/L */
+  & .text-green-500, & .text-green-600 {
+    color: #fafafa !important;
+  }
+  & .text-red-500, & .text-red-600 {
+    color: #a3a3a3 !important;
+  }
+}
+
+/* Cherry Blossom Theme Specifics */
+.theme-cherry-blossom {
+  & .card {
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.03) 0%, transparent 100%);
+    border: 1px solid rgba(236, 72, 153, 0.15);
+  }
+  & .card:hover {
+    border-color: rgba(236, 72, 153, 0.3);
+  }
+  & .btn-primary {
+    background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+  }
+}
+
+/* Midnight Blue Theme Specifics */
+.theme-midnight-blue {
+  & h1, & h2, & h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+  }
+  & .card {
+    border: 1px solid rgba(251, 191, 36, 0.1);
+  }
+  & .card:hover {
+    border-color: rgba(251, 191, 36, 0.25);
+  }
+  & .btn-primary {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    color: #020617;
+    font-weight: 600;
+  }
+}
+
+/* Forest Green Theme Specifics */
+.theme-forest-green {
+  & .card {
+    background: linear-gradient(180deg, rgba(74, 222, 128, 0.05) 0%, transparent 100%);
+    border: 1px solid rgba(74, 222, 128, 0.15);
+  }
+  & .card:hover {
+    border-color: rgba(74, 222, 128, 0.3);
+  }
+  & .btn-primary {
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+    color: #052e16;
   }
 }
 

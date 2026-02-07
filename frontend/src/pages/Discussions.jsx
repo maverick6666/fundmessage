@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/common/Card';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 import { discussionService } from '../services/discussionService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
@@ -13,17 +14,23 @@ export function Discussions() {
   const [discussions, setDiscussions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('open');
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, discussion: null });
 
   useEffect(() => {
     fetchDiscussions();
   }, [statusFilter]);
 
-  const handleDelete = async (e, discussion) => {
+  const handleDelete = (e, discussion) => {
     e.stopPropagation();
-    if (!window.confirm(`토론 "${discussion.title}"을(를) 정말 삭제하시겠습니까?\n\n모든 메시지가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+    setDeleteConfirm({ show: true, discussion });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.discussion) return;
     try {
-      await discussionService.deleteDiscussion(discussion.id);
+      await discussionService.deleteDiscussion(deleteConfirm.discussion.id);
       fetchDiscussions();
+      setDeleteConfirm({ show: false, discussion: null });
     } catch (error) {
       toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
@@ -173,6 +180,17 @@ export function Discussions() {
           ))}
         </div>
       )}
+
+      {/* 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={deleteConfirm.show}
+        onClose={() => setDeleteConfirm({ show: false, discussion: null })}
+        onConfirm={confirmDelete}
+        title="토론 삭제"
+        message={`토론 "${deleteConfirm.discussion?.title}"을(를) 정말 삭제하시겠습니까?\n\n모든 메시지가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

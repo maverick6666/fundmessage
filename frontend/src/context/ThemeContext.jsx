@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const ThemeContext = createContext();
 
-// 5가지 테마 정의
+// 13가지 테마 정의
 export const THEMES = {
   default: {
     id: 'default',
@@ -14,29 +14,85 @@ export const THEMES = {
   'dark-premium': {
     id: 'dark-premium',
     name: '다크 프리미엄',
-    description: '블룸버그 터미널 스타일',
+    description: '블룸버그 터미널',
     preview: 'bg-gradient-to-r from-gray-900 to-green-900',
     isDark: true,
   },
   'modern-finance': {
     id: 'modern-finance',
     name: '모던 파이낸스',
-    description: '로빈후드/코인베이스 스타일',
+    description: '로빈후드 스타일',
     preview: 'bg-gradient-to-r from-emerald-400 to-cyan-400',
     isDark: false,
   },
   'minimal-luxury': {
     id: 'minimal-luxury',
     name: '미니멀 럭셔리',
-    description: '프라이빗 뱅킹 스타일',
+    description: '프라이빗 뱅킹',
     preview: 'bg-gradient-to-r from-amber-200 to-stone-300',
     isDark: false,
   },
   'tech-enterprise': {
     id: 'tech-enterprise',
     name: '테크 엔터프라이즈',
-    description: '스트라이프/리니어 스타일',
+    description: '스트라이프 스타일',
     preview: 'bg-gradient-to-r from-violet-600 to-indigo-600',
+    isDark: true,
+  },
+  'ocean-depth': {
+    id: 'ocean-depth',
+    name: '오션 뎁스',
+    description: '깊은 바다의 고요함',
+    preview: 'bg-gradient-to-r from-slate-800 to-teal-700',
+    isDark: true,
+  },
+  'neon-tokyo': {
+    id: 'neon-tokyo',
+    name: '네온 토쿄',
+    description: '사이버펑크 나이트',
+    preview: 'bg-gradient-to-r from-fuchsia-600 to-cyan-500',
+    isDark: true,
+  },
+  'arctic-frost': {
+    id: 'arctic-frost',
+    name: '아틱 프로스트',
+    description: '북유럽 미니멀리즘',
+    preview: 'bg-gradient-to-r from-slate-200 to-sky-200',
+    isDark: false,
+  },
+  'sunset-trading': {
+    id: 'sunset-trading',
+    name: '선셋 트레이딩',
+    description: '석양의 에너지',
+    preview: 'bg-gradient-to-r from-orange-500 to-rose-500',
+    isDark: false,
+  },
+  'monochrome-pro': {
+    id: 'monochrome-pro',
+    name: '모노크롬 프로',
+    description: '스위스 타이포그래피',
+    preview: 'bg-gradient-to-r from-zinc-900 to-zinc-700',
+    isDark: true,
+  },
+  'cherry-blossom': {
+    id: 'cherry-blossom',
+    name: '체리 블라썸',
+    description: '벚꽃 시즌',
+    preview: 'bg-gradient-to-r from-pink-300 to-rose-200',
+    isDark: false,
+  },
+  'midnight-blue': {
+    id: 'midnight-blue',
+    name: '미드나잇 블루',
+    description: '클래식 나이트',
+    preview: 'bg-gradient-to-r from-blue-950 to-indigo-900',
+    isDark: true,
+  },
+  'forest-green': {
+    id: 'forest-green',
+    name: '포레스트 그린',
+    description: '자연의 평화',
+    preview: 'bg-gradient-to-r from-emerald-800 to-green-700',
     isDark: true,
   },
 };

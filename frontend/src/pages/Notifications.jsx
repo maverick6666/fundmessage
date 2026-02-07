@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 import { notificationService } from '../services/notificationService';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { formatRelativeTime } from '../utils/formatters';
@@ -75,6 +76,7 @@ export function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('unread'); // unread, read, all
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
 
   useEffect(() => {
     fetchNotifications();
@@ -190,11 +192,15 @@ export function Notifications() {
     }
   };
 
-  const handleDeleteAll = async () => {
-    if (!window.confirm('모든 알림을 삭제하시겠습니까?')) return;
+  const handleDeleteAll = () => {
+    setShowDeleteAllConfirm(true);
+  };
+
+  const confirmDeleteAll = async () => {
     try {
       await notificationService.deleteAllNotifications();
       setNotifications([]);
+      setShowDeleteAllConfirm(false);
     } catch (error) {
       console.error('Failed to delete all notifications:', error);
     }
@@ -304,6 +310,17 @@ export function Notifications() {
           ))}
         </div>
       )}
+
+      {/* 모두 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={showDeleteAllConfirm}
+        onClose={() => setShowDeleteAllConfirm(false)}
+        onConfirm={confirmDeleteAll}
+        title="알림 전체 삭제"
+        message="모든 알림을 삭제하시겠습니까?"
+        confirmText="삭제"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

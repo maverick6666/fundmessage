@@ -2,6 +2,7 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { BlockRenderer } from '../editor/BlockEditor';
+import { ConfirmModal } from '../common/ConfirmModal';
 import { formatRelativeTime } from '../../utils/formatters';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
@@ -26,6 +27,7 @@ export function DocumentPanel({ document: doc, type = 'decision-note', onDelete,
   const [verifying, setVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(doc?.is_verified || false);
   const [verifier, setVerifier] = useState(doc?.verifier || null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!doc) return null;
 
@@ -80,9 +82,14 @@ export function DocumentPanel({ document: doc, type = 'decision-note', onDelete,
   };
 
   const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
     if (onDelete) {
       onDelete(doc?.id);
     }
+    setShowDeleteConfirm(false);
   };
 
   // 테마별 스타일
@@ -340,6 +347,17 @@ export function DocumentPanel({ document: doc, type = 'decision-note', onDelete,
           )}
         </div>
       )}
+
+      {/* 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title={type === 'column' ? '칼럼 삭제' : '의사결정서 삭제'}
+        message={type === 'column' ? '정말 이 칼럼을 삭제하시겠습니까?' : '정말 이 의사결정서를 삭제하시겠습니까?'}
+        confirmText="삭제"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 import { Input } from '../components/common/Input';
 import { StockChart } from '../components/charts/StockChart';
 import { ProfitProgressBar, TargetProgressBar } from '../components/common/ProfitProgressBar';
@@ -101,6 +102,14 @@ export function PositionDetail() {
     confirmMsg: '',
     pnl: null
   });
+
+  // 커스텀 확인 모달 상태들
+  const [deletePlanConfirm, setDeletePlanConfirm] = useState({ show: false, planId: null });
+  const [deleteNoteConfirm, setDeleteNoteConfirm] = useState({ show: false, noteId: null });
+  const [closePositionConfirm, setClosePositionConfirm] = useState(false);
+  const [deletePositionConfirm, setDeletePositionConfirm] = useState(false);
+  const [earlyCloseConfirm, setEarlyCloseConfirm] = useState(false);
+  const [deleteDiscussionConfirm, setDeleteDiscussionConfirm] = useState({ show: false, discussion: null });
 
   useEffect(() => {
     fetchPosition();
@@ -252,11 +261,16 @@ export function PositionDetail() {
     }
   };
 
-  const handleDeleteTradingPlan = async (planId) => {
-    if (!window.confirm('이 계획을 삭제하시겠습니까?')) return;
+  const handleDeleteTradingPlan = (planId) => {
+    setDeletePlanConfirm({ show: true, planId });
+  };
+
+  const confirmDeleteTradingPlan = async () => {
+    if (!deletePlanConfirm.planId) return;
     try {
-      await tradingPlanService.deletePlan(id, planId);
+      await tradingPlanService.deletePlan(id, deletePlanConfirm.planId);
       fetchTradingPlans();
+      setDeletePlanConfirm({ show: false, planId: null });
     } catch (error) {
       toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
@@ -294,11 +308,16 @@ export function PositionDetail() {
     setShowNoteForm(true);
   };
 
-  const handleDeleteNote = async (noteId) => {
-    if (!window.confirm('이 노트를 삭제하시겠습니까?')) return;
+  const handleDeleteNote = (noteId) => {
+    setDeleteNoteConfirm({ show: true, noteId });
+  };
+
+  const confirmDeleteNote = async () => {
+    if (!deleteNoteConfirm.noteId) return;
     try {
-      await decisionNoteService.deleteNote(id, noteId);
+      await decisionNoteService.deleteNote(id, deleteNoteConfirm.noteId);
       fetchDecisionNotes();
+      setDeleteNoteConfirm({ show: false, noteId: null });
     } catch (error) {
       toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
@@ -603,15 +622,20 @@ export function PositionDetail() {
     return { evalAmount, profitLoss, profitRate };
   }, [position, currentPrice]);
 
-  const handleClose = async () => {
+  const handleClose = () => {
     if (!closeData.total_sell_amount) {
       toast.warning('청산 금액을 입력해주세요.');
       return;
     }
     if (hasUncompletedPlans) {
-      const confirmed = window.confirm('미완료된 매매 계획이 있습니다. 정말 종료하시겠습니까?\n(미완료 항목은 "취소됨"으로 표시됩니다)');
-      if (!confirmed) return;
+      setClosePositionConfirm(true);
+    } else {
+      executeClosePosition();
     }
+  };
+
+  const executeClosePosition = async () => {
+    setClosePositionConfirm(false);
     setActionLoading(true);
     try {
       const buyPriceChanged = parseFloat(closeData.average_buy_price) !== parseFloat(position.average_buy_price);
@@ -787,16 +811,7 @@ export function PositionDetail() {
             <Button
               variant="secondary"
               className="text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-              onClick={async () => {
-                if (!window.confirm(`포지션 "${position.ticker_name || position.ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 모든 요청, 토론, 의사결정 노트가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
-                try {
-                  await positionService.deletePosition(id);
-                  toast.success('포지션이 삭제되었습니다.');
-                  navigate('/positions');
-                } catch (error) {
-                  toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
-                }
-              }}
+              onClick={() => setDeletePositionConfirm(true)}
             >
               삭제
             </Button>
@@ -824,15 +839,7 @@ export function PositionDetail() {
                       }
                     }}>토론 요청</Button>
                   )}
-                  <Button variant="danger" onClick={async () => {
-                    if (!window.confirm('포지션 조기종료를 요청하시겠습니까?')) return;
-                    try {
-                      await positionService.requestEarlyClose(id);
-                      toast.success('조기종료 요청이 매니저에게 전송되었습니다.');
-                    } catch (error) {
-                      toast.error(error.response?.data?.detail || '조기종료 요청에 실패했습니다.');
-                    }
-                  }}>조기종료 요청</Button>
+                  <Button variant="danger" onClick={() => setEarlyCloseConfirm(true)}>조기종료 요청</Button>
                 </>
               )}
             </>
@@ -1247,10 +1254,7 @@ export function PositionDetail() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (!window.confirm(`토론 "${discussion.title}"을(를) 삭제하시겠습니까?\n\n모든 메시지가 함께 삭제됩니다.`)) return;
-                        discussionService.deleteDiscussion(discussion.id)
-                          .then(() => fetchDiscussions())
-                          .catch((err) => toast.error(err.response?.data?.detail || '삭제에 실패했습니다.'));
+                        setDeleteDiscussionConfirm({ show: true, discussion });
                       }}
                       className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                       title="토론 삭제"
@@ -1629,6 +1633,93 @@ export function PositionDetail() {
           )}
         </div>
       </Modal>
+
+      {/* 커스텀 확인 모달들 */}
+      <ConfirmModal
+        isOpen={deletePlanConfirm.show}
+        onClose={() => setDeletePlanConfirm({ show: false, planId: null })}
+        onConfirm={confirmDeleteTradingPlan}
+        title="계획 삭제"
+        message="이 계획을 삭제하시겠습니까?"
+        confirmText="삭제"
+        confirmVariant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={deleteNoteConfirm.show}
+        onClose={() => setDeleteNoteConfirm({ show: false, noteId: null })}
+        onConfirm={confirmDeleteNote}
+        title="노트 삭제"
+        message="이 노트를 삭제하시겠습니까?"
+        confirmText="삭제"
+        confirmVariant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={closePositionConfirm}
+        onClose={() => setClosePositionConfirm(false)}
+        onConfirm={executeClosePosition}
+        title="포지션 종료"
+        message="미완료된 매매 계획이 있습니다. 정말 종료하시겠습니까? (미완료 항목은 '취소됨'으로 표시됩니다)"
+        confirmText="종료"
+        confirmVariant="warning"
+      />
+
+      <ConfirmModal
+        isOpen={deletePositionConfirm}
+        onClose={() => setDeletePositionConfirm(false)}
+        onConfirm={async () => {
+          try {
+            await positionService.deletePosition(id);
+            toast.success('포지션이 삭제되었습니다.');
+            navigate('/positions');
+          } catch (error) {
+            toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
+          }
+          setDeletePositionConfirm(false);
+        }}
+        title="포지션 삭제"
+        message={`포지션 "${position?.ticker_name || position?.ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 모든 요청, 토론, 의사결정 노트가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        confirmVariant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={earlyCloseConfirm}
+        onClose={() => setEarlyCloseConfirm(false)}
+        onConfirm={async () => {
+          try {
+            await positionService.requestEarlyClose(id);
+            toast.success('조기종료 요청이 매니저에게 전송되었습니다.');
+          } catch (error) {
+            toast.error(error.response?.data?.detail || '조기종료 요청에 실패했습니다.');
+          }
+          setEarlyCloseConfirm(false);
+        }}
+        title="조기종료 요청"
+        message="포지션 조기종료를 요청하시겠습니까?"
+        confirmText="요청"
+        confirmVariant="warning"
+      />
+
+      <ConfirmModal
+        isOpen={deleteDiscussionConfirm.show}
+        onClose={() => setDeleteDiscussionConfirm({ show: false, discussion: null })}
+        onConfirm={async () => {
+          if (!deleteDiscussionConfirm.discussion) return;
+          try {
+            await discussionService.deleteDiscussion(deleteDiscussionConfirm.discussion.id);
+            fetchDiscussions();
+          } catch (err) {
+            toast.error(err.response?.data?.detail || '삭제에 실패했습니다.');
+          }
+          setDeleteDiscussionConfirm({ show: false, discussion: null });
+        }}
+        title="토론 삭제"
+        message={`토론 "${deleteDiscussionConfirm.discussion?.title}"을(를) 삭제하시겠습니까?\n\n모든 메시지가 함께 삭제됩니다.`}
+        confirmText="삭제"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

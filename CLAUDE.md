@@ -115,6 +115,34 @@ src/
 - **admin**: 관리자 - 사용자 관리 권한
 - **member**: 팀원 - 매수/매도 요청 제출
 
+## UI 개발 규칙
+
+### 시스템 알림 사용 금지 (중요!)
+- `window.alert()`, `window.confirm()`, `window.prompt()` 등 브라우저 기본 시스템 알림 **절대 사용 금지**
+- 모든 확인 대화상자는 `ConfirmModal` 컴포넌트 사용 (`frontend/src/components/common/ConfirmModal.jsx`)
+- 알림 메시지는 `ToastContext`의 `toast.success()`, `toast.error()`, `toast.warning()` 사용
+
+### ConfirmModal 사용 예시
+```jsx
+import { ConfirmModal } from '../components/common/ConfirmModal';
+
+const [showConfirm, setShowConfirm] = useState(false);
+
+// 모달 열기
+<Button onClick={() => setShowConfirm(true)}>삭제</Button>
+
+// 모달 컴포넌트
+<ConfirmModal
+  isOpen={showConfirm}
+  onClose={() => setShowConfirm(false)}
+  onConfirm={handleDelete}
+  title="삭제 확인"
+  message="정말 삭제하시겠습니까?"
+  confirmText="삭제"
+  confirmVariant="danger" // 'danger' | 'primary' | 'warning'
+/>
+```
+
 ## 개발 참고사항
 
 - 단계별 개발 진행 (상세 로드맵은 proposal.md 참조)

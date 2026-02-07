@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/common/Button';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 import { PositionNotesModal } from '../components/documents/PositionNotesModal';
 import { reportService } from '../services/reportService';
 import { columnService } from '../services/columnService';
@@ -60,6 +61,7 @@ export function Reports() {
   const [loadingNotes, setLoadingNotes] = useState(false);
 
   const [generatingReportId, setGeneratingReportId] = useState(null);
+  const [deleteColumnId, setDeleteColumnId] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -139,10 +141,11 @@ export function Reports() {
     }
   };
 
-  const handleDeleteColumn = async (columnId) => {
-    if (!confirm('정말 이 칼럼을 삭제하시겠습니까?')) return;
+  const handleDeleteColumn = async () => {
+    if (!deleteColumnId) return;
     try {
-      await columnService.deleteColumn(columnId);
+      await columnService.deleteColumn(deleteColumnId);
+      setDeleteColumnId(null);
       fetchData();
       toast.success('칼럼이 삭제되었습니다');
     } catch (error) {
@@ -438,6 +441,17 @@ export function Reports() {
         onNoteClick={handleNoteClick}
         onGenerateReport={handleGenerateReport}
         isGenerating={generatingReportId === selectedPosition?.id}
+      />
+
+      {/* 칼럼 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={!!deleteColumnId}
+        onClose={() => setDeleteColumnId(null)}
+        onConfirm={handleDeleteColumn}
+        title="칼럼 삭제"
+        message="정말 이 칼럼을 삭제하시겠습니까?"
+        confirmText="삭제"
+        confirmVariant="danger"
       />
     </div>
   );

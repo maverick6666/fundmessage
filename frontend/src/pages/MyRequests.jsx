@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 import { requestService } from '../services/requestService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
@@ -21,6 +22,7 @@ export function MyRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
+  const [deleteRequest, setDeleteRequest] = useState(null);
 
   useEffect(() => {
     fetchRequests();
@@ -42,11 +44,16 @@ export function MyRequests() {
     }
   };
 
-  const handleDelete = async (e, request) => {
+  const handleDeleteClick = (e, request) => {
     e.stopPropagation();
-    if (!window.confirm(`요청 "${request.ticker_name || request.target_ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 토론도 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+    setDeleteRequest(request);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteRequest) return;
     try {
-      await requestService.deleteRequest(request.id);
+      await requestService.deleteRequest(deleteRequest.id);
+      setDeleteRequest(null);
       fetchRequests();
     } catch (error) {
       toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
@@ -82,7 +89,7 @@ export function MyRequests() {
                   </span>
                   {adminMode && (
                     <button
-                      onClick={(e) => handleDelete(e, request)}
+                      onClick={(e) => handleDeleteClick(e, request)}
                       className="ml-auto text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 p-1 rounded"
                       title="삭제"
                     >
@@ -328,6 +335,17 @@ export function MyRequests() {
           ))}
         </div>
       )}
+
+      {/* 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={!!deleteRequest}
+        onClose={() => setDeleteRequest(null)}
+        onConfirm={confirmDelete}
+        title="요청 삭제"
+        message={`요청 "${deleteRequest?.ticker_name || deleteRequest?.target_ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 토론도 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

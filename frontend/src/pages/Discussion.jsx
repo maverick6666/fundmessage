@@ -4,6 +4,7 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Modal } from '../components/common/Modal';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 import { ChartShareModal } from '../components/charts/ChartShareModal';
 import { MiniChart } from '../components/charts/MiniChart';
 import { discussionService } from '../services/discussionService';
@@ -30,6 +31,7 @@ export function Discussion() {
   const [selectedSessions, setSelectedSessions] = useState(new Set());
   const [exportLoading, setExportLoading] = useState(false);
   const [showChartModal, setShowChartModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -147,11 +149,15 @@ export function Discussion() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm(`토론 "${discussion.title}"을(를) 정말 삭제하시겠습니까?\n\n모든 메시지가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
     try {
       await discussionService.deleteDiscussion(id);
       toast.success('토론이 삭제되었습니다.');
+      setShowDeleteConfirm(false);
       navigate(-1);
     } catch (error) {
       toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
@@ -428,6 +434,17 @@ export function Discussion() {
         isOpen={showChartModal}
         onClose={() => setShowChartModal(false)}
         onShare={handleShareChart}
+      />
+
+      {/* 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="토론 삭제"
+        message={`토론 "${discussion?.title}"을(를) 정말 삭제하시겠습니까?\n\n모든 메시지가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        confirmVariant="danger"
       />
     </div>
   );

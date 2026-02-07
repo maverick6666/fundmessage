@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/common/Button';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 import { ProfitProgressBar } from '../components/common/ProfitProgressBar';
 import { StockChart } from '../components/charts/StockChart';
 import { QuickNumberButtons } from '../components/common/NumberInputWithQuickButtons';
@@ -63,6 +64,9 @@ export function Positions() {
   const [showBuyForm, setShowBuyForm] = useState(false);
   const [buyFormLoading, setBuyFormLoading] = useState(false);
   const [buyFormSuccess, setBuyFormSuccess] = useState('');
+
+  // 삭제 확인 모달 상태
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, position: null });
 
   useEffect(() => {
     if (statusFilter === 'open' && positions.length > 0) {
@@ -141,13 +145,18 @@ export function Positions() {
     }
   };
 
-  const handleDelete = async (e, position) => {
+  const handleDelete = (e, position) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm(`포지션 "${position.ticker_name || position.ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 모든 요청, 토론, 의사결정 노트가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
+    setDeleteConfirm({ show: true, position });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.position) return;
     try {
-      await positionService.deletePosition(position.id);
+      await positionService.deletePosition(deleteConfirm.position.id);
       updateFilters({ ...filters });
+      setDeleteConfirm({ show: false, position: null });
     } catch (error) {
       toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
     }
@@ -862,6 +871,16 @@ export function Positions() {
         </>
       )}
 
+      {/* 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={deleteConfirm.show}
+        onClose={() => setDeleteConfirm({ show: false, position: null })}
+        onConfirm={confirmDelete}
+        title="포지션 삭제"
+        message={`포지션 "${deleteConfirm.position?.ticker_name || deleteConfirm.position?.ticker}"을(를) 정말 삭제하시겠습니까?\n\n연관된 모든 요청, 토론, 의사결정 노트가 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

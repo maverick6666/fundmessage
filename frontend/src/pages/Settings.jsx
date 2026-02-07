@@ -28,13 +28,11 @@ export function Settings() {
         <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
           테마
         </h2>
-        <p className="text-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-          원하는 앱 테마를 선택하세요. 테마는 앱 전체에 즉시 적용됩니다.
-        </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* 컴팩트 테마 선택 그리드 */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2">
           {Object.values(THEMES).map((theme) => (
-            <ThemeCard
+            <ThemeChip
               key={theme.id}
               theme={theme}
               isSelected={selectedTheme === theme.id}
@@ -57,53 +55,58 @@ export function Settings() {
   );
 }
 
-function ThemeCard({ theme, isSelected, onSelect }) {
+function ThemeChip({ theme, isSelected, onSelect }) {
   return (
     <button
       onClick={onSelect}
       className={`
-        relative text-left p-4 rounded-xl border-2 transition-all duration-200
+        relative group flex flex-col items-center p-2 rounded-lg border-2 transition-all duration-200
         ${isSelected
-          ? 'border-[var(--color-accent)] ring-2 ring-[var(--color-accent)] ring-opacity-30'
-          : 'border-[var(--color-border)] hover:border-[var(--color-accent)] hover:border-opacity-50'
+          ? 'border-[var(--color-accent)] ring-2 ring-[var(--color-accent)] ring-opacity-30 scale-105'
+          : 'border-transparent hover:border-[var(--color-border)] hover:scale-102'
         }
       `}
       style={{
-        backgroundColor: 'var(--color-bg-secondary)',
+        backgroundColor: isSelected ? 'var(--color-bg-tertiary)' : 'transparent',
       }}
+      title={theme.description}
     >
-      {/* 선택 표시 */}
-      {isSelected && (
-        <div
-          className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: 'var(--color-accent)' }}
-        >
-          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+      {/* 테마 프리뷰 색상 칩 */}
+      <div
+        className={`w-full aspect-[2/1] rounded-md ${theme.preview} transition-transform group-hover:scale-105`}
+        style={{ minHeight: '28px' }}
+      />
+
+      {/* 테마명 */}
+      <span
+        className={`mt-1.5 text-xs font-medium truncate w-full text-center transition-colors ${
+          isSelected ? '' : 'opacity-70 group-hover:opacity-100'
+        }`}
+        style={{ color: 'var(--color-text-primary)' }}
+      >
+        {theme.name}
+      </span>
+
+      {/* 다크 모드 인디케이터 */}
+      {theme.isDark && (
+        <span className="absolute -top-1 -right-1 w-4 h-4 bg-gray-800 rounded-full flex items-center justify-center">
+          <svg className="w-2.5 h-2.5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
           </svg>
-        </div>
+        </span>
       )}
 
-      {/* 테마 프리뷰 */}
-      <div className={`h-20 rounded-lg mb-3 ${theme.preview}`} />
-
-      {/* 테마 정보 */}
-      <div>
-        <h3 className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {theme.name}
-        </h3>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-          {theme.description}
-        </p>
-        {theme.isDark && (
-          <span className="inline-flex items-center gap-1 mt-2 text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-300">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
-            다크 모드
-          </span>
-        )}
-      </div>
+      {/* 선택 체크마크 */}
+      {isSelected && (
+        <span
+          className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: 'var(--color-accent)' }}
+        >
+          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+          </svg>
+        </span>
+      )}
     </button>
   );
 }

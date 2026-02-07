@@ -1,0 +1,120 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - heading "Fund Messenger" [level=1] [ref=e6]
+    - generic [ref=e7]:
+      - button "다크 모드" [ref=e8] [cursor=pointer]:
+        - img [ref=e9]
+      - link [ref=e11] [cursor=pointer]:
+        - /url: /notifications
+        - img [ref=e12]
+      - generic [ref=e14]: 테스터팀원
+      - button "로그아웃" [ref=e15] [cursor=pointer]
+  - generic [ref=e16]:
+    - complementary [ref=e17]:
+      - navigation [ref=e18]:
+        - list [ref=e19]:
+          - listitem [ref=e20]:
+            - link "대시보드" [ref=e21] [cursor=pointer]:
+              - /url: /
+              - img [ref=e22]
+              - text: 대시보드
+          - listitem [ref=e24]:
+            - link "종목검색" [ref=e25] [cursor=pointer]:
+              - /url: /stock-search
+              - img [ref=e26]
+              - text: 종목검색
+          - listitem [ref=e28]:
+            - link "포지션" [ref=e29] [cursor=pointer]:
+              - /url: /positions
+              - img [ref=e30]
+              - text: 포지션
+          - listitem [ref=e32]:
+            - link "토론방" [ref=e33] [cursor=pointer]:
+              - /url: /discussions
+              - img [ref=e34]
+              - text: 토론방
+          - listitem [ref=e36]:
+            - link "팀 요청" [ref=e37] [cursor=pointer]:
+              - /url: /requests
+              - img [ref=e38]
+              - text: 팀 요청
+          - listitem [ref=e40]:
+            - link "내 요청" [ref=e41] [cursor=pointer]:
+              - /url: /my-requests
+              - img [ref=e42]
+              - text: 내 요청
+          - listitem [ref=e44]:
+            - link "통계" [ref=e45] [cursor=pointer]:
+              - /url: /stats
+              - img [ref=e46]
+              - text: 통계
+    - main [ref=e48]:
+      - generic [ref=e49]:
+        - heading "대시보드" [level=1] [ref=e51]
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - paragraph [ref=e55]: 원화 자본금
+            - paragraph [ref=e56]: "-"
+          - generic [ref=e57]:
+            - paragraph [ref=e59]: 달러 자본금
+            - paragraph [ref=e60]: "-"
+          - generic [ref=e61]:
+            - paragraph [ref=e62]: 열린 포지션
+            - paragraph [ref=e64]: "2"
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - generic [ref=e68]:
+              - heading "열린 포지션" [level=3] [ref=e69]
+              - link "전체보기" [ref=e70] [cursor=pointer]:
+                - /url: /positions
+            - generic [ref=e71]:
+              - link "NAVER 035420 -7.18% 평단 ₩268,250 현재가 ₩249,000 수량 10 평가금액 ₩2,490,000" [ref=e72] [cursor=pointer]:
+                - /url: /positions/3
+                - generic [ref=e73]:
+                  - generic [ref=e74]:
+                    - generic [ref=e75]: NAVER
+                    - generic [ref=e76]: "035420"
+                  - generic [ref=e77]: "-7.18%"
+                - generic [ref=e78]:
+                  - generic [ref=e79]:
+                    - generic [ref=e80]: 평단
+                    - generic [ref=e81]: ₩268,250
+                  - generic [ref=e82]:
+                    - generic [ref=e83]: 현재가
+                    - generic [ref=e84]: ₩249,000
+                  - generic [ref=e85]:
+                    - generic [ref=e86]: 수량
+                    - generic [ref=e87]: "10"
+                  - generic [ref=e88]:
+                    - generic [ref=e89]: 평가금액
+                    - generic [ref=e90]: ₩2,490,000
+              - link "NVIDIA Corporation nvda -10.07% 평단 $191.13 현재가 $171.88 수량 10 평가금액 $1,718.80" [ref=e91] [cursor=pointer]:
+                - /url: /positions/2
+                - generic [ref=e92]:
+                  - generic [ref=e93]:
+                    - generic [ref=e94]: NVIDIA Corporation
+                    - generic [ref=e95]: nvda
+                  - generic [ref=e96]: "-10.07%"
+                - generic [ref=e97]:
+                  - generic [ref=e98]:
+                    - generic [ref=e99]: 평단
+                    - generic [ref=e100]: $191.13
+                  - generic [ref=e101]:
+                    - generic [ref=e102]: 현재가
+                    - generic [ref=e103]: $171.88
+                  - generic [ref=e104]:
+                    - generic [ref=e105]: 수량
+                    - generic [ref=e106]: "10"
+                  - generic [ref=e107]:
+                    - generic [ref=e108]: 평가금액
+                    - generic [ref=e109]: $1,718.80
+          - generic [ref=e110]:
+            - generic [ref=e112]:
+              - heading "최근 요청" [level=3] [ref=e113]
+              - link "전체보기" [ref=e114] [cursor=pointer]:
+                - /url: /my-requests
+            - generic [ref=e115]: 요청이 없습니다
+```
