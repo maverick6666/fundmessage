@@ -109,6 +109,12 @@ class NewsCrawler:
                         # 이미 수집한 링크면 스킵
                         if link in seen_links:
                             continue
+
+                        # 오늘 날짜 기사만 수집
+                        pub_date = self._parse_naver_date(item.get("pubDate"))
+                        if pub_date and pub_date.date() != target_date:
+                            continue  # 오늘 기사가 아니면 스킵
+
                         seen_links.add(link)
 
                         # DB 중복 체크
@@ -125,7 +131,7 @@ class NewsCrawler:
                             title=self._clean_html(item.get("title", "")),
                             description=self._clean_html(item.get("description", "")),
                             link=link,
-                            pub_date=self._parse_naver_date(item.get("pubDate")),
+                            pub_date=pub_date,
                             newsdesk_date=target_date,
                         )
                         self.db.add(news)
