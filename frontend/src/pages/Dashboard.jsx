@@ -666,7 +666,19 @@ export function Dashboard() {
           {/* 왼쪽: 팀원 목록 */}
           <Card className="lg:col-span-1">
             <CardHeader>
-              <CardTitle>팀원 목록</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>팀원 목록</CardTitle>
+                {teamRanking.avg_week_attendance_rate !== undefined && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                      주간 {teamRanking.avg_week_attendance_rate}%
+                    </span>
+                  </div>
+                )}
+              </div>
             </CardHeader>
 
             {loading ? (

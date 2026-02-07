@@ -336,7 +336,6 @@ export function Positions() {
         <h1 className="text-2xl font-bold dark:text-gray-100">포지션</h1>
         <Button
           variant={showSearch ? 'secondary' : 'primary'}
-          size="sm"
           onClick={() => {
             if (showSearch) {
               // 검색 닫을 때 인라인 차트도 리셋
@@ -345,8 +344,9 @@ export function Positions() {
             }
             setShowSearch(!showSearch);
           }}
+          className="px-6 py-2.5 text-base font-semibold"
         >
-          {showSearch ? '검색 닫기' : '종목 검색'}
+          {showSearch ? '닫기' : '+ 포지션 요청'}
         </Button>
       </div>
 
