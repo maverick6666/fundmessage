@@ -95,6 +95,15 @@ function AppRoutes() {
         path="/"
         element={
           <PrivateRoute>
+            <NewsDesk />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/dashboard"
+        element={
+          <PrivateRoute>
             <Dashboard />
           </PrivateRoute>
         }
@@ -175,11 +184,7 @@ function AppRoutes() {
 
       <Route
         path="/newsdesk"
-        element={
-          <PrivateRoute>
-            <NewsDesk />
-          </PrivateRoute>
-        }
+        element={<Navigate to="/" replace />}
       />
 
       <Route
