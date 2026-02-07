@@ -28,7 +28,8 @@ import {
   calcHoldingHours,
   getStatusBadgeClass,
   getStatusLabel,
-  getProfitLossClass
+  getProfitLossClass,
+  cleanNumberInput
 } from '../utils/formatters';
 
 const TIMEFRAMES = [
@@ -356,14 +357,14 @@ export function PositionDetail() {
       const data = await positionService.getPosition(id);
       setPosition(data);
       setInfoData({
-        average_buy_price: data.average_buy_price || '',
-        total_quantity: data.total_quantity || '',
+        average_buy_price: cleanNumberInput(data.average_buy_price),
+        total_quantity: cleanNumberInput(data.total_quantity),
         ticker_name: data.ticker_name || '',
       });
       setCloseData({
         ticker_name: data.ticker_name || '',
-        average_buy_price: data.average_buy_price || '',
-        total_quantity: data.total_quantity || '',
+        average_buy_price: cleanNumberInput(data.average_buy_price),
+        total_quantity: cleanNumberInput(data.total_quantity),
         total_sell_amount: '',
       });
     } catch (error) {
@@ -591,7 +592,7 @@ export function PositionDetail() {
 
   const startEditPlanItem = (planType, index, item) => {
     setEditingPlanItem({ planType, index });
-    setEditPlanData({ price: item.price || '', quantity: item.quantity || '' });
+    setEditPlanData({ price: cleanNumberInput(item.price), quantity: cleanNumberInput(item.quantity) });
   };
 
   const cancelEditPlanItem = async () => {

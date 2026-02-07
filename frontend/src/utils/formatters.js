@@ -161,6 +161,16 @@ export function getRequestTypeLabel(type) {
   return type === 'buy' ? '매수' : '매도';
 }
 
+// 숫자 입력창용 - 불필요한 뒷자리 0 제거
+// 예: "56200.0000" → "56200", "56.5000" → "56.5"
+export function cleanNumberInput(value) {
+  if (value == null || value === '') return '';
+  const num = parseFloat(value);
+  if (isNaN(num)) return value;
+  // 정수면 정수로, 소수면 불필요한 0 제거
+  return String(num);
+}
+
 export function getProfitLossClass(value) {
   if (value == null || value === 0) return 'text-gray-600';
   return value > 0 ? 'text-red-600' : 'text-blue-600';
