@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useTheme, THEMES } from '../context/ThemeContext';
+import { useAuth } from '../hooks/useAuth';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 
 export function Settings() {
   const { appTheme, setAppTheme, themes } = useTheme();
+  const { isManagerOrAdmin, adminMode, toggleAdminMode } = useAuth();
   const [selectedTheme, setSelectedTheme] = useState(appTheme);
 
   const handleThemeChange = (themeId) => {
@@ -22,6 +24,59 @@ export function Settings() {
           앱의 모양과 동작을 사용자 지정하세요
         </p>
       </div>
+
+      {/* 관리자 모드 섹션 (팀장/관리자만) */}
+      {isManagerOrAdmin() && (
+        <section className="pb-6" style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+            관리자 모드
+          </h2>
+          <div
+            className="flex items-center justify-between p-4 rounded-lg"
+            style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{
+                  backgroundColor: adminMode ? 'rgba(239, 68, 68, 0.1)' : 'var(--color-bg-tertiary)',
+                  color: adminMode ? 'var(--color-danger)' : 'var(--color-text-secondary)',
+                }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                  관리자 모드 활성화
+                </p>
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  포지션, 요청, 토론 삭제 버튼이 표시됩니다
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={toggleAdminMode}
+              className="relative w-12 h-7 rounded-full p-1 transition-colors"
+              style={{ backgroundColor: adminMode ? 'var(--color-danger)' : 'var(--color-text-muted)' }}
+            >
+              <div
+                className={`w-5 h-5 rounded-full bg-white transition-transform ${adminMode ? 'translate-x-5' : ''}`}
+              />
+            </button>
+          </div>
+          {adminMode && (
+            <p className="mt-3 text-sm flex items-center gap-2" style={{ color: 'var(--color-danger)' }}>
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              관리자 모드가 활성화되어 있습니다. 삭제 시 복구할 수 없으니 주의하세요.
+            </p>
+          )}
+        </section>
+      )}
 
       {/* 테마 설정 섹션 */}
       <section>
