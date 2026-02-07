@@ -663,7 +663,7 @@ export function Dashboard() {
       {/* Team Info Tab Content */}
       {activeTab === 'team' && (
         <div className="space-y-4">
-          {/* 팀원별 상세 통계 (세로로 쌓기) */}
+          {/* 팀원별 상세 통계 (2열 그리드) */}
           {loading ? (
             <Card>
               <div className="text-center py-6 text-gray-500 dark:text-gray-400">로딩중...</div>
@@ -673,92 +673,75 @@ export function Dashboard() {
               <div className="text-center py-6 text-gray-500 dark:text-gray-400">팀원 정보가 없습니다</div>
             </Card>
           ) : (
-            teamRanking.members.map((member) => (
-              <Card key={member.id}>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <CardTitle>{member.full_name}</CardTitle>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {teamRanking.members.map((member) => (
+                <Card key={member.id} className="!p-4">
+                  {/* 헤더 */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="font-bold text-lg dark:text-gray-100">{member.full_name}</span>
                     <span className={`text-xs px-1.5 py-0.5 rounded ${getRoleBadgeClass(member.role)}`}>
                       {getRoleLabel(member.role)}
                     </span>
                   </div>
-                </CardHeader>
 
-                {/* 거래 통계 */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">총 거래</p>
-                    <p className="text-lg font-bold dark:text-gray-100">{member.total_trades || 0}</p>
+                  {/* 거래 통계 (한 줄) */}
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">총 거래</p>
+                      <p className="font-bold dark:text-gray-100">{member.total_trades || 0}</p>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">승률</p>
+                      <p className="font-bold dark:text-gray-100">{member.win_rate || 0}%</p>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">손익</p>
+                      <p className={`font-bold ${getProfitLossClass(member.total_profit)}`}>
+                        {formatNumber(member.total_profit || 0, 0)}
+                      </p>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">수익률</p>
+                      <p className={`font-bold ${getProfitLossClass(member.avg_profit_rate)}`}>
+                        {member.avg_profit_rate >= 0 ? '+' : ''}{member.avg_profit_rate}%
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">승률</p>
-                    <p className="text-lg font-bold dark:text-gray-100">{member.win_rate || 0}%</p>
-                  </div>
-                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">총 손익</p>
-                    <p className={`text-lg font-bold ${getProfitLossClass(member.total_profit)}`}>
-                      {formatCurrency(member.total_profit || 0)}
-                    </p>
-                  </div>
-                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">평균 수익률</p>
-                    <p className={`text-lg font-bold ${getProfitLossClass(member.avg_profit_rate)}`}>
-                      {member.avg_profit_rate >= 0 ? '+' : ''}{member.avg_profit_rate}%
-                    </p>
-                  </div>
-                </div>
 
-                {/* 상세 통계 */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">성공</p>
-                    <p className="text-lg font-bold text-red-600 dark:text-red-400">{member.winning_trades || 0}</p>
+                  {/* 상세 통계 (한 줄) */}
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">성공</p>
+                      <p className="font-bold text-red-600 dark:text-red-400">{member.winning_trades || 0}</p>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">실패</p>
+                      <p className="font-bold text-blue-600 dark:text-blue-400">{member.losing_trades || 0}</p>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">열린</p>
+                      <p className="font-bold dark:text-gray-100">{member.open_positions || 0}</p>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">종료</p>
+                      <p className="font-bold dark:text-gray-100">{member.closed_positions || 0}</p>
+                    </div>
                   </div>
-                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">실패</p>
-                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{member.losing_trades || 0}</p>
-                  </div>
-                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">열린 포지션</p>
-                    <p className="text-lg font-bold dark:text-gray-100">{member.open_positions || 0}</p>
-                  </div>
-                  <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">종료 포지션</p>
-                    <p className="text-lg font-bold dark:text-gray-100">{member.closed_positions || 0}</p>
-                  </div>
-                </div>
 
-                {/* 출석 현황 */}
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
-                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {/* 출석 현황 (한 줄) */}
+                  <div className="flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="font-medium text-blue-800 dark:text-blue-300">출석 현황</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-xs text-blue-600 dark:text-blue-400">이번주</p>
-                      <p className="text-xl font-bold text-blue-800 dark:text-blue-200">
-                        {member.week_attendance_rate}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-blue-600 dark:text-blue-400">이번달</p>
-                      <p className="text-xl font-bold text-blue-800 dark:text-blue-200">
-                        {member.month_attendance_rate || 0}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-blue-600 dark:text-blue-400">전체</p>
-                      <p className="text-xl font-bold text-blue-800 dark:text-blue-200">
-                        {member.total_attendance_rate || 0}%
-                      </p>
+                    <div className="flex gap-4 text-sm">
+                      <span className="text-blue-700 dark:text-blue-300">주간 <strong>{member.week_attendance_rate}%</strong></span>
+                      <span className="text-blue-700 dark:text-blue-300">월간 <strong>{member.month_attendance_rate || 0}%</strong></span>
+                      <span className="text-blue-700 dark:text-blue-300">전체 <strong>{member.total_attendance_rate || 0}%</strong></span>
                     </div>
                   </div>
-                </div>
-              </Card>
-            ))
+                </Card>
+              ))}
+            </div>
           )}
 
           {/* 리더보드 */}
