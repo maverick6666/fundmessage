@@ -4,6 +4,7 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { ConfirmModal } from '../components/common/ConfirmModal';
+import { EmptyState } from '../components/common/EmptyState';
 import { Input, Textarea } from '../components/common/Input';
 import { requestService } from '../services/requestService';
 import { useAuth } from '../hooks/useAuth';
@@ -246,33 +247,23 @@ export function Requests() {
       {loading ? (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">로딩중...</div>
       ) : requests.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 px-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center mb-4 shadow-inner">
-            {statusFilter === 'pending' ? (
-              <svg className="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            ) : (
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            )}
-          </div>
-          <p className="text-gray-600 dark:text-gray-300 font-medium text-center">
-            {statusFilter === 'pending'
+        <EmptyState
+          icon={statusFilter === 'pending' ? 'check' : 'clipboard'}
+          title={
+            statusFilter === 'pending'
               ? '대기중인 요청이 없습니다'
               : statusFilter === 'all'
                 ? '요청이 없습니다'
-                : `${getStatusLabel(statusFilter)} 요청이 없습니다`}
-          </p>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-2 text-center max-w-md">
-            {statusFilter === 'pending'
+                : `${getStatusLabel(statusFilter)} 요청이 없습니다`
+          }
+          description={
+            statusFilter === 'pending'
               ? '모든 요청이 처리되었습니다'
               : activeTab === 'mine'
                 ? '새로운 매수/매도 요청을 제출해보세요'
-                : '팀원들의 요청이 여기에 표시됩니다'}
-          </p>
-        </div>
+                : '팀원들의 요청이 여기에 표시됩니다'
+          }
+        />
       ) : (
         <div className="grid gap-4">
           {requests.map(request => (

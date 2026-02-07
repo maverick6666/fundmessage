@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle } from '../components/common/Card';
+import { TabGroup } from '../components/common/TabGroup';
+import { EmptyState } from '../components/common/EmptyState';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
@@ -305,21 +307,15 @@ export function Dashboard() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>대시보드</h1>
-          <div className="flex gap-2">
-            {['dashboard', 'team'].map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === tab
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {tab === 'dashboard' ? '대시보드' : '팀 정보'}
-              </button>
-            ))}
-          </div>
+          <TabGroup
+            tabs={[
+              { key: 'dashboard', label: '대시보드' },
+              { key: 'team', label: '팀 정보' }
+            ]}
+            activeTab={activeTab}
+            onChange={setActiveTab}
+            variant="primary"
+          />
         </div>
         {isManager() && activeTab === 'dashboard' && (
           <div className="flex gap-2">
@@ -509,7 +505,7 @@ export function Dashboard() {
           {loading ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">로딩중...</div>
           ) : positions.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">열린 포지션이 없습니다</div>
+            <EmptyState icon="chart" title="열린 포지션이 없습니다" description="새로운 포지션을 시작해보세요" />
           ) : (
             <div className="space-y-2">
               {positions.map(position => (
@@ -589,7 +585,7 @@ export function Dashboard() {
           {loading ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">로딩중...</div>
           ) : requests.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">요청이 없습니다</div>
+            <EmptyState icon="clipboard" title="요청이 없습니다" description="팀원들의 요청이 여기에 표시됩니다" />
           ) : (
             <div className="space-y-3">
               {requests.map(request => (
@@ -660,7 +656,7 @@ export function Dashboard() {
             {showDecisionNotes ? (
               // 의사결정서 목록
               decisionNotes.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">의사결정서가 없습니다</div>
+                <EmptyState icon="document" title="의사결정서가 없습니다" />
               ) : (
                 <div className="space-y-3">
                   {decisionNotes.map(note => (
@@ -697,7 +693,7 @@ export function Dashboard() {
             ) : (
               // 운용보고서 목록
               operationReports.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">운용보고서가 없습니다</div>
+                <EmptyState icon="document" title="운용보고서가 없습니다" />
               ) : (
                 <div className="space-y-3">
                   {operationReports.map(note => (
@@ -771,9 +767,10 @@ export function Dashboard() {
             </CardHeader>
 
             {columns.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                {showVerifiedColumns ? '검증된 칼럼이 없습니다' : '작성된 칼럼이 없습니다'}
-              </div>
+              <EmptyState
+                icon="document"
+                title={showVerifiedColumns ? '검증된 칼럼이 없습니다' : '작성된 칼럼이 없습니다'}
+              />
             ) : (
               <div className="space-y-3">
                 {columns.map(column => (
@@ -855,7 +852,7 @@ export function Dashboard() {
             </Card>
           ) : teamRanking.members.length === 0 ? (
             <Card>
-              <div className="text-center py-6 text-gray-500 dark:text-gray-400">팀원 정보가 없습니다</div>
+              <EmptyState icon="users" title="팀원 정보가 없습니다" />
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

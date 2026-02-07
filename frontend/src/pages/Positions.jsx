@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { ConfirmModal } from '../components/common/ConfirmModal';
+import { TabGroup } from '../components/common/TabGroup';
+import { EmptyState } from '../components/common/EmptyState';
 import { ProfitProgressBar, calculateTargetProgress } from '../components/common/ProfitProgressBar';
 import { StockChart } from '../components/charts/StockChart';
 import { QuickPriceButtons } from '../components/common/NumberInputWithQuickButtons';
@@ -578,21 +580,16 @@ export function Positions() {
       )}
 
       {/* Filters */}
-      <div className="flex gap-2">
-        {['open', 'closed', 'all'].map(status => (
-          <button
-            key={status}
-            onClick={() => handleStatusChange(status)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              statusFilter === status
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-            }`}
-          >
-            {status === 'open' ? '진행중' : status === 'closed' ? '종료' : '전체'}
-          </button>
-        ))}
-      </div>
+      <TabGroup
+        tabs={[
+          { key: 'open', label: '진행중' },
+          { key: 'closed', label: '종료' },
+          { key: 'all', label: '전체' }
+        ]}
+        activeTab={statusFilter}
+        onChange={handleStatusChange}
+        variant="primary"
+      />
 
       {/* Positions List */}
       {loading ? (
@@ -600,7 +597,11 @@ export function Positions() {
       ) : error ? (
         <div className="text-center py-12 text-red-500 dark:text-red-400">{error}</div>
       ) : positions.length === 0 ? (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">포지션이 없습니다</div>
+        <EmptyState
+          icon="chart"
+          title="포지션이 없습니다"
+          description={statusFilter === 'open' ? '열린 포지션이 없습니다' : statusFilter === 'closed' ? '종료된 포지션이 없습니다' : '포지션을 시작해보세요'}
+        />
       ) : (
         <PositionsList
           positions={positions}

@@ -1,5 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle } from '../components/common/Card';
+import { TabGroup } from '../components/common/TabGroup';
+import { SegmentControl } from '../components/common/SegmentControl';
+import { FilterPills } from '../components/common/FilterPills';
+import { EmptyState } from '../components/common/EmptyState';
 import { AttendanceCalendar } from '../components/attendance/AttendanceCalendar';
 import { statsService } from '../services/statsService';
 import { positionService } from '../services/positionService';
@@ -12,8 +16,6 @@ import {
   getProfitLossClass
 } from '../utils/formatters';
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -27,6 +29,19 @@ const PERIOD_OPTIONS = [
   { key: '1w', label: '1주' },
   { key: '1m', label: '1개월' },
   { key: '3m', label: '분기' },
+  { key: 'all', label: '전체' }
+];
+
+// 탭 옵션
+const TAB_OPTIONS = [
+  { key: 'team', label: '팀 전체' },
+  { key: 'my', label: '내 성과' }
+];
+
+// 종목 필터 옵션
+const TICKER_FILTER_OPTIONS = [
+  { key: 'open', label: '진행중' },
+  { key: 'closed', label: '종료됨' },
   { key: 'all', label: '전체' }
 ];
 
@@ -124,40 +139,22 @@ export function Stats() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <h1 className="text-2xl font-bold dark:text-gray-100">통계</h1>
 
-          {/* Period Filter */}
-          <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-            {PERIOD_OPTIONS.map(period => (
-              <button
-                key={period.key}
-                onClick={() => setPeriodFilter(period.key)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  periodFilter === period.key
-                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
-              >
-                {period.label}
-              </button>
-            ))}
-          </div>
+          {/* Period Filter - SegmentControl */}
+          <SegmentControl
+            options={PERIOD_OPTIONS}
+            value={periodFilter}
+            onChange={setPeriodFilter}
+            size="sm"
+          />
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 flex-wrap">
-          {['team', 'my'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === tab
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-              }`}
-            >
-              {tab === 'team' ? '팀 전체' : '내 성과'}
-            </button>
-          ))}
-        </div>
+        {/* Tabs - TabGroup */}
+        <TabGroup
+          tabs={TAB_OPTIONS}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          variant="primary"
+        />
       </div>
 
       {/* Team Stats */}
@@ -464,26 +461,13 @@ export function Stats() {
                     </button>
                   </div>
 
-                  {/* 필터 버튼 */}
-                  <div className="flex gap-1">
-                    {[
-                      { key: 'open', label: '진행중' },
-                      { key: 'closed', label: '종료됨' },
-                      { key: 'all', label: '전체' }
-                    ].map(f => (
-                      <button
-                        key={f.key}
-                        onClick={() => setTickerFilter(f.key)}
-                        className={`px-3 py-1 text-xs rounded-full ${
-                          tickerFilter === f.key
-                            ? 'bg-primary-600 text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                        }`}
-                      >
-                        {f.label}
-                      </button>
-                    ))}
-                  </div>
+                  {/* 필터 버튼 - FilterPills */}
+                  <FilterPills
+                    options={TICKER_FILTER_OPTIONS}
+                    value={tickerFilter}
+                    onChange={setTickerFilter}
+                    size="sm"
+                  />
                 </div>
               </div>
             </CardHeader>
@@ -491,8 +475,12 @@ export function Stats() {
             {tickerViewMode === 'heatmap' && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                 {filteredTickers.length === 0 ? (
-                  <div className="col-span-full py-8 text-center text-gray-500 dark:text-gray-400">
-                    해당 종목이 없습니다
+                  <div className="col-span-full">
+                    <EmptyState
+                      icon="chart"
+                      title="해당 종목이 없습니다"
+                      description={tickerFilter === 'open' ? '진행중인 포지션이 없습니다' : '종료된 포지션이 없습니다'}
+                    />
                   </div>
                 ) : (
                   filteredTickers.map((ticker, i) => {
@@ -558,7 +546,15 @@ export function Stats() {
                 </thead>
                 <tbody>
                   {filteredTickers.length === 0 ? (
-                    <tr><td colSpan={5} className="py-4 text-center text-gray-500 dark:text-gray-400">해당 종목이 없습니다</td></tr>
+                    <tr>
+                      <td colSpan={5}>
+                        <EmptyState
+                          icon="chart"
+                          title="해당 종목이 없습니다"
+                          description={tickerFilter === 'open' ? '진행중인 포지션이 없습니다' : '종료된 포지션이 없습니다'}
+                        />
+                      </td>
+                    </tr>
                   ) : filteredTickers.map((ticker, i) => (
                     <tr key={i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="py-2.5">
