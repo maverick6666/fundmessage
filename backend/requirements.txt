@@ -36,3 +36,6 @@ rapidfuzz>=3.6.0
 
 # AI
 openai>=1.0.0
+
+# Scheduler
+apscheduler>=3.10.0

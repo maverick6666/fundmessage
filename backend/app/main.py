@@ -9,6 +9,7 @@ from app.api import api_router
 from app.websocket import manager
 from app.websocket.handlers import handle_websocket_message
 from app.utils.security import decode_token
+from app.services.scheduler import init_scheduler, shutdown_scheduler
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -74,7 +75,14 @@ async def websocket_endpoint(
 # Startup event (시드 계정 생성 제거됨 - 첫 가입자가 자동으로 팀장이 됨)
 @app.on_event("startup")
 async def startup_event():
+    init_scheduler()
     print("Fund Team Messenger API started")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    shutdown_scheduler()
+    print("Fund Team Messenger API shutdown")
 
 
 if __name__ == "__main__":
