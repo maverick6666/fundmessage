@@ -566,7 +566,18 @@ export function PositionDetail() {
     setEditPlanData({ price: item.price || '', quantity: item.quantity || '' });
   };
 
-  const cancelEditPlanItem = () => {
+  const cancelEditPlanItem = async () => {
+    // 편집 취소 시 빈 항목(가격/수량 없음)이면 삭제
+    if (editingPlanItem) {
+      const { planType, index } = editingPlanItem;
+      const key = planType === 'buy' ? 'buy_plan' : planType === 'take_profit' ? 'take_profit_targets' : 'stop_loss_targets';
+      const currentItem = (position[key] || [])[index];
+
+      // 값이 없는 빈 항목이면 삭제
+      if (currentItem && !currentItem.price && !currentItem.quantity) {
+        await handleRemovePlanItem(planType, index);
+      }
+    }
     setEditingPlanItem(null);
     setEditPlanData({ price: '', quantity: '' });
   };
