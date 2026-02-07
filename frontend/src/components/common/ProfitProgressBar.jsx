@@ -1,6 +1,91 @@
 import { formatPercent, formatCurrency, getProfitLossClass } from '../../utils/formatters';
 
 /**
+ * 타겟 기반 프로그레스 계산 유틸 함수
+ *
+ * @param {number} currentPrice - 현재가
+ * @param {number} averagePrice - 평균 매입가
+ * @param {Array} takeProfitTargets - 익절 타겟 [{price, quantity, completed}]
+ * @param {Array} stopLossTargets - 손절 타겟 [{price, quantity, completed}]
+ * @returns {{ progress: number, direction: 'profit' | 'loss' | 'neutral', targetInfo: object | null }}
+ */
+export function calculateTargetProgress(currentPrice, averagePrice, takeProfitTargets = [], stopLossTargets = []) {
+  const validTpTargets = (takeProfitTargets || []).filter(t => t.price && !t.completed);
+  const validSlTargets = (stopLossTargets || []).filter(t => t.price && !t.completed);
+
+  if (!currentPrice || !averagePrice) {
+    return { progress: 0, direction: 'neutral', targetInfo: null };
+  }
+
+  if (validTpTargets.length === 0 && validSlTargets.length === 0) {
+    return { progress: 0, direction: 'neutral', targetInfo: null };
+  }
+
+  const sortedTpTargets = [...validTpTargets].sort((a, b) => a.price - b.price);
+  const sortedSlTargets = [...validSlTargets].sort((a, b) => b.price - a.price);
+
+  const isProfit = currentPrice > averagePrice;
+
+  let progress = 0;
+  let targetInfo = null;
+  let direction = 'neutral';
+
+  if (isProfit && sortedTpTargets.length > 0) {
+    direction = 'profit';
+    let accumulatedProgress = 0;
+    const progressPerTarget = 100 / sortedTpTargets.length;
+
+    for (let i = 0; i < sortedTpTargets.length; i++) {
+      const target = sortedTpTargets[i];
+      const prevPrice = i === 0 ? averagePrice : sortedTpTargets[i - 1].price;
+
+      if (currentPrice >= target.price) {
+        accumulatedProgress += progressPerTarget;
+      } else {
+        const rangeTotal = target.price - prevPrice;
+        const rangeCurrent = currentPrice - prevPrice;
+        const rangeProgress = rangeTotal > 0 ? (rangeCurrent / rangeTotal) * progressPerTarget : 0;
+        accumulatedProgress += Math.max(0, rangeProgress);
+        targetInfo = { index: i + 1, price: target.price, total: sortedTpTargets.length };
+        break;
+      }
+    }
+
+    progress = Math.min(100, accumulatedProgress);
+    if (!targetInfo && sortedTpTargets.length > 0) {
+      targetInfo = { index: sortedTpTargets.length, price: sortedTpTargets[sortedTpTargets.length - 1].price, total: sortedTpTargets.length, completed: true };
+    }
+  } else if (!isProfit && sortedSlTargets.length > 0) {
+    direction = 'loss';
+    let accumulatedProgress = 0;
+    const progressPerTarget = 100 / sortedSlTargets.length;
+
+    for (let i = 0; i < sortedSlTargets.length; i++) {
+      const target = sortedSlTargets[i];
+      const prevPrice = i === 0 ? averagePrice : sortedSlTargets[i - 1].price;
+
+      if (currentPrice <= target.price) {
+        accumulatedProgress += progressPerTarget;
+      } else {
+        const rangeTotal = prevPrice - target.price;
+        const rangeCurrent = prevPrice - currentPrice;
+        const rangeProgress = rangeTotal > 0 ? (rangeCurrent / rangeTotal) * progressPerTarget : 0;
+        accumulatedProgress += Math.max(0, rangeProgress);
+        targetInfo = { index: i + 1, price: target.price, total: sortedSlTargets.length };
+        break;
+      }
+    }
+
+    progress = Math.min(100, accumulatedProgress);
+    if (!targetInfo && sortedSlTargets.length > 0) {
+      targetInfo = { index: sortedSlTargets.length, price: sortedSlTargets[sortedSlTargets.length - 1].price, total: sortedSlTargets.length, completed: true };
+    }
+  }
+
+  return { progress, direction, targetInfo };
+}
+
+/**
  * 타겟 기반 수익률 프로그레스 바
  *
  * 익절/손절 타겟이 있을 때만 표시

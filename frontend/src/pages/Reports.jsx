@@ -29,40 +29,36 @@ const TabIcons = {
   )
 };
 
-// Document Card Component - Editorial/Luxury Style
+// Document Card Component - Clean & Structured Style
 function DocumentCard({ type, data, onClick }) {
   const isColumn = type === 'column';
 
-  // Type-based theming
+  // Type-based theming - 더 절제된 색상
   const getTypeTheme = () => {
     switch (type) {
       case 'decision':
         return {
-          accent: 'from-blue-500 via-indigo-500 to-blue-600',
-          glow: 'group-hover:shadow-blue-500/20',
-          iconBg: 'from-blue-500 to-indigo-600',
-          text: 'group-hover:text-blue-600 dark:group-hover:text-blue-400'
+          accent: 'bg-blue-500',
+          accentLight: 'bg-blue-50 dark:bg-blue-900/20',
+          text: 'text-blue-600 dark:text-blue-400'
         };
       case 'report':
         return {
-          accent: 'from-emerald-500 via-teal-500 to-cyan-500',
-          glow: 'group-hover:shadow-emerald-500/20',
-          iconBg: 'from-emerald-500 to-teal-600',
-          text: 'group-hover:text-emerald-600 dark:group-hover:text-emerald-400'
+          accent: 'bg-emerald-500',
+          accentLight: 'bg-emerald-50 dark:bg-emerald-900/20',
+          text: 'text-emerald-600 dark:text-emerald-400'
         };
       case 'column':
         return {
-          accent: 'from-violet-500 via-purple-500 to-fuchsia-500',
-          glow: 'group-hover:shadow-violet-500/20',
-          iconBg: 'from-violet-500 to-purple-600',
-          text: 'group-hover:text-violet-600 dark:group-hover:text-violet-400'
+          accent: 'bg-violet-500',
+          accentLight: 'bg-violet-50 dark:bg-violet-900/20',
+          text: 'text-violet-600 dark:text-violet-400'
         };
       default:
         return {
-          accent: 'from-gray-400 to-gray-500',
-          glow: 'group-hover:shadow-gray-500/20',
-          iconBg: 'from-gray-500 to-gray-600',
-          text: 'group-hover:text-gray-600 dark:group-hover:text-gray-400'
+          accent: 'bg-gray-400',
+          accentLight: 'bg-gray-50 dark:bg-gray-700',
+          text: 'text-gray-600 dark:text-gray-400'
         };
     }
   };
@@ -74,26 +70,17 @@ function DocumentCard({ type, data, onClick }) {
     if (isColumn) {
       return data.is_verified ? {
         text: '검증됨',
-        icon: (
-          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-        ),
-        className: 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
+        className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
       } : null;
     }
     if (data.position?.status === 'open') {
       return {
         text: '보유중',
-        icon: (
-          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-        ),
-        className: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25'
+        className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
       };
     }
     return {
       text: '종료',
-      icon: null,
       className: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
     };
   };
@@ -103,109 +90,76 @@ function DocumentCard({ type, data, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="group text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500 rounded-2xl"
+      className="group text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500 rounded-xl"
     >
       <div
         className={`
-          relative overflow-hidden rounded-2xl
-          bg-white dark:bg-gray-800/90
-          border border-gray-200/80 dark:border-gray-700/50
-          backdrop-blur-sm
-          transition-all duration-500 ease-out
-          hover:-translate-y-2 hover:scale-[1.02]
-          shadow-lg shadow-gray-200/40 dark:shadow-gray-900/40
-          group-hover:shadow-2xl ${theme.glow}
-          group-hover:border-gray-300/80 dark:group-hover:border-gray-600/50
+          relative overflow-hidden rounded-xl
+          bg-white dark:bg-gray-800
+          border border-gray-200 dark:border-gray-700
+          transition-all duration-200 ease-out
+          hover:border-gray-300 dark:hover:border-gray-600
+          hover:shadow-lg
         `}
-        style={{ aspectRatio: '3/4' }}
       >
-        {/* Top Accent Bar */}
-        <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${theme.accent} opacity-80 group-hover:opacity-100 transition-opacity`} />
+        {/* Left Accent Bar */}
+        <div className={`absolute top-0 left-0 bottom-0 w-1 ${theme.accent}`} />
 
-        {/* Decorative corner gradient */}
-        <div className={`absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br ${theme.accent} opacity-[0.03] group-hover:opacity-[0.08] rounded-full blur-2xl transition-opacity duration-500`} />
-
-        {/* Title Section */}
-        <div className="relative h-[30%] p-4 flex flex-col justify-center">
-          <h3 className={`font-bold text-gray-900 dark:text-gray-50 text-sm leading-snug line-clamp-2 transition-colors duration-300 ${theme.text}`}>
-            {data.title}
-          </h3>
-        </div>
-
-        {/* Divider */}
-        <div className="mx-4 h-px bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent" />
-
-        {/* Content Section */}
-        <div className="relative h-[70%] p-4 flex flex-col">
-          {/* Badge */}
-          {badge && (
-            <div className="absolute top-3 right-3">
-              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold tracking-wide uppercase ${badge.className} transition-transform duration-300 group-hover:scale-105`}>
-                {badge.icon}
+        {/* Card Content - 체계적 레이아웃 */}
+        <div className="pl-4 pr-4 py-4">
+          {/* Header: Badge + Time */}
+          <div className="flex items-center justify-between mb-3">
+            {badge && (
+              <span className={`text-xs font-medium px-2 py-0.5 rounded ${badge.className}`}>
                 {badge.text}
               </span>
-            </div>
-          )}
-
-          {/* Content Details */}
-          <div className="flex-1 flex flex-col justify-center pt-2">
-            {isColumn ? (
-              // Column: Author info with avatar
-              <div className="space-y-3">
-                {data.author && (
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${theme.iconBg} flex items-center justify-center text-white font-bold shadow-lg transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
-                      {data.author.full_name?.charAt(0) || '?'}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                        {data.author.full_name}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">작성자</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              // Decision/Report: Position info
-              <div className="space-y-2">
-                {data.position && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${theme.iconBg} flex items-center justify-center shadow-md transform group-hover:scale-110 transition-transform duration-300`}>
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight">
-                          {data.position.ticker_name || data.position.ticker}
-                        </p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">
-                          {data.position.ticker}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100/80 dark:bg-gray-700/50 rounded-md">
-                      <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        {data.position.market}
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
             )}
-          </div>
-
-          {/* Footer - Time with icon */}
-          <div className="flex items-center gap-1.5 pt-3 mt-auto border-t border-gray-100/80 dark:border-gray-700/30">
-            <svg className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+            <span className="text-xs text-gray-400 dark:text-gray-500">
               {formatRelativeTime(data.created_at)}
             </span>
           </div>
+
+          {/* Title */}
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-snug line-clamp-2 mb-3">
+            {data.title}
+          </h3>
+
+          {/* Divider */}
+          <div className="h-px bg-gray-100 dark:bg-gray-700 mb-3" />
+
+          {/* Meta Info */}
+          {isColumn ? (
+            // Column: Author
+            <div className="flex items-center gap-2">
+              <div className={`w-7 h-7 rounded-lg ${theme.accentLight} flex items-center justify-center ${theme.text} text-xs font-bold`}>
+                {data.author?.full_name?.charAt(0) || '?'}
+              </div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {data.author?.full_name || '익명'}
+              </span>
+            </div>
+          ) : (
+            // Decision/Report: Position
+            data.position && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-7 h-7 rounded-lg ${theme.accentLight} flex items-center justify-center`}>
+                    <svg className={`w-4 h-4 ${theme.text}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 leading-tight">
+                      {data.position.ticker_name || data.position.ticker}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 px-1.5 py-0.5 rounded">
+                  {data.position.market}
+                </span>
+              </div>
+            )
+          )}
         </div>
       </div>
     </button>
@@ -321,8 +275,8 @@ export function Reports() {
     </div>
   );
 
-  // Gallery grid classes
-  const gridClasses = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4";
+  // Gallery grid classes - 더 큰 카드를 위해 컬럼 수 줄임
+  const gridClasses = "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5";
 
   return (
     <div className="space-y-6 min-w-0">

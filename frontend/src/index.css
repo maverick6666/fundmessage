@@ -835,8 +835,9 @@
   background: linear-gradient(90deg, rgba(239, 68, 68, 0.08) 0%, transparent 100%);
 }
 
-.position-danger:hover {
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.12) 0%, transparent 100%);
+.position-profit {
+  border-left: 4px solid #10b981 !important;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, transparent 100%);
 }
 
 /* 미확인 포지션 경고 배지 */

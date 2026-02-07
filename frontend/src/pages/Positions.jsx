@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { ConfirmModal } from '../components/common/ConfirmModal';
-import { ProfitProgressBar } from '../components/common/ProfitProgressBar';
+import { ProfitProgressBar, calculateTargetProgress } from '../components/common/ProfitProgressBar';
 import { StockChart } from '../components/charts/StockChart';
 import { QuickPriceButtons } from '../components/common/NumberInputWithQuickButtons';
 import { usePositions } from '../hooks/usePositions';
@@ -927,7 +927,7 @@ function SimpleBuyForm({ stock, currentPrice, onSuccess, onCancel }) {
   );
 }
 
-// 포지션 목록 컴포넌트 (위험 포지션 분리)
+// 포지션 목록 컴포넌트
 function PositionsList({
   positions,
   statusFilter,
@@ -941,57 +941,11 @@ function PositionsList({
   filters,
   setPage
 }) {
-  // 위험 포지션 분리 (-5% 이하 손실, 진행중 탭에서만)
-  // profit_rate는 소수점 형태 (예: -0.05 = -5%)
-  const dangerPositions = statusFilter === 'open'
-    ? positions.filter(p => {
-        const rate = priceData[p.id]?.profit_rate;
-        return rate != null && rate <= -0.05;
-      })
-    : [];
-
-  const normalPositions = statusFilter === 'open'
-    ? positions.filter(p => {
-        const rate = priceData[p.id]?.profit_rate;
-        return rate == null || rate > -0.05;
-      })
-    : positions;
-
   return (
     <>
-      {/* 위험 포지션 섹션 */}
-      {dangerPositions.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-1 h-5 bg-red-500 rounded-full"></div>
-            <h2 className="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">
-              위험 포지션
-            </h2>
-            <span className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">
-              {dangerPositions.length}건
-            </span>
-          </div>
-          <div className="space-y-3">
-            {dangerPositions.map(position => (
-              <PositionCard
-                key={position.id}
-                position={position}
-                priceData={priceData}
-                priceLoading={priceLoading}
-                expanded={expandedIds.has(position.id)}
-                toggleExpand={toggleExpand}
-                adminMode={adminMode}
-                handleDelete={handleDelete}
-                isDanger={true}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 일반 포지션 목록 */}
+      {/* 포지션 목록 - 색상으로만 상태 구분 */}
       <div className="space-y-4">
-        {normalPositions.map(position => (
+        {positions.map(position => (
           <PositionCard
             key={position.id}
             position={position}
@@ -1001,7 +955,6 @@ function PositionsList({
             toggleExpand={toggleExpand}
             adminMode={adminMode}
             handleDelete={handleDelete}
-            isDanger={false}
           />
         ))}
       </div>
@@ -1042,8 +995,7 @@ function PositionCard({
   expanded,
   toggleExpand,
   adminMode,
-  handleDelete,
-  isDanger
+  handleDelete
 }) {
   const isOpen = position.status === 'open';
   const price = priceData[position.id];
@@ -1053,11 +1005,31 @@ function PositionCard({
   const isProfit = profitRate != null && profitRate > 0;
   const isLoss = profitRate != null && profitRate < 0;
 
+  // 프로그레스 기반 색상 계산 (타겟이 있는 경우에만)
+  const hasTargets = position.remaining_take_profits > 0 || position.remaining_stop_losses > 0;
+  let cardColorClass = '';
+
+  if (isOpen && hasTargets && price?.current_price) {
+    const { progress, direction } = calculateTargetProgress(
+      price.current_price,
+      position.average_buy_price,
+      position.take_profit_targets,
+      position.stop_loss_targets
+    );
+
+    // 프로그레스 50% 이상일 때만 색상 적용
+    if (progress >= 50) {
+      if (direction === 'loss') {
+        cardColorClass = 'position-danger'; // 손절 위험
+      } else if (direction === 'profit') {
+        cardColorClass = 'position-profit'; // 익절 근접
+      }
+    }
+  }
+
   return (
     <div
-      className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden transition-colors ${
-        isDanger ? 'position-danger' : ''
-      } ${
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden transition-colors ${cardColorClass} ${
         expanded
           ? 'shadow-md border-primary-200 dark:border-primary-700'
           : 'border-gray-200 dark:border-gray-700'
@@ -1079,12 +1051,6 @@ function PositionCard({
               {isOpen && !position.is_info_confirmed && (
                 <span className="badge-unconfirmed text-xs px-2 py-0.5 rounded-full">
                   미확인
-                </span>
-              )}
-              {/* 위험 포지션에 요청자 표시 */}
-              {isDanger && position.requester_name && (
-                <span className="text-xs text-red-600 dark:text-red-400 font-medium">
-                  요청: {position.requester_name}
                 </span>
               )}
             </div>
