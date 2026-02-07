@@ -10,6 +10,7 @@ class UserRole(str, enum.Enum):
     MANAGER = "manager"
     ADMIN = "admin"
     MEMBER = "member"
+    VIEWER = "viewer"  # 보기 전용 (읽기만 가능, 요청/댓글 불가)
 
 
 class User(Base):

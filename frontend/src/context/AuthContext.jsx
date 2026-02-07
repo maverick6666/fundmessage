@@ -45,6 +45,16 @@ export function AuthProvider({ children }) {
     return user?.role === 'manager';
   };
 
+  // viewer가 아닌 경우 (member 이상) - 요청/댓글 등 쓰기 가능
+  const canWrite = () => {
+    return user?.role && user.role !== 'viewer';
+  };
+
+  // viewer인지 확인 (읽기 전용)
+  const isViewer = () => {
+    return user?.role === 'viewer';
+  };
+
   const toggleAdminMode = () => {
     if (isManagerOrAdmin()) {
       setAdminMode(!adminMode);
@@ -68,6 +78,8 @@ export function AuthProvider({ children }) {
       logout: handleLogout,
       isManagerOrAdmin,
       isManager,
+      canWrite,
+      isViewer,
       isAuthenticated: !!user,
       adminMode,
       toggleAdminMode

@@ -12,7 +12,7 @@ from app.schemas.user import UserBrief
 from app.schemas.common import APIResponse
 from app.services.discussion_service import DiscussionService
 from app.services.notification_service import NotificationService
-from app.dependencies import get_current_user, get_manager_or_admin
+from app.dependencies import get_current_user, get_manager_or_admin, get_writer_user
 from app.models.user import User
 
 router = APIRouter()
@@ -206,7 +206,7 @@ async def create_message(
     discussion_id: int,
     message_data: MessageCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """Send a message to discussion"""
     discussion_service = DiscussionService(db)

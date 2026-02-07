@@ -86,3 +86,15 @@ async def get_manager(
             detail="Manager access required"
         )
     return current_user
+
+
+async def get_writer_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """viewer가 아닌 사용자만 허용 (member 이상) - 쓰기 작업용"""
+    if current_user.role == UserRole.VIEWER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="보기 전용 사용자는 이 작업을 수행할 수 없습니다"
+        )
+    return current_user

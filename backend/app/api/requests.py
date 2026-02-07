@@ -14,7 +14,7 @@ from app.schemas.common import APIResponse
 from app.services.request_service import RequestService
 from app.services.discussion_service import DiscussionService
 from app.services.notification_service import NotificationService
-from app.dependencies import get_current_user, get_manager_or_admin
+from app.dependencies import get_current_user, get_manager_or_admin, get_writer_user
 from app.models.user import User
 
 router = APIRouter()
@@ -100,7 +100,7 @@ def request_to_response(request) -> RequestResponse:
 async def create_buy_request(
     request_data: BuyRequestCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """Create a buy request"""
     request_service = RequestService(db)
@@ -127,7 +127,7 @@ async def create_buy_request(
 async def create_sell_request(
     request_data: SellRequestCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """Create a sell request"""
     request_service = RequestService(db)
