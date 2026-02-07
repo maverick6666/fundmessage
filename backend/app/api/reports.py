@@ -91,6 +91,52 @@ async def get_positions_for_report(
     )
 
 
+@router.get("/operation-reports", response_model=APIResponse)
+async def get_operation_reports(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """운용보고서 목록 (note_type='report')"""
+    query = db.query(DecisionNote).options(
+        joinedload(DecisionNote.author),
+        joinedload(DecisionNote.position)
+    ).filter(
+        DecisionNote.note_type == 'report'
+    ).order_by(DecisionNote.created_at.desc())
+
+    total = query.count()
+    notes = query.offset(skip).limit(limit).all()
+
+    return APIResponse(
+        success=True,
+        data={
+            "notes": [{
+                "id": n.id,
+                "title": n.title,
+                "content": n.content[:200] + "..." if n.content and len(n.content) > 200 else n.content,
+                "note_type": n.note_type,
+                "position": {
+                    "id": n.position.id,
+                    "ticker": n.position.ticker,
+                    "ticker_name": n.position.ticker_name,
+                    "market": n.position.market,
+                    "status": n.position.status
+                } if n.position else None,
+                "author": {
+                    "id": n.author.id,
+                    "full_name": n.author.full_name
+                } if n.author else None,
+                "created_at": n.created_at.isoformat() if n.created_at else None
+            } for n in notes],
+            "total": total,
+            "skip": skip,
+            "limit": limit
+        }
+    )
+
+
 @router.get("/decision-notes", response_model=APIResponse)
 async def get_all_decision_notes(
     skip: int = Query(0, ge=0),
@@ -98,10 +144,12 @@ async def get_all_decision_notes(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """전체 의사결정서 목록 (모든 포지션)"""
+    """전체 의사결정서 목록 (note_type='decision' 또는 null)"""
     query = db.query(DecisionNote).options(
         joinedload(DecisionNote.author),
         joinedload(DecisionNote.position)
+    ).filter(
+        (DecisionNote.note_type == 'decision') | (DecisionNote.note_type == None)
     ).order_by(DecisionNote.created_at.desc())
 
     total = query.count()

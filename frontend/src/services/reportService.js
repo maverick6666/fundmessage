@@ -22,7 +22,17 @@ export const reportService = {
     return response.data.data;
   },
 
-  // 전체 의사결정서 목록
+  // 운용보고서 목록 (note_type='report')
+  async getOperationReports({ skip = 0, limit = 50 } = {}) {
+    const params = new URLSearchParams();
+    params.append('skip', skip);
+    params.append('limit', limit);
+
+    const response = await api.get(`/reports/operation-reports?${params.toString()}`);
+    return response.data.data;
+  },
+
+  // 전체 의사결정서 목록 (note_type='decision')
   async getDecisionNotes({ skip = 0, limit = 50 } = {}) {
     const params = new URLSearchParams();
     params.append('skip', skip);

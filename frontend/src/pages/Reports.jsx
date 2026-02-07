@@ -2,19 +2,13 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { ConfirmModal } from '../components/common/ConfirmModal';
-import { PositionNotesModal } from '../components/documents/PositionNotesModal';
 import { reportService } from '../services/reportService';
 import { columnService } from '../services/columnService';
-import { positionService } from '../services/positionService';
 import { decisionNoteService } from '../services/decisionNoteService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import { useSidePanelStore } from '../stores/useSidePanelStore';
-import {
-  formatPercent,
-  formatRelativeTime,
-  getProfitLossClass
-} from '../utils/formatters';
+import { formatRelativeTime } from '../utils/formatters';
 
 // Tab icons
 const TabIcons = {
@@ -35,6 +29,104 @@ const TabIcons = {
   )
 };
 
+// Document Card Component
+function DocumentCard({ type, data, onClick }) {
+  const isColumn = type === 'column';
+
+  // Get badge info
+  const getBadge = () => {
+    if (isColumn) {
+      return data.is_verified ? {
+        text: '검증됨',
+        className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 ring-1 ring-blue-500/30'
+      } : null;
+    }
+    if (data.position?.status === 'open') {
+      return {
+        text: '보유중',
+        className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 ring-1 ring-emerald-500/30'
+      };
+    }
+    return {
+      text: '종료',
+      className: 'bg-gray-100 text-gray-600 dark:bg-gray-700/60 dark:text-gray-400 ring-1 ring-gray-500/20'
+    };
+  };
+
+  const badge = getBadge();
+
+  return (
+    <button
+      onClick={onClick}
+      className="group text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-xl"
+    >
+      <div
+        className="relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50 hover:border-gray-300 dark:hover:border-gray-600 hover:-translate-y-1"
+        style={{ aspectRatio: '3/4' }}
+      >
+        {/* Title Section - Top 1/4 */}
+        <div className="h-1/4 p-4 flex items-center border-b border-gray-100 dark:border-gray-700/50 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-700/30 dark:to-gray-800">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base leading-tight line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+            {data.title}
+          </h3>
+        </div>
+
+        {/* Content Section - Bottom 3/4 */}
+        <div className="h-3/4 p-4 flex flex-col relative">
+          {/* Badge - Top Right of Content Section */}
+          {badge && (
+            <div className="absolute top-3 right-3">
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>
+                {badge.text}
+              </span>
+            </div>
+          )}
+
+          {/* Content Details */}
+          <div className="flex-1 flex flex-col justify-center">
+            {isColumn ? (
+              // Column: Author info
+              <div className="space-y-2">
+                {data.author && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-medium shadow-sm">
+                      {data.author.full_name?.charAt(0) || '?'}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {data.author.full_name}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Decision/Report: Position info
+              <div className="space-y-1.5">
+                {data.position && (
+                  <>
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {data.position.ticker_name || data.position.ticker}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                      {data.position.ticker} · {data.position.market}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Footer - Time */}
+          <div className="pt-3 border-t border-gray-100 dark:border-gray-700/50 mt-auto">
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {formatRelativeTime(data.created_at)}
+            </span>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export function Reports() {
   const { user } = useAuth();
   const toast = useToast();
@@ -48,16 +140,10 @@ export function Reports() {
   };
 
   // Data states
-  const [positions, setPositions] = useState([]);
+  const [operationReports, setOperationReports] = useState([]);
   const [decisionNotes, setDecisionNotes] = useState([]);
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Position notes modal (운용보고서 탭에서 사용)
-  const [showPositionNotes, setShowPositionNotes] = useState(false);
-  const [selectedPosition, setSelectedPosition] = useState(null);
-  const [positionNotes, setPositionNotes] = useState([]);
-  const [loadingNotes, setLoadingNotes] = useState(false);
 
   const [deleteColumnId, setDeleteColumnId] = useState(null);
 
@@ -69,8 +155,8 @@ export function Reports() {
     setLoading(true);
     try {
       if (activeTab === 'operations') {
-        const data = await reportService.getPositionsForReport({ limit: 50 });
-        setPositions(data.positions || []);
+        const data = await reportService.getOperationReports({ limit: 50 });
+        setOperationReports(data.notes || []);
       } else if (activeTab === 'decisions') {
         const data = await reportService.getDecisionNotes({ limit: 50 });
         setDecisionNotes(data.notes || []);
@@ -85,41 +171,17 @@ export function Reports() {
     }
   };
 
-  // Position click - show notes modal
-  const handlePositionClick = async (position) => {
-    setSelectedPosition(position);
-    setShowPositionNotes(true);
-    setLoadingNotes(true);
-    try {
-      const data = await positionService.getDecisionNotes(position.id);
-      setPositionNotes(data || []);
-    } catch (error) {
-      console.error('Failed to fetch notes:', error);
-      setPositionNotes([]);
-    } finally {
-      setLoadingNotes(false);
-    }
-  };
-
-  // Note click from position modal - open side panel
-  const handleNoteClick = (note) => {
-    setShowPositionNotes(false);
-    openDocument(note, 'decision-note', fetchData);
-  };
-
-  // Decision note click - fetch full content then open side panel
-  const handleDecisionNoteClick = async (note) => {
+  // Note click - fetch full content then open side panel
+  const handleNoteClick = async (note) => {
     if (!note.position?.id) {
       openDocument(note, 'decision-note', fetchData);
       return;
     }
     try {
-      // 전체 내용 가져오기 (목록 API는 200자로 잘려있음)
       const fullNote = await decisionNoteService.getNote(note.position.id, note.id);
       openDocument(fullNote, 'decision-note', fetchData);
     } catch (error) {
       console.error('Failed to fetch full note:', error);
-      // 실패 시 기존 데이터로 열기
       openDocument(note, 'decision-note', fetchData);
     }
   };
@@ -145,8 +207,6 @@ export function Reports() {
       toast.error(error.response?.data?.detail || '삭제에 실패했습니다');
     }
   };
-
-  const isManager = user?.role === 'manager' || user?.role === 'admin';
 
   const tabs = [
     { id: 'operations', label: '운용보고서', icon: TabIcons.operations },
@@ -175,6 +235,9 @@ export function Reports() {
       </div>
     </div>
   );
+
+  // Gallery grid classes
+  const gridClasses = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4";
 
   return (
     <div className="space-y-6 min-w-0">
@@ -214,98 +277,33 @@ export function Reports() {
         ))}
       </div>
 
-      {/* Operations Tab */}
+      {/* Operations Tab - 운용보고서 */}
       {activeTab === 'operations' && (
         <div>
-          {loading ? renderLoading() : positions.length === 0 ? (
+          {loading ? renderLoading() : operationReports.length === 0 ? (
             renderEmptyState(
-              '포지션이 없습니다',
-              '포지션을 개설하면 여기에서 운용보고서를 관리할 수 있습니다',
+              '작성된 운용보고서가 없습니다',
+              '포지션 상세에서 운용보고서를 작성할 수 있습니다',
               <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             )
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-              {positions.map((position) => (
-                <button
-                  key={position.id}
-                  onClick={() => handlePositionClick(position)}
-                  className="group text-left min-w-0"
-                >
-                  <div className="relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 hover:-translate-y-0.5">
-                    {/* Status indicator */}
-                    <div className="absolute top-4 right-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                        position.status === 'open'
-                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 ring-1 ring-emerald-600/20'
-                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 ring-1 ring-gray-500/20'
-                      }`}>
-                        {position.status === 'open' ? '보유중' : '종료'}
-                      </span>
-                    </div>
-
-                    {/* Header */}
-                    <div className="mb-4">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg leading-tight pr-20 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                        {position.ticker_name || position.ticker}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-mono">
-                        {position.ticker} · {position.market}
-                      </p>
-                    </div>
-
-                    {/* Profit/Loss */}
-                    {position.profit_rate != null && (
-                      <div className={`text-2xl font-bold mb-4 ${getProfitLossClass(position.profit_rate)}`}>
-                        {position.profit_rate >= 0 ? '+' : ''}{formatPercent(position.profit_rate)}
-                      </div>
-                    )}
-
-                    {/* Stats */}
-                    <div className="flex items-center gap-4 text-sm mb-4 overflow-hidden">
-                      <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 whitespace-nowrap shrink-0">
-                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                        <span>토론 {position.discussion_count}개</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 whitespace-nowrap shrink-0">
-                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span>노트 {position.note_count}개</span>
-                      </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between gap-2 pt-4 border-t border-gray-100 dark:border-gray-700 overflow-hidden">
-                      {(position.requester || position.opener) ? (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap truncate">
-                          요청: {position.requester?.full_name || position.opener?.full_name}
-                        </span>
-                      ) : (
-                        <span />
-                      )}
-
-                      {position.has_data && (
-                        <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 whitespace-nowrap shrink-0">
-                          <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          데이터 있음
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
+            <div className={gridClasses}>
+              {operationReports.map((note) => (
+                <DocumentCard
+                  key={note.id}
+                  type="report"
+                  data={note}
+                  onClick={() => handleNoteClick(note)}
+                />
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* Decision Notes Tab */}
+      {/* Decision Notes Tab - 의사결정서 */}
       {activeTab === 'decisions' && (
         <div>
           {loading ? renderLoading() : decisionNotes.length === 0 ? (
@@ -317,59 +315,21 @@ export function Reports() {
               </svg>
             )
           ) : (
-            <div className="space-y-3">
+            <div className={gridClasses}>
               {decisionNotes.map((note) => (
-                <button
+                <DocumentCard
                   key={note.id}
-                  onClick={() => handleDecisionNoteClick(note)}
-                  className="group block w-full text-left"
-                >
-                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 transition-all duration-200 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
-                          {note.title}
-                        </h3>
-                        {note.position && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              note.position.status === 'open'
-                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                            }`}>
-                              {note.position.ticker_name || note.position.ticker}
-                            </span>
-                            <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
-                              {note.position.ticker} · {note.position.market}
-                            </span>
-                          </div>
-                        )}
-                        {note.content && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 line-clamp-2">
-                            {note.content}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
-                          {formatRelativeTime(note.created_at)}
-                        </span>
-                        {note.author && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {note.author.full_name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </button>
+                  type="decision"
+                  data={note}
+                  onClick={() => handleNoteClick(note)}
+                />
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* Columns Tab */}
+      {/* Columns Tab - 칼럼 */}
       {activeTab === 'columns' && (
         <div>
           {loading ? renderLoading() : columns.length === 0 ? (
@@ -381,59 +341,19 @@ export function Reports() {
               </svg>
             )
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className={gridClasses}>
               {columns.map((column) => (
-                <button
+                <DocumentCard
                   key={column.id}
+                  type="column"
+                  data={column}
                   onClick={() => handleColumnClick(column)}
-                  className="group text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 min-w-0"
-                >
-                  <div className="flex items-start justify-between gap-4 mb-3 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
-                        {column.title}
-                      </h3>
-                      {column.is_verified && (
-                        <svg className="w-5 h-5 text-blue-500 shrink-0" fill="currentColor" viewBox="0 0 20 20" title="검증됨">
-                          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
-                      {formatRelativeTime(column.created_at)}
-                    </span>
-                  </div>
-
-                  {column.author && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-xs font-medium">
-                        {column.author.full_name?.charAt(0) || '?'}
-                      </div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {column.author.full_name}
-                      </span>
-                    </div>
-                  )}
-                </button>
+                />
               ))}
             </div>
           )}
         </div>
       )}
-
-      {/* Position Notes Modal (운용보고서 탭용) */}
-      <PositionNotesModal
-        isOpen={showPositionNotes}
-        onClose={() => {
-          setShowPositionNotes(false);
-          setSelectedPosition(null);
-          setPositionNotes([]);
-        }}
-        position={selectedPosition}
-        notes={positionNotes}
-        loading={loadingNotes}
-        onNoteClick={handleNoteClick}
-      />
 
       {/* 칼럼 삭제 확인 모달 */}
       <ConfirmModal
