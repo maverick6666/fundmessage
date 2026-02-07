@@ -128,12 +128,15 @@ async def get_team_ranking(
 
     result = []
     for user in users:
-        # 해당 유저가 관련된 포지션 조회 (요청자 또는 개설자)
-        user_positions = db.query(Position).join(
+        # 해당 유저가 관련된 포지션 ID 조회 (요청자 또는 개설자)
+        position_ids_query = db.query(Position.id).join(
             Request, Position.id == Request.position_id, isouter=True
         ).filter(
             (Position.opened_by == user.id) | (Request.requester_id == user.id)
         ).distinct().all()
+
+        position_ids = [p[0] for p in position_ids_query]
+        user_positions = db.query(Position).filter(Position.id.in_(position_ids)).all() if position_ids else []
 
         # 수익률/수익금 계산
         total_profit = 0
