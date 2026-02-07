@@ -179,6 +179,25 @@ async def get_team_ranking(
         week_present = len([a for a in week_attendances if a.status in ['present', 'recovered']])
         week_rate = (week_present / week_total * 100) if week_total > 0 else 0
 
+        # 이번달 출석률 계산
+        month_start = today.replace(day=1)
+        month_attendances = db.query(Attendance).filter(
+            Attendance.user_id == user.id,
+            Attendance.date >= month_start,
+            Attendance.date <= today
+        ).all()
+        month_total = len(month_attendances)
+        month_present = len([a for a in month_attendances if a.status in ['present', 'recovered']])
+        month_rate = (month_present / month_total * 100) if month_total > 0 else 0
+
+        # 전체 출석률 계산
+        all_attendances = db.query(Attendance).filter(
+            Attendance.user_id == user.id
+        ).all()
+        all_total = len(all_attendances)
+        all_present = len([a for a in all_attendances if a.status in ['present', 'recovered']])
+        total_rate = (all_present / all_total * 100) if all_total > 0 else 0
+
         if week_total > 0:
             total_week_rate += week_rate
             user_count += 1
@@ -196,6 +215,8 @@ async def get_team_ranking(
             "total_profit": round(total_profit, 0),
             "position_count": position_count,
             "week_attendance_rate": round(week_rate, 1),
+            "month_attendance_rate": round(month_rate, 1),
+            "total_attendance_rate": round(total_rate, 1),
             "week_present": week_present,
             "week_total": week_total
         })
