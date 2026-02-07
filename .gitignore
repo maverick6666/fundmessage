@@ -49,7 +49,6 @@ nul
 
 # Project docs (local only)
 CLAUDE.md
-docs/
 
 # Session files
 *-session-*.txt
