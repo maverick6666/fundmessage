@@ -33,21 +33,11 @@ def newsdesk_to_response(newsdesk: NewsDesk) -> NewsDeskResponse:
     )
 
 
-def get_korean_newsdesk_date() -> date:
-    """한국시간 기준 뉴스데스크 날짜 계산
-
-    - 06:00 이전: 전날 뉴스데스크 표시 (전날 장 마감 뉴스)
-    - 06:00 이후: 오늘 뉴스데스크 표시 (오늘 장 관련 뉴스)
-    """
+def get_korean_today() -> date:
+    """한국시간 기준 오늘 날짜"""
     from zoneinfo import ZoneInfo
-
     kst = ZoneInfo("Asia/Seoul")
-    now_kst = datetime.now(kst)
-
-    # 06:00 이전이면 전날로 취급
-    if now_kst.hour < 6:
-        return (now_kst - timedelta(days=1)).date()
-    return now_kst.date()
+    return datetime.now(kst).date()
 
 
 @router.get("/today", response_model=APIResponse)
@@ -55,22 +45,22 @@ async def get_today_newsdesk(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """오늘의 뉴스데스크 조회 (한국시간 06:00 기준)
+    """오늘의 뉴스데스크 조회
 
-    - 06:00 이전: 전날 뉴스데스크 표시
-    - 06:00 이후: 오늘 뉴스데스크 표시
+    - 2월 8일 뉴스데스크 = 2월 7일 24시간 + 2월 8일 새벽 뉴스
+    - 언제 접속하든 오늘 날짜의 뉴스데스크 표시
     """
-    target_date = get_korean_newsdesk_date()
+    today = get_korean_today()
 
     newsdesk = db.query(NewsDesk).filter(
-        NewsDesk.publish_date == target_date
+        NewsDesk.publish_date == today
     ).first()
 
     if not newsdesk:
         return APIResponse(
             success=True,
             data=None,
-            message=f"{target_date.strftime('%m월 %d일')} 뉴스데스크가 아직 생성되지 않았습니다"
+            message=f"{today.strftime('%m월 %d일')} 뉴스데스크가 아직 생성되지 않았습니다"
         )
 
     return APIResponse(
