@@ -771,13 +771,8 @@ export function NewsDesk() {
   const fetchNewsDesk = useCallback(async (date) => {
     try {
       setLoading(true);
-      const today = new Date().toISOString().split('T')[0];
-      let data;
-      if (date === today) {
-        data = await newsdeskService.getTodayNewsDesk();
-      } else {
-        data = await newsdeskService.getNewsDeskByDate(date);
-      }
+      // 항상 날짜별 엔드포인트 사용 (시간대 불일치 방지)
+      const data = await newsdeskService.getNewsDeskByDate(date);
       setNewsDesk(data);
     } catch (error) {
       console.error('Failed to fetch newsdesk:', error);
