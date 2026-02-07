@@ -86,7 +86,14 @@ export function NoteEditorPanel({ note, onSaved }) {
         content: extractTextFromBlocks(blocks), // 검색/미리보기용
       };
 
-      await decisionNoteService.updateNote(note.position_id, note.id, data);
+      // position_id 또는 position.id 사용
+      const positionId = note.position_id || note.position?.id;
+      if (!positionId) {
+        setError('포지션 정보를 찾을 수 없습니다.');
+        return;
+      }
+
+      await decisionNoteService.updateNote(positionId, note.id, data);
       toast.success('의사결정 노트가 수정되었습니다');
 
       setHasChanges(false);

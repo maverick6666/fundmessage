@@ -329,6 +329,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
               for (const item of items) {
                 if (item.type.startsWith('image/')) {
                   e.preventDefault();
+                  e.stopPropagation(); // 컨테이너로 버블링 방지
                   const file = item.getAsFile();
                   if (file) {
                     insertImageFromFile(file, block.id);
@@ -495,6 +496,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
                 for (const item of items) {
                   if (item.type.startsWith('image/')) {
                     e.preventDefault();
+                    e.stopPropagation(); // 컨테이너로 버블링 방지
                     const file = item.getAsFile();
                     if (file) {
                       insertImageFromFile(file, block.id);
