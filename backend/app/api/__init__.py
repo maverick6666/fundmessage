@@ -15,6 +15,7 @@ from app.api.attendance import router as attendance_router
 from app.api.ai import router as ai_router
 from app.api.trading_plans import router as trading_plans_router
 from app.api.uploads import router as uploads_router
+from app.api.newsdesk import router as newsdesk_router
 
 api_router = APIRouter()
 
@@ -33,3 +34,4 @@ api_router.include_router(attendance_router, prefix="/attendance", tags=["Attend
 api_router.include_router(ai_router, prefix="/ai", tags=["AI"])
 api_router.include_router(trading_plans_router, prefix="/positions", tags=["Trading Plans"])
 api_router.include_router(uploads_router, prefix="/uploads", tags=["Uploads"])
+api_router.include_router(newsdesk_router, prefix="/newsdesk", tags=["NewsDesk"])
