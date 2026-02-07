@@ -340,6 +340,13 @@ JSON만 출력하세요."""
 
     def save_newsdesk(self, target_date: date, content: Dict[str, Any], raw_news_count: int) -> NewsDesk:
         """생성된 콘텐츠를 DB에 저장"""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        # 한국시간으로 현재 시각
+        kst = ZoneInfo("Asia/Seoul")
+        now_kst = datetime.now(kst)
+
         # 기존 데이터 확인
         existing = self.db.query(NewsDesk).filter(
             NewsDesk.publish_date == target_date
@@ -354,6 +361,8 @@ JSON만 출력하세요."""
             existing.status = "ready"
             existing.raw_news_count = raw_news_count
             existing.error_message = None
+            existing.generation_count = (existing.generation_count or 0) + 1
+            existing.last_generated_at = now_kst
             newsdesk = existing
         else:
             newsdesk = NewsDesk(
@@ -365,6 +374,8 @@ JSON만 출력하세요."""
                 top_stocks=content.get("top_stocks"),
                 status="ready",
                 raw_news_count=raw_news_count,
+                generation_count=1,
+                last_generated_at=now_kst,
             )
             self.db.add(newsdesk)
 

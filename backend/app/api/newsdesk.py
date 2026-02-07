@@ -171,13 +171,17 @@ async def generate_newsdesk(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_manager_or_admin)
 ):
-    """뉴스데스크 생성 (팀장/관리자만)
+    """뉴스데스크 생성 (팀장/관리자만, 하루 1회 제한)
 
     1. 뉴스 크롤링 (네이버, yfinance)
     2. AI로 콘텐츠 생성
     3. DB에 저장
+
+    제한: 한국시간 기준 하루에 1회만 생성 가능 (재생성 불가)
     """
-    target_date = request.target_date if request and request.target_date else date.today()
+    # 한국시간 기준 오늘 날짜
+    today = get_korean_today()
+    target_date = request.target_date if request and request.target_date else today
 
     # 기존 뉴스데스크 확인
     existing = db.query(NewsDesk).filter(
@@ -188,6 +192,13 @@ async def generate_newsdesk(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="뉴스데스크가 생성 중입니다. 잠시 후 다시 시도해주세요."
+        )
+
+    # 하루 1회 제한 체크 (이미 성공적으로 생성된 경우)
+    if existing and existing.status == "ready" and existing.generation_count >= 1:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"오늘({target_date.strftime('%m월 %d일')}) 뉴스데스크는 이미 생성되었습니다. 하루에 1회만 생성할 수 있습니다."
         )
 
     # 상태 업데이트 또는 생성

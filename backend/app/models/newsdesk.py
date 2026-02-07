@@ -23,6 +23,10 @@ class NewsDesk(Base):
     error_message = Column(Text, nullable=True)
     raw_news_count = Column(Integer, default=0)  # 수집된 원본 뉴스 수
 
+    # 사용량 제한
+    generation_count = Column(Integer, default=0)  # 해당 날짜 생성 횟수
+    last_generated_at = Column(DateTime, nullable=True)  # 마지막 생성 시각 (KST)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
