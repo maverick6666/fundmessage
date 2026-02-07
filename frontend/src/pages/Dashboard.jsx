@@ -49,10 +49,33 @@ export function Dashboard() {
     memo: ''
   });
   const [actionLoading, setActionLoading] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const [selectedMemberStats, setSelectedMemberStats] = useState(null);
+  const [memberStatsLoading, setMemberStatsLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // 팀원 클릭 시 상세 통계 조회
+  const handleMemberClick = async (memberId) => {
+    if (selectedMemberId === memberId) {
+      setSelectedMemberId(null);
+      setSelectedMemberStats(null);
+      return;
+    }
+    setSelectedMemberId(memberId);
+    setMemberStatsLoading(true);
+    try {
+      const stats = await statsService.getUserStats(memberId);
+      setSelectedMemberStats(stats);
+    } catch (error) {
+      console.error('Failed to fetch member stats:', error);
+      setSelectedMemberStats(null);
+    } finally {
+      setMemberStatsLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -588,16 +611,11 @@ export function Dashboard() {
 
       {/* Team Info Tab Content */}
       {activeTab === 'team' && (
-        <div className="space-y-6">
-          {/* 팀원 랭킹 */}
-          <Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* 왼쪽: 팀원 목록 */}
+          <Card className="lg:col-span-1">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>팀원 랭킹</CardTitle>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  주간 평균 출석률 {teamRanking.avg_week_attendance_rate}%
-                </span>
-              </div>
+              <CardTitle>팀원 목록</CardTitle>
             </CardHeader>
 
             {loading ? (
@@ -605,149 +623,187 @@ export function Dashboard() {
             ) : teamRanking.members.length === 0 ? (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400">팀원 정보가 없습니다</div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {teamRanking.members.map((member) => {
-                  const attendanceColor = member.week_attendance_rate >= teamRanking.avg_week_attendance_rate
-                    ? 'bg-emerald-500'
-                    : 'bg-red-500';
-
-                  return (
-                    <div
-                      key={member.id}
-                      className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium dark:text-gray-100">{member.full_name}</span>
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${getRoleBadgeClass(member.role)}`}>
-                            {getRoleLabel(member.role)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                        <div>
-                          <span className="text-gray-500 dark:text-gray-400 text-xs">평균 수익률</span>
-                          <p className={`font-medium ${getProfitLossClass(member.avg_profit_rate)}`}>
-                            {member.avg_profit_rate >= 0 ? '+' : ''}{member.avg_profit_rate}%
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-gray-500 dark:text-gray-400 text-xs">총 수익금</span>
-                          <p className={`font-medium ${getProfitLossClass(member.total_profit)}`}>
-                            {member.total_profit >= 0 ? '+' : ''}{formatNumber(member.total_profit, 0)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="text-gray-500 dark:text-gray-400">주간 출석률</span>
-                          <span className="text-gray-600 dark:text-gray-300">
-                            {member.week_present}/{member.week_total} ({member.week_attendance_rate}%)
-                          </span>
-                        </div>
-                        <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${attendanceColor} transition-all duration-300`}
-                            style={{ width: `${Math.min(100, member.week_attendance_rate)}%` }}
-                          />
-                        </div>
+              <div className="space-y-2">
+                {teamRanking.members.map((member) => (
+                  <button
+                    key={member.id}
+                    onClick={() => handleMemberClick(member.id)}
+                    className={`w-full p-3 text-left rounded-lg transition-colors ${
+                      selectedMemberId === member.id
+                        ? 'bg-primary-100 dark:bg-primary-900/30 ring-2 ring-primary-500'
+                        : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {/* 이름 + 역할 */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium dark:text-gray-100">{member.full_name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${getRoleBadgeClass(member.role)}`}>
+                          {getRoleLabel(member.role)}
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
+
+                    {/* 수익률, 손익, 출석률 */}
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <span className="text-gray-500 dark:text-gray-400">수익률</span>
+                        <p className={`font-medium ${getProfitLossClass(member.avg_profit_rate)}`}>
+                          {member.avg_profit_rate >= 0 ? '+' : ''}{member.avg_profit_rate}%
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 dark:text-gray-400">손익</span>
+                        <p className={`font-medium ${getProfitLossClass(member.total_profit)}`}>
+                          {member.total_profit >= 0 ? '+' : ''}{formatNumber(member.total_profit, 0)}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 dark:text-gray-400">출석률</span>
+                        <p className="font-medium dark:text-gray-200">
+                          {member.week_attendance_rate}%
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
           </Card>
 
-          {/* 팀원 목록 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>팀원 목록</CardTitle>
-            </CardHeader>
-            {teamMembers.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">팀원이 없습니다</div>
+          {/* 오른쪽: 선택된 팀원 상세 통계 + 리더보드 */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* 선택된 팀원 상세 통계 */}
+            {selectedMemberId ? (
+              memberStatsLoading ? (
+                <Card>
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">로딩중...</div>
+                </Card>
+              ) : selectedMemberStats ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      {teamRanking.members.find(m => m.id === selectedMemberId)?.full_name} 통계
+                    </CardTitle>
+                  </CardHeader>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">총 거래</p>
+                      <p className="text-xl font-bold dark:text-gray-100">{selectedMemberStats.overall?.total_trades || 0}</p>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">승률</p>
+                      <p className="text-xl font-bold dark:text-gray-100">{formatPercent(selectedMemberStats.overall?.win_rate || 0)}</p>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">총 손익</p>
+                      <p className={`text-xl font-bold ${getProfitLossClass(selectedMemberStats.overall?.total_profit_loss)}`}>
+                        {formatCurrency(selectedMemberStats.overall?.total_profit_loss || 0)}
+                      </p>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">평균 수익률</p>
+                      <p className={`text-xl font-bold ${getProfitLossClass(selectedMemberStats.overall?.avg_profit_rate)}`}>
+                        {selectedMemberStats.overall?.avg_profit_rate >= 0 ? '+' : ''}{formatPercent(selectedMemberStats.overall?.avg_profit_rate || 0)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 최고/최악 거래 */}
+                  {(selectedMemberStats.best_trade || selectedMemberStats.worst_trade) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {selectedMemberStats.best_trade && (
+                        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">최고 거래</p>
+                          <p className="font-medium dark:text-gray-200">{selectedMemberStats.best_trade.ticker}</p>
+                          <p className="text-red-600 dark:text-red-400 font-medium">
+                            +{formatPercent(selectedMemberStats.best_trade.profit_rate)}
+                          </p>
+                        </div>
+                      )}
+                      {selectedMemberStats.worst_trade && (
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">최악 거래</p>
+                          <p className="font-medium dark:text-gray-200">{selectedMemberStats.worst_trade.ticker}</p>
+                          <p className="text-blue-600 dark:text-blue-400 font-medium">
+                            {formatPercent(selectedMemberStats.worst_trade.profit_rate)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              ) : (
+                <Card>
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    통계를 불러올 수 없습니다
+                  </div>
+                </Card>
+              )
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b dark:border-gray-700">
-                      <th className="py-2 text-left">이름</th>
-                      <th className="py-2 text-left">역할</th>
-                      <th className="py-2 text-left">이메일</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teamMembers.map((member) => (
-                      <tr key={member.id} className="border-b dark:border-gray-700">
-                        <td className="py-2 font-medium dark:text-gray-200">{member.full_name || member.username}</td>
-                        <td className="py-2">
-                          <span className={`text-xs px-2 py-0.5 rounded ${getRoleBadgeClass(member.role)}`}>
-                            {getRoleLabel(member.role)}
-                          </span>
-                        </td>
-                        <td className="py-2 text-gray-500 dark:text-gray-400">{member.email}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Card>
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <p>팀원을 선택하면 상세 통계를 볼 수 있습니다</p>
+                </div>
+              </Card>
             )}
-          </Card>
 
-          {/* 리더보드 */}
-          {teamStats?.leaderboard && (
-            <Card>
-              <CardHeader>
-                <CardTitle>리더보드</CardTitle>
-              </CardHeader>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b dark:border-gray-700">
-                      <th className="py-2 text-left">순위</th>
-                      <th className="py-2 text-left">팀원</th>
-                      <th className="py-2 text-right">실현 손익</th>
-                      <th className="py-2 text-right">미실현 손익</th>
-                      <th className="py-2 text-right">총 손익</th>
-                      <th className="py-2 text-right">승률</th>
-                      <th className="py-2 text-right">거래</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teamStats.leaderboard.map((entry) => (
-                      <tr key={entry.rank} className="border-b dark:border-gray-700">
-                        <td className="py-2">
-                          {entry.rank === 1 && '🥇'}
-                          {entry.rank === 2 && '🥈'}
-                          {entry.rank === 3 && '🥉'}
-                          {entry.rank > 3 && entry.rank}
-                        </td>
-                        <td className="py-2 font-medium dark:text-gray-200">{entry.user.full_name || entry.user.username}</td>
-                        <td className={`py-2 text-right ${getProfitLossClass(entry.realized_pl)}`}>
-                          {formatCurrency(entry.realized_pl)}
-                        </td>
-                        <td className={`py-2 text-right ${getProfitLossClass(entry.unrealized_pl)}`}>
-                          {entry.unrealized_pl !== 0 ? formatCurrency(entry.unrealized_pl) : '-'}
-                        </td>
-                        <td className={`py-2 text-right font-medium ${getProfitLossClass(entry.total_profit_loss)}`}>
-                          {formatCurrency(entry.total_profit_loss)}
-                        </td>
-                        <td className="py-2 text-right">{formatPercent(entry.win_rate)}</td>
-                        <td className="py-2 text-right">
-                          {entry.closed_trades}
-                          {entry.open_trades > 0 && (
-                            <span className="text-green-600 dark:text-green-400 text-xs ml-1">+{entry.open_trades}</span>
-                          )}
-                        </td>
+            {/* 리더보드 */}
+            {teamStats?.leaderboard && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>리더보드</CardTitle>
+                </CardHeader>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b dark:border-gray-700">
+                        <th className="py-2 text-left">순위</th>
+                        <th className="py-2 text-left">팀원</th>
+                        <th className="py-2 text-right">실현 손익</th>
+                        <th className="py-2 text-right">미실현 손익</th>
+                        <th className="py-2 text-right">총 손익</th>
+                        <th className="py-2 text-right">승률</th>
+                        <th className="py-2 text-right">거래</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
+                    </thead>
+                    <tbody>
+                      {teamStats.leaderboard.map((entry) => (
+                        <tr key={entry.rank} className="border-b dark:border-gray-700">
+                          <td className="py-2">
+                            {entry.rank === 1 && '🥇'}
+                            {entry.rank === 2 && '🥈'}
+                            {entry.rank === 3 && '🥉'}
+                            {entry.rank > 3 && entry.rank}
+                          </td>
+                          <td className="py-2 font-medium dark:text-gray-200">{entry.user.full_name || entry.user.username}</td>
+                          <td className={`py-2 text-right ${getProfitLossClass(entry.realized_pl)}`}>
+                            {formatCurrency(entry.realized_pl)}
+                          </td>
+                          <td className={`py-2 text-right ${getProfitLossClass(entry.unrealized_pl)}`}>
+                            {entry.unrealized_pl !== 0 ? formatCurrency(entry.unrealized_pl) : '-'}
+                          </td>
+                          <td className={`py-2 text-right font-medium ${getProfitLossClass(entry.total_profit_loss)}`}>
+                            {formatCurrency(entry.total_profit_loss)}
+                          </td>
+                          <td className="py-2 text-right">{formatPercent(entry.win_rate)}</td>
+                          <td className="py-2 text-right">
+                            {entry.closed_trades}
+                            {entry.open_trades > 0 && (
+                              <span className="text-green-600 dark:text-green-400 text-xs ml-1">+{entry.open_trades}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
+          </div>
         </div>
       )}
 
