@@ -53,6 +53,8 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
   const menuInputRef = useRef(null);
   // 내부에서 변경이 발생했는지 추적 (이미지 업로드, 텍스트 수정 등)
   const internalChangeRef = useRef(false);
+  // textarea refs for height auto-resize
+  const textareaRefs = useRef(new Map());
 
   // initialBlocks의 ID를 문자열로 변환하여 비교 (참조 대신 내용 기반)
   const initialBlockIds = useMemo(() =>
@@ -97,6 +99,24 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
     internalChangeRef.current = true;
     onChange?.(newBlocks);
   }, [onChange]);
+
+  // textarea 높이 자동 조절 (스크롤 점프 방지)
+  const adjustTextareaHeight = useCallback((el) => {
+    if (!el) return;
+    // requestAnimationFrame으로 레이아웃 계산 후 높이 조정
+    requestAnimationFrame(() => {
+      if (!el) return;
+      const currentHeight = el.style.height;
+      el.style.height = 'auto';
+      const newHeight = el.scrollHeight + 'px';
+      // 높이가 변경된 경우에만 업데이트
+      if (currentHeight !== newHeight) {
+        el.style.height = newHeight;
+      } else {
+        el.style.height = currentHeight;
+      }
+    });
+  }, []);
 
   const updateBlock = useCallback((blockId, newData) => {
     const newBlocks = blocks.map(b =>
@@ -348,10 +368,8 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
           }`}
           rows={1}
           ref={(el) => {
-            if (el) {
-              el.style.height = 'auto';
-              el.style.height = el.scrollHeight + 'px';
-            }
+            textareaRefs.current.set(block.id, el);
+            adjustTextareaHeight(el);
           }}
         />
       );
@@ -515,10 +533,8 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
             }`}
             rows={1}
             ref={(el) => {
-              if (el) {
-                el.style.height = 'auto';
-                el.style.height = el.scrollHeight + 'px';
-              }
+              textareaRefs.current.set(block.id, el);
+              adjustTextareaHeight(el);
             }}
           />
         </div>
@@ -544,6 +560,7 @@ export function BlockEditor({ initialBlocks = [], onChange, readOnly = false, is
     <div
       ref={editorRef}
       className={`relative min-h-[200px] ${isDragging ? 'ring-2 ring-emerald-500/50 ring-inset rounded-lg' : ''}`}
+      style={{ overflowAnchor: 'none' }}
       onPaste={handlePaste}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}

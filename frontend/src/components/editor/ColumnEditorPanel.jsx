@@ -218,6 +218,7 @@ export function ColumnEditorPanel({ columnId = null, onSaved }) {
       <div
         ref={editorContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-6"
+        style={{ overflowAnchor: 'none' }}
       >
         {/* 제목 */}
         <input
