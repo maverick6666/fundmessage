@@ -604,10 +604,30 @@ function NewsCard({ card, type = 'news', onClick }) {
   );
 }
 
-// 주목 종목 카드 컴포넌트
+// 주목 종목 카드 컴포넌트 (개선된 디자인)
 function TopStockCard({ stock, rank, onClick }) {
-  const rankColors = ['bg-amber-500', 'bg-gray-400', 'bg-orange-600'];
-  const rankBg = rankColors[rank - 1] || 'bg-gray-500';
+  // 순위별 메달 색상
+  const rankStyles = {
+    1: { bg: 'bg-amber-500', icon: '🥇', gradient: 'from-amber-400 to-amber-600' },
+    2: { bg: 'bg-slate-400', icon: '🥈', gradient: 'from-slate-300 to-slate-500' },
+    3: { bg: 'bg-orange-600', icon: '🥉', gradient: 'from-orange-500 to-orange-700' }
+  };
+  const style = rankStyles[rank] || { bg: 'bg-gray-500', icon: '', gradient: 'from-gray-400 to-gray-600' };
+
+  // 등락률 색상
+  const priceChange = stock.price_change || 0;
+  const isPositive = priceChange > 0;
+  const isNegative = priceChange < 0;
+  const changeColor = isPositive ? 'text-emerald-500' : isNegative ? 'text-rose-500' : 'text-gray-500';
+  const changePrefix = isPositive ? '+' : '';
+
+  // 감성 색상
+  const sentimentStyles = {
+    'positive': { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', label: '탐욕' },
+    'negative': { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300', label: '공포' },
+    'neutral': { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-400', label: '중립' }
+  };
+  const sentimentStyle = sentimentStyles[stock.sentiment] || sentimentStyles.neutral;
 
   return (
     <button
@@ -615,39 +635,69 @@ function TopStockCard({ stock, rank, onClick }) {
       className="group text-left w-full focus:outline-none"
     >
       <div className="relative overflow-hidden bg-white dark:bg-gray-800 border-2 border-black dark:border-gray-600 hover:border-primary-500 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
-        <div className={`absolute top-0 left-0 ${rankBg} text-white text-xs font-bold px-2 py-1`}>
-          #{rank}
-        </div>
+        {/* 상단 그라데이션 바 */}
+        <div className={`h-1.5 bg-gradient-to-r ${style.gradient}`} />
 
-        <div className="p-4 pt-8">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="font-bold text-gray-900 dark:text-gray-100 text-lg group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-              {stock.name}
-            </h4>
-            <span className="text-xs font-mono bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 text-gray-600 dark:text-gray-400">
-              {stock.market}
-            </span>
-          </div>
-
-          <p className="text-sm font-mono text-gray-500 dark:text-gray-400 mb-3">
-            {stock.ticker}
-          </p>
-
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary-500 rounded-full"
-                style={{ width: `${Math.min((stock.mention_count || 0) * 10, 100)}%` }}
-              />
+        <div className="p-4">
+          {/* 헤더: 순위 + 종목명 + 마켓 */}
+          <div className="flex items-start gap-3 mb-3">
+            <div className={`w-8 h-8 ${style.bg} rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0`}>
+              {rank}
             </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {stock.mention_count || 0}회 언급
-            </span>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
+                {stock.name}
+              </h4>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs font-mono text-gray-500 dark:text-gray-400">
+                  {stock.ticker}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">
+                  {stock.market}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+          {/* 메트릭스: 등락률 + 언급횟수 */}
+          <div className="flex items-center gap-3 mb-3">
+            {/* 등락률 */}
+            {priceChange !== 0 && (
+              <div className={`flex items-center gap-1 text-sm font-bold ${changeColor}`}>
+                <svg className={`w-3.5 h-3.5 ${isNegative ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+                {changePrefix}{Math.abs(priceChange).toFixed(1)}%
+              </div>
+            )}
+
+            {/* 언급횟수 뱃지 */}
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-primary-50 dark:bg-primary-900/30 rounded-full">
+              <svg className="w-3 h-3 text-primary-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
+              </svg>
+              <span className="text-xs font-medium text-primary-600 dark:text-primary-400">
+                {stock.mention_count || 0}회
+              </span>
+            </div>
+
+            {/* 감성 뱃지 */}
+            <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${sentimentStyle.bg} ${sentimentStyle.text}`}>
+              {sentimentStyle.label}
+            </div>
+          </div>
+
+          {/* 사유 */}
+          <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed">
             {stock.reason}
           </p>
+        </div>
+
+        {/* 호버 시 화살표 */}
+        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+          </svg>
         </div>
       </div>
     </button>
@@ -1123,60 +1173,43 @@ export function NewsDesk() {
         onPeriodChange={setBenchmarkPeriod}
       />
 
-      {/* 메인 콘텐츠 영역 - 2컬럼 */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* 왼쪽: 뉴스 카드 (3/5) */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* AI 칼럼 */}
-          {columns.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <span className="w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded flex items-center justify-center">
-                  <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                </span>
-                AI 칼럼
-              </h2>
-              {columns.map((col, idx) => (
-                <NewsCard
-                  key={idx}
-                  card={col}
-                  type="column"
-                  onClick={() => handleCardClick(col, 'column')}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* 뉴스 카드 */}
-          {newsCards.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <span className="w-6 h-6 bg-gray-900 dark:bg-gray-100 rounded flex items-center justify-center">
-                  <svg className="w-3.5 h-3.5 text-white dark:text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9" />
-                  </svg>
-                </span>
-                오늘의 주요 뉴스
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {newsCards.map((card, idx) => (
-                  <NewsCard
-                    key={idx}
-                    card={card}
-                    type="news"
-                    onClick={() => handleCardClick(card, 'news')}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+      {/* 메인 콘텐츠 영역 - 2컬럼 (동일 높이 시작) */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+        {/* 왼쪽: 뉴스 카드 그리드 (3/5) - AI칼럼 통합 */}
+        <div className="lg:col-span-3 space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <span className="w-6 h-6 bg-gray-900 dark:bg-gray-100 rounded flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 text-white dark:text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9" />
+              </svg>
+            </span>
+            오늘의 뉴스
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* AI 칼럼 먼저 표시 */}
+            {columns.map((col, idx) => (
+              <NewsCard
+                key={`col-${idx}`}
+                card={col}
+                type="column"
+                onClick={() => handleCardClick(col, 'column')}
+              />
+            ))}
+            {/* 일반 뉴스 카드 */}
+            {newsCards.map((card, idx) => (
+              <NewsCard
+                key={`news-${idx}`}
+                card={card}
+                type="news"
+                onClick={() => handleCardClick(card, 'news')}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* 오른쪽: 시각화 영역 (2/5) */}
+        {/* 오른쪽: 시각화 영역 (2/5) - 같은 높이에서 시작 */}
         <div className="lg:col-span-2 space-y-4">
-          {/* 탐욕/공포 게이지 (상단 배치) */}
+          {/* 탐욕/공포 게이지 */}
           <GreedFearGauge sentiment={sentiment} selectedKeyword={selectedKeyword} />
 
           {/* 키워드 트리맵 */}
