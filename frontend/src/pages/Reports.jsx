@@ -29,27 +29,72 @@ const TabIcons = {
   )
 };
 
-// Document Card Component
+// Document Card Component - Editorial/Luxury Style
 function DocumentCard({ type, data, onClick }) {
   const isColumn = type === 'column';
+
+  // Type-based theming
+  const getTypeTheme = () => {
+    switch (type) {
+      case 'decision':
+        return {
+          accent: 'from-blue-500 via-indigo-500 to-blue-600',
+          glow: 'group-hover:shadow-blue-500/20',
+          iconBg: 'from-blue-500 to-indigo-600',
+          text: 'group-hover:text-blue-600 dark:group-hover:text-blue-400'
+        };
+      case 'report':
+        return {
+          accent: 'from-emerald-500 via-teal-500 to-cyan-500',
+          glow: 'group-hover:shadow-emerald-500/20',
+          iconBg: 'from-emerald-500 to-teal-600',
+          text: 'group-hover:text-emerald-600 dark:group-hover:text-emerald-400'
+        };
+      case 'column':
+        return {
+          accent: 'from-violet-500 via-purple-500 to-fuchsia-500',
+          glow: 'group-hover:shadow-violet-500/20',
+          iconBg: 'from-violet-500 to-purple-600',
+          text: 'group-hover:text-violet-600 dark:group-hover:text-violet-400'
+        };
+      default:
+        return {
+          accent: 'from-gray-400 to-gray-500',
+          glow: 'group-hover:shadow-gray-500/20',
+          iconBg: 'from-gray-500 to-gray-600',
+          text: 'group-hover:text-gray-600 dark:group-hover:text-gray-400'
+        };
+    }
+  };
+
+  const theme = getTypeTheme();
 
   // Get badge info
   const getBadge = () => {
     if (isColumn) {
       return data.is_verified ? {
         text: '검증됨',
-        className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 ring-1 ring-blue-500/30'
+        icon: (
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+        ),
+        className: 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
       } : null;
     }
     if (data.position?.status === 'open') {
       return {
         text: '보유중',
-        className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 ring-1 ring-emerald-500/30'
+        icon: (
+          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+        ),
+        className: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25'
       };
     }
     return {
       text: '종료',
-      className: 'bg-gray-100 text-gray-600 dark:bg-gray-700/60 dark:text-gray-400 ring-1 ring-gray-500/20'
+      icon: null,
+      className: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
     };
   };
 
@@ -58,66 +103,106 @@ function DocumentCard({ type, data, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="group text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-xl"
+      className="group text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500 rounded-2xl"
     >
       <div
-        className="relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50 hover:border-gray-300 dark:hover:border-gray-600 hover:-translate-y-1"
+        className={`
+          relative overflow-hidden rounded-2xl
+          bg-white dark:bg-gray-800/90
+          border border-gray-200/80 dark:border-gray-700/50
+          backdrop-blur-sm
+          transition-all duration-500 ease-out
+          hover:-translate-y-2 hover:scale-[1.02]
+          shadow-lg shadow-gray-200/40 dark:shadow-gray-900/40
+          group-hover:shadow-2xl ${theme.glow}
+          group-hover:border-gray-300/80 dark:group-hover:border-gray-600/50
+        `}
         style={{ aspectRatio: '3/4' }}
       >
-        {/* Title Section - Top 1/4 */}
-        <div className="h-1/4 p-4 flex items-center border-b border-gray-100 dark:border-gray-700/50 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-700/30 dark:to-gray-800">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base leading-tight line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+        {/* Top Accent Bar */}
+        <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${theme.accent} opacity-80 group-hover:opacity-100 transition-opacity`} />
+
+        {/* Decorative corner gradient */}
+        <div className={`absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br ${theme.accent} opacity-[0.03] group-hover:opacity-[0.08] rounded-full blur-2xl transition-opacity duration-500`} />
+
+        {/* Title Section */}
+        <div className="relative h-[30%] p-4 flex flex-col justify-center">
+          <h3 className={`font-bold text-gray-900 dark:text-gray-50 text-sm leading-snug line-clamp-2 transition-colors duration-300 ${theme.text}`}>
             {data.title}
           </h3>
         </div>
 
-        {/* Content Section - Bottom 3/4 */}
-        <div className="h-3/4 p-4 flex flex-col relative">
-          {/* Badge - Top Right of Content Section */}
+        {/* Divider */}
+        <div className="mx-4 h-px bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent" />
+
+        {/* Content Section */}
+        <div className="relative h-[70%] p-4 flex flex-col">
+          {/* Badge */}
           {badge && (
             <div className="absolute top-3 right-3">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>
+              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold tracking-wide uppercase ${badge.className} transition-transform duration-300 group-hover:scale-105`}>
+                {badge.icon}
                 {badge.text}
               </span>
             </div>
           )}
 
           {/* Content Details */}
-          <div className="flex-1 flex flex-col justify-center">
+          <div className="flex-1 flex flex-col justify-center pt-2">
             {isColumn ? (
-              // Column: Author info
-              <div className="space-y-2">
+              // Column: Author info with avatar
+              <div className="space-y-3">
                 {data.author && (
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-medium shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${theme.iconBg} flex items-center justify-center text-white font-bold shadow-lg transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
                       {data.author.full_name?.charAt(0) || '?'}
                     </div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {data.author.full_name}
-                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        {data.author.full_name}
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">작성자</p>
+                    </div>
                   </div>
                 )}
               </div>
             ) : (
               // Decision/Report: Position info
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {data.position && (
                   <>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                      {data.position.ticker_name || data.position.ticker}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                      {data.position.ticker} · {data.position.market}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${theme.iconBg} flex items-center justify-center shadow-md transform group-hover:scale-110 transition-transform duration-300`}>
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+                          {data.position.ticker_name || data.position.ticker}
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                          {data.position.ticker}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100/80 dark:bg-gray-700/50 rounded-md">
+                      <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        {data.position.market}
+                      </span>
+                    </div>
                   </>
                 )}
               </div>
             )}
           </div>
 
-          {/* Footer - Time */}
-          <div className="pt-3 border-t border-gray-100 dark:border-gray-700/50 mt-auto">
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+          {/* Footer - Time with icon */}
+          <div className="flex items-center gap-1.5 pt-3 mt-auto border-t border-gray-100/80 dark:border-gray-700/30">
+            <svg className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
               {formatRelativeTime(data.created_at)}
             </span>
           </div>
