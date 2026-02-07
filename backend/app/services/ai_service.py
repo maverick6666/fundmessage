@@ -309,7 +309,7 @@ class AIService:
         notes = self.db.query(DecisionNote).filter(DecisionNote.position_id == position_id).order_by(DecisionNote.created_at).all()
         notes_data = []
         for note in notes:
-            author = self.db.query(User).filter(User.id == note.author_id).first()
+            author = self.db.query(User).filter(User.id == note.created_by).first()
             notes_data.append({
                 "title": note.title,
                 "content": note.content,

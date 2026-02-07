@@ -92,7 +92,7 @@ export const THEMES = {
     id: 'forest-green',
     name: '포레스트 그린',
     description: '자연의 평화',
-    preview: 'bg-gradient-to-r from-emerald-800 to-green-700',
+    preview: 'bg-gradient-to-r from-[#1a2f23] to-[#3d5c49]',
     isDark: true,
   },
 };
