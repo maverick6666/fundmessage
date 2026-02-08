@@ -1076,8 +1076,15 @@ export function PositionDetail() {
                   </div>
                   {profitInfo && (
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">평가금액</p>
-                      <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(profitInfo.evalAmount, position.market)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
+                        {parseFloat(position.total_quantity) > 0 ? '평가금액' : '최종 회수금'}
+                      </p>
+                      <p className="text-lg font-semibold dark:text-gray-200">
+                        {parseFloat(position.total_quantity) > 0
+                          ? formatCurrency(profitInfo.evalAmount, position.market)
+                          : formatCurrency((parseFloat(position.total_buy_amount) || 0) + profitInfo.realized, position.market)
+                        }
+                      </p>
                     </div>
                   )}
                   {profitInfo && (

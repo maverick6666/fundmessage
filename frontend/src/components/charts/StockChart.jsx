@@ -169,13 +169,13 @@ export function StockChart({
       candlestickSeriesRef.current.setData(candlestickData);
       volumeSeriesRef.current.setData(volumeData);
 
-      // 새 데이터를 처음 로드한 경우에만 최신 위치로 스크롤
+      // 새 데이터를 처음 로드한 경우에만 전체 데이터가 보이도록 fit
       // 과거 데이터를 추가로 불러온 경우에는 현재 위치 유지
       const isInitialLoad = lastCandlesLengthRef.current === 0;
 
       if (isInitialLoad && chartRef.current) {
-        // 최신 데이터(오른쪽 끝)로 스크롤
-        chartRef.current.timeScale().scrollToRealTime();
+        // 전체 데이터가 차트에 맞게 표시되도록
+        chartRef.current.timeScale().fitContent();
       }
 
       lastCandlesLengthRef.current = candles.length;
