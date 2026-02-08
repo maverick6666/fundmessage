@@ -109,8 +109,8 @@ export function SidePanel() {
           />
         </div>
 
-        {/* 에디터 패널들은 자체 헤더를 가짐 */}
-        {panelType !== 'column-editor' && panelType !== 'note-editor' && (
+        {/* 에디터 패널과 custom 패널은 자체 헤더를 가짐 */}
+        {panelType !== 'column-editor' && panelType !== 'note-editor' && panelType !== 'custom' && (
           <header
             className={`
               flex items-center justify-between px-5 py-4
@@ -178,6 +178,11 @@ export function SidePanel() {
               note={panelData.note}
               onSaved={panelData?.onSaved}
             />
+          )}
+          {panelType === 'custom' && panelData?.render && (
+            <div className="h-full overflow-y-auto">
+              {panelData.render()}
+            </div>
           )}
         </div>
       </aside>
