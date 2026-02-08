@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createChart } from 'lightweight-charts';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -1144,6 +1144,23 @@ export function NewsDesk() {
   const sentiment = newsDesk.sentiment || {};
   const topStocks = newsDesk.top_stocks || [];
 
+  // 키워드별 감성 맵 (키워드 클릭 시 게이지 업데이트용)
+  const keywordSentimentMap = {};
+  keywords.forEach(k => {
+    keywordSentimentMap[k.keyword] = {
+      greed_ratio: k.greed_score || 0.5,
+      fear_ratio: 1 - (k.greed_score || 0.5),
+      overall_score: Math.round((k.greed_score || 0.5) * 100),
+      top_greed: [],
+      top_fear: []
+    };
+  });
+
+  // 선택된 키워드가 있으면 해당 감성 데이터 사용
+  const displaySentiment = selectedKeyword && keywordSentimentMap[selectedKeyword]
+    ? keywordSentimentMap[selectedKeyword]
+    : sentiment;
+
   return (
     <div className="space-y-6">
       {/* 헤더 */}
@@ -1227,7 +1244,7 @@ export function NewsDesk() {
         {/* 오른쪽: 시각화 영역 (2/5) - 같은 높이에서 시작 */}
         <div className="lg:col-span-2 space-y-4">
           {/* 탐욕/공포 게이지 */}
-          <GreedFearGauge sentiment={sentiment} selectedKeyword={selectedKeyword} />
+          <GreedFearGauge sentiment={displaySentiment} selectedKeyword={selectedKeyword} />
 
           {/* 키워드 트리맵 */}
           {keywords.length > 0 && (
