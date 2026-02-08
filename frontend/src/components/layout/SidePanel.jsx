@@ -72,7 +72,7 @@ export function SidePanel() {
       <aside
         ref={panelRef}
         className={`
-          fixed top-0 right-0 h-full z-50
+          fixed top-16 right-0 h-[calc(100vh-4rem)] z-30
           transform transition-transform duration-300 ease-out
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
           flex flex-col

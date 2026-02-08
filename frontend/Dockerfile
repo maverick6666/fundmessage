@@ -7,8 +7,14 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# 앱 빌드
+# 앱 복사
 COPY . .
+
+# Docker용 환경변수 - .env 파일로 생성 (Vite가 읽을 수 있도록)
+ARG VITE_API_URL=http://localhost:8000
+ARG VITE_WS_URL=ws://localhost:8000
+RUN echo "VITE_API_URL=$VITE_API_URL" > .env && echo "VITE_WS_URL=$VITE_WS_URL" >> .env
+
 RUN npm run build
 
 # Production stage
