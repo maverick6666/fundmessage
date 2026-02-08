@@ -406,7 +406,10 @@ function KeywordTile({ keyword, count, greedScore, category, isSelected, onClick
       }}
       title={`${keyword}: ${getSentimentLabel()} (${Math.round(score * 100)}점)`}
     >
-      <span className="text-sm font-bold text-center leading-tight line-clamp-1">
+      <span
+        className="text-xs font-bold text-center leading-tight break-words hyphens-auto"
+        style={{ wordBreak: 'break-word' }}
+      >
         {keyword}
       </span>
       <div className="flex items-center gap-1.5 mt-1">
