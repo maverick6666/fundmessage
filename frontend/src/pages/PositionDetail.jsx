@@ -1052,56 +1052,62 @@ export function PositionDetail() {
         ) : (
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-8 flex-wrap">
+              {/* 1. 진입금액 */}
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">평균 매입가</p>
-                <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(position.average_buy_price, position.market)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">보유 수량</p>
-                <p className="text-lg font-semibold dark:text-gray-200">{formatQuantity(position.total_quantity)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">진입 금액</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">진입금액</p>
                 <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(position.total_buy_amount, position.market)}</p>
               </div>
+              {/* 2. 총 가치 (진입금액 + 총손익) */}
+              {position.status === 'open' && currentPrice && profitInfo && (
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">총 가치</p>
+                  <p className="text-lg font-semibold dark:text-gray-200">
+                    {formatCurrency((parseFloat(position.total_buy_amount) || 0) + profitInfo.totalProfitLoss, position.market)}
+                  </p>
+                </div>
+              )}
+              {position.status === 'closed' && (
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">청산금액</p>
+                  <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(position.total_sell_amount, position.market)}</p>
+                </div>
+              )}
+              {/* 3. 평균매입가 */}
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">보유 기간</p>
-                <p className="text-lg font-semibold dark:text-gray-200">{formatHours(position.status === 'open' ? calcHoldingHours(position.opened_at) : position.holding_period_hours)}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">평균매입가</p>
+                <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(position.average_buy_price, position.market)}</p>
               </div>
+              {/* 4. 현재가 */}
+              {position.status === 'open' && currentPrice && (
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">현재가</p>
+                  <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(currentPrice, position.market)}</p>
+                </div>
+              )}
+              {/* 5. 총수익률 */}
+              {position.status === 'open' && profitInfo && (
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">총수익률</p>
+                  <p className={`text-lg font-bold ${getProfitLossClass(profitInfo.totalProfitLoss)}`}>
+                    {profitInfo.profitRate >= 0 ? '+' : ''}{profitInfo.profitRate.toFixed(2)}%
+                    <span className="ml-2 text-sm font-normal">
+                      ({formatCurrency(profitInfo.totalProfitLoss, position.market)})
+                    </span>
+                  </p>
+                </div>
+              )}
+              {position.status === 'closed' && (
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">수익률</p>
+                  <ProfitProgressBar value={position.profit_rate != null ? position.profit_rate / 100 : null} size="lg" />
+                </div>
+              )}
+              {/* 6. 목표진행 */}
               {position.status === 'open' && currentPrice && (
                 <>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">현재가</p>
-                    <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(currentPrice, position.market)}</p>
-                  </div>
-                  {profitInfo && (
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
-                        {parseFloat(position.total_quantity) > 0 ? '평가금액' : '최종 회수금'}
-                      </p>
-                      <p className="text-lg font-semibold dark:text-gray-200">
-                        {parseFloat(position.total_quantity) > 0
-                          ? formatCurrency(profitInfo.evalAmount, position.market)
-                          : formatCurrency((parseFloat(position.total_buy_amount) || 0) + profitInfo.realized, position.market)
-                        }
-                      </p>
-                    </div>
-                  )}
-                  {profitInfo && (
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">총 수익률</p>
-                      <p className={`text-lg font-bold ${getProfitLossClass(profitInfo.totalProfitLoss)}`}>
-                        {profitInfo.profitRate >= 0 ? '+' : ''}{profitInfo.profitRate.toFixed(2)}%
-                        <span className="ml-2 text-sm font-normal">
-                          ({formatCurrency(profitInfo.totalProfitLoss, position.market)})
-                        </span>
-                      </p>
-                    </div>
-                  )}
-                  {/* 목표 진행: 수량이 0이면 "거래 완료" 표시, 아니면 프로그래스바 */}
                   {parseFloat(position.total_quantity) > 0 ? (
                     <div className="min-w-[160px]">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">목표 진행</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">목표진행</p>
                       <TargetProgressBar
                         currentPrice={currentPrice}
                         averagePrice={position.average_buy_price}
@@ -1110,39 +1116,16 @@ export function PositionDetail() {
                         market={position.market}
                         size="md"
                       />
-                      {/* 미체결 타겟이 없으면 단순 수익률 표시 */}
                       {!(position.take_profit_targets?.some(t => t.price && !t.completed) || position.stop_loss_targets?.some(t => t.price && !t.completed)) && profitInfo && (
                         <ProfitProgressBar value={profitInfo.profitRate / 100} size="lg" />
                       )}
                     </div>
                   ) : (
                     <div className="min-w-[100px]">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">거래 상태</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">거래상태</p>
                       <p className="text-lg font-bold text-gray-500 dark:text-gray-400">전량 매도</p>
                     </div>
                   )}
-                  {/* 실현손익 (부분 익절/손절 시) */}
-                  {position.realized_profit_loss != null && parseFloat(position.realized_profit_loss) !== 0 && (
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">실현손익</p>
-                      <p className={`text-lg font-bold ${getProfitLossClass(parseFloat(position.realized_profit_loss))}`}>
-                        {formatCurrency(position.realized_profit_loss, position.market)}
-                      </p>
-                    </div>
-                  )}
-                </>
-              )}
-              {position.status === 'closed' && (
-                <>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">청산 금액</p>
-                    <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(position.total_sell_amount, position.market)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">수익률</p>
-                    {/* profit_rate는 퍼센트(예: 45.11)이므로 100으로 나눠 소수(0.4511)로 변환 */}
-                    <ProfitProgressBar value={position.profit_rate != null ? position.profit_rate / 100 : null} size="lg" />
-                  </div>
                 </>
               )}
             </div>

@@ -44,8 +44,11 @@ export function StockChart({
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
+    // 초기 너비 계산 (컨테이너 너비 사용)
+    const initialWidth = chartContainerRef.current.clientWidth || 600;
+
     const chart = createChart(chartContainerRef.current, {
-      autoSize: true,
+      width: initialWidth,
       height: height,
       layout: {
         background: { color: '#ffffff' },
@@ -111,10 +114,35 @@ export function StockChart({
     candlestickSeriesRef.current = candlestickSeries;
     volumeSeriesRef.current = volumeSeries;
 
+    // 컨테이너 크기에 맞게 차트 리사이즈 (초기 렌더링 이슈 해결)
+    const resizeChart = () => {
+      if (chartContainerRef.current && chartRef.current) {
+        const width = chartContainerRef.current.clientWidth;
+        if (width > 0) {
+          chartRef.current.applyOptions({ width });
+          // 리사이즈 후 데이터가 있으면 fitContent 호출
+          if (candlestickSeriesRef.current) {
+            chartRef.current.timeScale().fitContent();
+          }
+        }
+      }
+    };
+
+    // 초기 리사이즈 (마운트 후 약간의 딜레이)
+    const resizeTimeout = setTimeout(resizeChart, 150);
+
+    // ResizeObserver로 컨테이너 크기 변경 감지
+    const resizeObserver = new ResizeObserver(resizeChart);
+    if (chartContainerRef.current) {
+      resizeObserver.observe(chartContainerRef.current);
+    }
+
     // 보이는 범위 변경 감지 (lazy loading용)
     const subscription = chart.timeScale().subscribeVisibleTimeRangeChange(handleVisibleRangeChange);
 
     return () => {
+      clearTimeout(resizeTimeout);
+      resizeObserver.disconnect();
       if (subscription && typeof subscription.unsubscribe === 'function') {
         subscription.unsubscribe();
       } else if (typeof subscription === 'function') {
@@ -195,7 +223,7 @@ export function StockChart({
           pointer-events: none !important;
         }
       `}</style>
-      <div ref={chartContainerRef} style={{ height: `${height}px` }} />
+      <div ref={chartContainerRef} style={{ height: `${height}px`, width: '100%' }} />
 
       {/* 메인 로딩 */}
       {loading && (
