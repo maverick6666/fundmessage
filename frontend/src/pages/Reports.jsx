@@ -57,7 +57,7 @@ function DocumentCard({ type, data, onClick, onDelete, showDelete }) {
   return (
     <button
       onClick={onClick}
-      className="group text-left w-full max-w-[180px] focus:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-white"
+      className="group text-left w-full min-w-[150px] max-w-[180px] focus:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-white"
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-stone-50 dark:bg-gray-900 border-2 border-black dark:border-gray-300 hover:border-black dark:hover:border-white transition-colors duration-150">
 
@@ -252,7 +252,7 @@ export function Reports() {
   );
 
   // Gallery grid classes - 카드가 적절한 크기 유지 (min 100px, max ~180px)
-  const gridClasses = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3";
+  const gridClasses = "grid [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))] gap-3 items-start";
 
   return (
     <div className="space-y-6 min-w-0">
