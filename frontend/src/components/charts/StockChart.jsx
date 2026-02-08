@@ -17,30 +17,40 @@ export function StockChart({
   const isLoadingMoreRef = useRef(false);
   const lastCandlesLengthRef = useRef(0);
 
+  // Refs for stable callback access (prevents chart recreation)
+  const candlesRef = useRef(candles);
+  const hasMoreRef = useRef(hasMore);
+  const onLoadMoreRef = useRef(onLoadMore);
+  const loadingMoreRef = useRef(loadingMore);
+
+  // Keep refs in sync
+  candlesRef.current = candles;
+  hasMoreRef.current = hasMore;
+  onLoadMoreRef.current = onLoadMore;
+  loadingMoreRef.current = loadingMore;
+
   const { isCurrentThemeDark } = useTheme();
 
-  const handleVisibleRangeChange = useCallback(
-    (newVisibleRange) => {
-      if (!onLoadMore || !hasMore || isLoadingMoreRef.current || loadingMore) return;
-      if (!candles || candles.length === 0) return;
+  // Stable callback - doesn't depend on candles/hasMore/etc directly
+  const handleVisibleRangeChange = useCallback((newVisibleRange) => {
+    if (!onLoadMoreRef.current || !hasMoreRef.current || isLoadingMoreRef.current || loadingMoreRef.current) return;
+    if (!candlesRef.current || candlesRef.current.length === 0) return;
 
-      const visibleFrom = typeof newVisibleRange?.from === 'number' ? newVisibleRange.from : null;
-      if (!visibleFrom) return;
+    const visibleFrom = typeof newVisibleRange?.from === 'number' ? newVisibleRange.from : null;
+    if (!visibleFrom) return;
 
-      const oldestDataTime = candles[0]?.time;
-      const newestDataTime = candles[candles.length - 1]?.time;
-      if (!oldestDataTime || !newestDataTime) return;
+    const oldestDataTime = candlesRef.current[0]?.time;
+    const newestDataTime = candlesRef.current[candlesRef.current.length - 1]?.time;
+    if (!oldestDataTime || !newestDataTime) return;
 
-      const dataRange = newestDataTime - oldestDataTime;
-      const bufferThreshold = Math.max(dataRange * 0.1, 86400 * 5);
+    const dataRange = newestDataTime - oldestDataTime;
+    const bufferThreshold = Math.max(dataRange * 0.1, 86400 * 5);
 
-      if (visibleFrom <= oldestDataTime + bufferThreshold) {
-        isLoadingMoreRef.current = true;
-        onLoadMore(oldestDataTime);
-      }
-    },
-    [candles, hasMore, onLoadMore, loadingMore]
-  );
+    if (visibleFrom <= oldestDataTime + bufferThreshold) {
+      isLoadingMoreRef.current = true;
+      onLoadMoreRef.current(oldestDataTime);
+    }
+  }, []);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -136,7 +146,7 @@ export function StockChart({
       candlestickSeriesRef.current = null;
       volumeSeriesRef.current = null;
     };
-  }, [height, handleVisibleRangeChange, isCurrentThemeDark]);
+  }, [height, isCurrentThemeDark, handleVisibleRangeChange]);
 
   useEffect(() => {
     if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
