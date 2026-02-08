@@ -44,11 +44,12 @@ export function StockChart({
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // 초기 너비 계산 (컨테이너 너비 사용)
-    const initialWidth = chartContainerRef.current.clientWidth || 600;
+    // getBoundingClientRect로 실제 렌더링된 너비 가져오기
+    const rect = chartContainerRef.current.getBoundingClientRect();
+    const containerWidth = Math.floor(rect.width) || chartContainerRef.current.clientWidth || 600;
 
     const chart = createChart(chartContainerRef.current, {
-      width: initialWidth,
+      width: containerWidth,
       height: height,
       layout: {
         background: { color: '#ffffff' },
@@ -120,16 +121,14 @@ export function StockChart({
         const width = chartContainerRef.current.clientWidth;
         if (width > 0) {
           chartRef.current.applyOptions({ width });
-          // 리사이즈 후 데이터가 있으면 fitContent 호출
-          if (candlestickSeriesRef.current) {
-            chartRef.current.timeScale().fitContent();
-          }
         }
       }
     };
 
-    // 초기 리사이즈 (마운트 후 약간의 딜레이)
-    const resizeTimeout = setTimeout(resizeChart, 150);
+    // 초기 리사이즈 (마운트 직후 + 약간의 딜레이 후)
+    resizeChart(); // 즉시 한번
+    const resizeTimeout = setTimeout(resizeChart, 50); // 50ms 후 다시
+    const resizeTimeout2 = setTimeout(resizeChart, 200); // 200ms 후 다시
 
     // ResizeObserver로 컨테이너 크기 변경 감지
     const resizeObserver = new ResizeObserver(resizeChart);
@@ -142,6 +141,7 @@ export function StockChart({
 
     return () => {
       clearTimeout(resizeTimeout);
+      clearTimeout(resizeTimeout2);
       resizeObserver.disconnect();
       if (subscription && typeof subscription.unsubscribe === 'function') {
         subscription.unsubscribe();
@@ -185,13 +185,24 @@ export function StockChart({
       candlestickSeriesRef.current.setData(candlestickData);
       volumeSeriesRef.current.setData(volumeData);
 
-      // 새 데이터를 처음 로드한 경우에만 전체 데이터가 보이도록 fit
+      // 새 데이터를 처음 로드한 경우 전체 데이터가 보이도록 설정
       // 과거 데이터를 추가로 불러온 경우에는 현재 위치 유지
       const isInitialLoad = lastCandlesLengthRef.current === 0;
 
-      if (isInitialLoad && chartRef.current) {
-        // 전체 데이터가 차트에 맞게 표시되도록
-        chartRef.current.timeScale().fitContent();
+      if (isInitialLoad && chartRef.current && candlestickData.length > 0) {
+        // 전체 데이터를 화면에 맞추되, 데이터가 많으면 최근 데이터 중심으로
+        if (candlestickData.length <= 150) {
+          // 데이터가 적으면 전체를 화면에 맞춤 (빈 공간 없이)
+          chartRef.current.timeScale().fitContent();
+        } else {
+          // 데이터가 많으면 최근 150개 캔들만 보여줌
+          const visibleBars = 150;
+          const fromIndex = candlestickData.length - visibleBars;
+          chartRef.current.timeScale().setVisibleRange({
+            from: candlestickData[fromIndex].time,
+            to: candlestickData[candlestickData.length - 1].time,
+          });
+        }
       }
 
       lastCandlesLengthRef.current = candles.length;
@@ -211,7 +222,7 @@ export function StockChart({
 
   return (
     <div className="relative">
-      {/* TradingView 로고 CSS 숨김 */}
+      {/* TradingView 로고 CSS 숨김 + 차트 100% 너비 */}
       <style>{`
         .tv-lightweight-charts a[href*="tradingview"],
         .tv-lightweight-charts a[target="_blank"],
@@ -222,8 +233,17 @@ export function StockChart({
           opacity: 0 !important;
           pointer-events: none !important;
         }
+        .stock-chart-container > div,
+        .stock-chart-container > div > table,
+        .stock-chart-container canvas {
+          width: 100% !important;
+        }
       `}</style>
-      <div ref={chartContainerRef} style={{ height: `${height}px`, width: '100%' }} />
+      <div
+        ref={chartContainerRef}
+        className="stock-chart-container"
+        style={{ height: `${height}px`, width: '100%' }}
+      />
 
       {/* 메인 로딩 */}
       {loading && (
