@@ -45,7 +45,7 @@ export function StockChart({
     if (!chartContainerRef.current) return;
 
     const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
+      autoSize: true,
       height: height,
       layout: {
         background: { color: '#ffffff' },
@@ -111,22 +111,10 @@ export function StockChart({
     candlestickSeriesRef.current = candlestickSeries;
     volumeSeriesRef.current = volumeSeries;
 
-    // 리사이즈 핸들러
-    const handleResize = () => {
-      if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-        });
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-
     // 보이는 범위 변경 감지 (lazy loading용)
     const subscription = chart.timeScale().subscribeVisibleTimeRangeChange(handleVisibleRangeChange);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
       if (subscription && typeof subscription.unsubscribe === 'function') {
         subscription.unsubscribe();
       } else if (typeof subscription === 'function') {
