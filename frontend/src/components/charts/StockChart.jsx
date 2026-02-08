@@ -32,6 +32,7 @@ export function StockChart({
   const { isCurrentThemeDark } = useTheme();
 
   // Stable callback - doesn't depend on candles/hasMore/etc directly
+  // Only trigger load when visible area shows empty space (past the oldest data)
   const handleVisibleRangeChange = useCallback((newVisibleRange) => {
     if (!onLoadMoreRef.current || !hasMoreRef.current || isLoadingMoreRef.current || loadingMoreRef.current) return;
     if (!candlesRef.current || candlesRef.current.length === 0) return;
@@ -40,13 +41,11 @@ export function StockChart({
     if (!visibleFrom) return;
 
     const oldestDataTime = candlesRef.current[0]?.time;
-    const newestDataTime = candlesRef.current[candlesRef.current.length - 1]?.time;
-    if (!oldestDataTime || !newestDataTime) return;
+    if (!oldestDataTime) return;
 
-    const dataRange = newestDataTime - oldestDataTime;
-    const bufferThreshold = Math.max(dataRange * 0.1, 86400 * 5);
-
-    if (visibleFrom <= oldestDataTime + bufferThreshold) {
+    // Only load more when the visible area actually extends past the oldest data
+    // This prevents loading while just browsing existing data
+    if (visibleFrom < oldestDataTime) {
       isLoadingMoreRef.current = true;
       onLoadMoreRef.current(oldestDataTime);
     }
