@@ -45,7 +45,10 @@ async def check_in(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """오늘 출석 체크 (한국 시간 기준)"""
+    """오늘 출석 체크 (한국 시간 기준)
+
+    방패 자동 소모: 어제 미출석(absent)이고 방패가 있으면 어제를 자동 출석 처리
+    """
     today = get_kst_today()
 
     # 이미 출석했는지 확인
@@ -61,6 +64,24 @@ async def check_in(
             message="이미 출석 체크되었습니다"
         )
 
+    # 방패 자동 소모: 어제 미출석이고 방패가 있으면 어제를 자동 출석 처리
+    yesterday = today - timedelta(days=1)
+    shield_used = False
+    shield_recovered_date = None
+
+    yesterday_attendance = db.query(Attendance).filter(
+        Attendance.user_id == current_user.id,
+        Attendance.date == yesterday
+    ).first()
+
+    if yesterday_attendance and yesterday_attendance.status == 'absent':
+        shields = current_user.attendance_shields or 0
+        if shields > 0:
+            yesterday_attendance.status = 'recovered'
+            current_user.attendance_shields = shields - 1
+            shield_used = True
+            shield_recovered_date = yesterday.isoformat()
+
     # 출석 기록 생성
     attendance = Attendance(
         user_id=current_user.id,
@@ -71,10 +92,20 @@ async def check_in(
     db.commit()
     db.refresh(attendance)
 
+    message = "출석 체크 완료!"
+    if shield_used:
+        remaining = current_user.attendance_shields or 0
+        message += f" (방패를 사용하여 {shield_recovered_date} 결석이 자동 복구되었습니다. 남은 방패: {remaining}개)"
+
     return APIResponse(
         success=True,
-        data=attendance_to_dict(attendance),
-        message="출석 체크 완료!"
+        data={
+            **attendance_to_dict(attendance),
+            "shield_used": shield_used,
+            "shield_recovered_date": shield_recovered_date,
+            "remaining_shields": current_user.attendance_shields or 0
+        },
+        message=message
     )
 
 
@@ -187,7 +218,8 @@ async def get_my_attendance_stats(
             "week_present": week_present,
             "week_records": week_records,
             "month_present": month_present,
-            "month_records": month_records
+            "month_records": month_records,
+            "attendance_shields": current_user.attendance_shields or 0
         }
     )
 

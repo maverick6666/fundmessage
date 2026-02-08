@@ -32,6 +32,7 @@ def column_to_dict(col: TeamColumn) -> dict:
         "is_verified": col.is_verified,
         "verified_by": col.verified_by,
         "verified_at": col.verified_at.isoformat() if col.verified_at else None,
+        "shield_granted": col.shield_granted,
         "verifier": {
             "id": col.verifier.id,
             "full_name": col.verifier.full_name
@@ -217,7 +218,8 @@ async def verify_column(
     """칼럼 검증 (파란 체크마크) - 팀장/관리자만
 
     검증 시 혜택:
-    - 작성자의 가장 최근 결석(absent)을 자동으로 출석(recovered)으로 변경
+    - 미출석이 있으면: 작성자의 가장 최근 결석(absent)을 자동으로 출석(recovered)으로 변경
+    - 미출석이 없으면(출석률 100%): 출석 방패 +1 적립 (미래 결석 시 자동 소모)
     """
     col = db.query(TeamColumn).options(
         joinedload(TeamColumn.author),
@@ -248,18 +250,28 @@ async def verify_column(
     col.verified_by = current_user.id
     col.verified_at = datetime.now(KST)
 
-    # 출석 혜택: 작성자의 가장 최근 결석을 복구
+    # 출석 혜택: 작성자의 가장 최근 결석을 복구, 없으면 방패 적립
     latest_absent = db.query(Attendance).filter(
         Attendance.user_id == col.author_id,
         Attendance.status == 'absent'
     ).order_by(Attendance.date.desc()).first()
 
     recovered_date = None
+    shield_granted = False
+
     if latest_absent:
+        # 미출석이 있으면 → 기존 로직대로 출석 복구
         latest_absent.status = 'recovered'
         latest_absent.recovered_by_column_id = col.id
         latest_absent.approved_by = current_user.id
         recovered_date = latest_absent.date.isoformat()
+    else:
+        # 미출석이 없으면(출석률 100%) → 방패 +1 적립
+        author = db.query(User).filter(User.id == col.author_id).first()
+        if author:
+            author.attendance_shields = (author.attendance_shields or 0) + 1
+            col.shield_granted = True
+            shield_granted = True
 
     db.commit()
     db.refresh(col)
@@ -267,12 +279,17 @@ async def verify_column(
     message = "칼럼이 검증되었습니다"
     if recovered_date:
         message += f" ({recovered_date} 결석이 출석으로 복구되었습니다)"
+    elif shield_granted:
+        author = db.query(User).filter(User.id == col.author_id).first()
+        shield_count = author.attendance_shields if author else 0
+        message += f" (출석 방패 +1 적립! 현재 방패: {shield_count}개)"
 
     return APIResponse(
         success=True,
         data={
             **column_to_dict(col),
-            "recovered_date": recovered_date
+            "recovered_date": recovered_date,
+            "shield_granted": shield_granted
         },
         message=message
     )
@@ -299,25 +316,39 @@ async def unverify_column(
             detail="검증되지 않은 칼럼입니다"
         )
 
-    # 검증 취소 시 출석 복구도 취소
+    # 검증 취소 시 출석 복구도 취소 또는 방패 차감
     recovered_attendance = db.query(Attendance).filter(
         Attendance.recovered_by_column_id == col.id
     ).first()
 
+    shield_deducted = False
+
     if recovered_attendance:
+        # 출석 복구가 있었다면 → 복구 취소
         recovered_attendance.status = 'absent'
         recovered_attendance.recovered_by_column_id = None
         recovered_attendance.approved_by = None
+    elif col.shield_granted:
+        # 방패가 적립되었다면 → 방패 차감
+        author = db.query(User).filter(User.id == col.author_id).first()
+        if author and (author.attendance_shields or 0) > 0:
+            author.attendance_shields -= 1
+            shield_deducted = True
 
     col.is_verified = False
     col.verified_by = None
     col.verified_at = None
+    col.shield_granted = False
 
     db.commit()
     db.refresh(col)
 
+    message = "검증이 취소되었습니다"
+    if shield_deducted:
+        message += " (적립된 방패 1개가 차감되었습니다)"
+
     return APIResponse(
         success=True,
         data=column_to_dict(col),
-        message="검증이 취소되었습니다"
+        message=message
     )

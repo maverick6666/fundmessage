@@ -34,6 +34,7 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     is_active: bool
+    attendance_shields: int = 0
     created_at: datetime
 
     class Config:

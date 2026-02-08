@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Boolean, text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -21,6 +21,9 @@ class TeamColumn(Base):
     is_verified = Column(Boolean, default=False)
     verified_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     verified_at = Column(DateTime, nullable=True)
+
+    # 방패 적립 여부 (검증 시 미출석이 없어서 방패가 적립된 경우 True)
+    shield_granted = Column(Boolean, default=False, nullable=False, server_default=text('false'))
 
     # Relationships
     author = relationship("User", back_populates="columns", foreign_keys=[author_id])
