@@ -230,8 +230,8 @@ class AIService:
                     {"role": "user", "content": prompt}
                 ]
             }
-            # gpt-5-mini는 temperature 미지원
-            if "gpt-5-mini" not in settings.openai_model:
+            # gpt-5 계열(mini, nano 등)은 temperature 미지원
+            if not any(x in settings.openai_model for x in ["gpt-5-mini", "gpt-5-nano"]):
                 api_params["temperature"] = settings.openai_temperature
             # max_tokens가 0보다 크면 설정
             if settings.openai_max_tokens > 0:
@@ -294,7 +294,7 @@ class AIService:
         requests = self.db.query(Request).filter(Request.position_id == position_id).order_by(Request.created_at).all()
         requests_data = []
         for req in requests:
-            requester = self.db.query(User).filter(User.id == req.requested_by).first()
+            requester = self.db.query(User).filter(User.id == req.requester_id).first()
             requests_data.append({
                 "type": req.request_type,
                 "status": req.status,
@@ -509,8 +509,8 @@ class AIService:
                     {"role": "user", "content": prompt}
                 ]
             }
-            # gpt-5-mini는 temperature 미지원
-            if "gpt-5-mini" not in settings.openai_model:
+            # gpt-5 계열(mini, nano 등)은 temperature 미지원
+            if not any(x in settings.openai_model for x in ["gpt-5-mini", "gpt-5-nano"]):
                 api_params["temperature"] = settings.openai_temperature
             # max_tokens가 0보다 크면 설정
             if settings.openai_max_tokens_report > 0:

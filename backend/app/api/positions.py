@@ -186,24 +186,28 @@ async def exchange_currency(
     current_user: User = Depends(get_manager)
 ):
     """환전 (팀장만) - 원화 <-> 달러"""
+    from decimal import Decimal
     settings = db.query(TeamSettings).first()
     if not settings:
         from fastapi import HTTPException, status
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="팀 설정이 없습니다")
 
+    from_amount = Decimal(str(exchange_data.from_amount))
+    to_amount = Decimal(str(exchange_data.to_amount))
+
     # 환전 처리
     if exchange_data.from_currency == 'KRW' and exchange_data.to_currency == 'USD':
-        if settings.initial_capital_krw < exchange_data.from_amount:
+        if settings.initial_capital_krw < from_amount:
             from fastapi import HTTPException, status
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="원화 잔액이 부족합니다")
-        settings.initial_capital_krw -= exchange_data.from_amount
-        settings.initial_capital_usd = (settings.initial_capital_usd or 0) + exchange_data.to_amount
+        settings.initial_capital_krw -= from_amount
+        settings.initial_capital_usd = (settings.initial_capital_usd or Decimal('0')) + to_amount
     elif exchange_data.from_currency == 'USD' and exchange_data.to_currency == 'KRW':
-        if (settings.initial_capital_usd or 0) < exchange_data.from_amount:
+        if (settings.initial_capital_usd or Decimal('0')) < from_amount:
             from fastapi import HTTPException, status
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="달러 잔액이 부족합니다")
-        settings.initial_capital_usd -= exchange_data.from_amount
-        settings.initial_capital_krw = (settings.initial_capital_krw or 0) + exchange_data.to_amount
+        settings.initial_capital_usd -= from_amount
+        settings.initial_capital_krw = (settings.initial_capital_krw or Decimal('0')) + to_amount
     else:
         from fastapi import HTTPException, status
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="잘못된 통화입니다")
