@@ -6,6 +6,7 @@ import logging
 from app.database import SessionLocal
 from app.services.news_crawler import NewsCrawler
 from app.services.newsdesk_ai import NewsDeskAI
+from app.services.asset_service import create_daily_snapshot
 from app.models.newsdesk import NewsDesk
 
 logger = logging.getLogger(__name__)
@@ -77,8 +78,22 @@ async def generate_newsdesk_job():
         db.close()
 
 
+async def create_asset_snapshot_job():
+    """일일 자산 스냅샷 생성 작업"""
+    logger.info("Starting daily asset snapshot creation...")
+    db = SessionLocal()
+    try:
+        snapshot = create_daily_snapshot(db)
+        logger.info(f"Asset snapshot created for {snapshot.snapshot_date}")
+    except Exception as e:
+        logger.error(f"Failed to create asset snapshot: {e}")
+    finally:
+        db.close()
+
+
 def init_scheduler():
-    """스케줄러 초기화 - 하루 1번 (05:30)"""
+    """스케줄러 초기화"""
+    # 뉴스데스크 자동 생성 (05:30 KST)
     scheduler.add_job(
         generate_newsdesk_job,
         CronTrigger(hour=5, minute=30),
@@ -86,8 +101,16 @@ def init_scheduler():
         replace_existing=True
     )
 
+    # 자산 스냅샷 자동 생성 (09:00 KST - 장 시작 시)
+    scheduler.add_job(
+        create_asset_snapshot_job,
+        CronTrigger(hour=9, minute=0),
+        id="asset_snapshot_daily",
+        replace_existing=True
+    )
+
     scheduler.start()
-    logger.info("NewsDesk scheduler initialized (05:30 daily)")
+    logger.info("Scheduler initialized: NewsDesk (05:30), AssetSnapshot (09:00)")
 
 
 def shutdown_scheduler():

@@ -8,11 +8,12 @@ from app.database import get_db
 from app.schemas.common import APIResponse
 from app.services.stats_service import StatsService
 from app.services.price_service import PriceService
+from app.services.asset_service import create_daily_snapshot
 from app.models.position import Position, PositionStatus
 from app.models.attendance import Attendance
 from app.models.request import Request
 from app.models.asset_snapshot import AssetSnapshot
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_manager
 from app.models.user import User
 
 # 한국 시간대
@@ -128,6 +129,25 @@ async def get_asset_history(
             "usd_evaluation": float(s.usd_evaluation) if s.usd_evaluation else 0,
             "exchange_rate": float(s.exchange_rate) if s.exchange_rate else None,
         } for s in snapshots]
+    )
+
+
+@router.post("/asset-snapshot", response_model=APIResponse)
+async def create_snapshot_manually(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager)
+):
+    """수동으로 오늘의 자산 스냅샷 생성 (팀장 전용)"""
+    snapshot = create_daily_snapshot(db)
+    return APIResponse(
+        success=True,
+        message=f"스냅샷이 생성되었습니다: {snapshot.snapshot_date}",
+        data={
+            "snapshot_date": snapshot.snapshot_date.strftime("%Y-%m-%d"),
+            "total_krw": float(snapshot.total_krw) if snapshot.total_krw else 0,
+            "krw_cash": float(snapshot.krw_cash) if snapshot.krw_cash else 0,
+            "usd_cash": float(snapshot.usd_cash) if snapshot.usd_cash else 0,
+        }
     )
 
 
