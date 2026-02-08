@@ -33,7 +33,7 @@ const MARKETS = [
 ];
 
 export function Positions() {
-  const { adminMode } = useAuth();
+  const { adminMode, canWrite } = useAuth();
   const toast = useToast();
   const [statusFilter, setStatusFilter] = useState('open');
   const { positions, total, loading, error, updateFilters, setPage, filters } = usePositions({ status: 'open' });
@@ -477,7 +477,7 @@ export function Positions() {
                   >
                     {showInlineChart ? '차트 닫기' : '차트 보기'}
                   </Button>
-                  {!existingPosition && (
+                  {!existingPosition && canWrite() && (
                     <Button
                       size="sm"
                       onClick={() => setShowBuyForm(!showBuyForm)}

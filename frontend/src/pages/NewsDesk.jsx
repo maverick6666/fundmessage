@@ -1209,36 +1209,71 @@ export function NewsDesk() {
 
       {/* 메인 콘텐츠 영역 - 2컬럼 (동일 높이 시작) */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
-        {/* 왼쪽: 뉴스 카드 그리드 (3/5) - AI칼럼 통합 */}
-        <div className="lg:col-span-3 space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100 flex items-center gap-2">
-            <span className="w-6 h-6 bg-gray-900 dark:bg-gray-100 rounded flex items-center justify-center">
-              <svg className="w-3.5 h-3.5 text-white dark:text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9" />
+        {/* 왼쪽: 뉴스 카드 그리드 (3/5) */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* AI 칼럼 섹션 */}
+          {columns.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <span className="w-6 h-6 bg-gradient-to-br from-amber-500 to-orange-500 rounded flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </span>
+                AI 칼럼
+                <span className="text-xs font-normal text-amber-600 dark:text-amber-400 ml-1">
+                  ({columns.length})
+                </span>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {columns.map((col, idx) => (
+                  <NewsCard
+                    key={`col-${idx}`}
+                    card={col}
+                    type="column"
+                    onClick={() => handleCardClick(col, 'column')}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 뉴스 섹션 */}
+          {newsCards.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <span className="w-6 h-6 bg-gray-900 dark:bg-gray-100 rounded flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-white dark:text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9" />
+                  </svg>
+                </span>
+                오늘의 뉴스
+                <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
+                  ({newsCards.length})
+                </span>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {newsCards.map((card, idx) => (
+                  <NewsCard
+                    key={`news-${idx}`}
+                    card={card}
+                    type="news"
+                    onClick={() => handleCardClick(card, 'news')}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 둘 다 없는 경우 */}
+          {columns.length === 0 && newsCards.length === 0 && (
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9" />
               </svg>
-            </span>
-            오늘의 뉴스
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* AI 칼럼 먼저 표시 */}
-            {columns.map((col, idx) => (
-              <NewsCard
-                key={`col-${idx}`}
-                card={col}
-                type="column"
-                onClick={() => handleCardClick(col, 'column')}
-              />
-            ))}
-            {/* 일반 뉴스 카드 */}
-            {newsCards.map((card, idx) => (
-              <NewsCard
-                key={`news-${idx}`}
-                card={card}
-                type="news"
-                onClick={() => handleCardClick(card, 'news')}
-              />
-            ))}
-          </div>
+              <p className="text-sm">오늘의 콘텐츠가 없습니다</p>
+            </div>
+          )}
         </div>
 
         {/* 오른쪽: 시각화 영역 (2/5) - 같은 높이에서 시작 */}

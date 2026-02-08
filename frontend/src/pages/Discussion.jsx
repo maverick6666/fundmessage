@@ -16,7 +16,7 @@ import { formatDate } from '../utils/formatters';
 export function Discussion() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isManagerOrAdmin, adminMode } = useAuth();
+  const { user, isManagerOrAdmin, adminMode, canWrite } = useAuth();
   const { joinDiscussion, leaveDiscussion, subscribe, sendMessage: wsSendMessage } = useWebSocket();
   const toast = useToast();
 
@@ -324,8 +324,8 @@ export function Discussion() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        {!isClosed && (
+        {/* Input - viewer는 메시지 전송 불가 */}
+        {!isClosed && canWrite() && (
           <form onSubmit={handleSendMessage} className="border-t dark:border-gray-700 p-4 flex gap-2">
             <button
               type="button"

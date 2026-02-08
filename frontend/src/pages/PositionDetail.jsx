@@ -41,7 +41,7 @@ const TIMEFRAMES = [
 export function PositionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isManagerOrAdmin, isManager, adminMode } = useAuth();
+  const { user, isManagerOrAdmin, isManager, adminMode, canWrite } = useAuth();
   const toast = useToast();
   const [position, setPosition] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -940,7 +940,7 @@ export function PositionDetail() {
                   }}>토론방 열기</Button>
                   <Button variant="danger" onClick={() => setShowCloseModal(true)}>포지션 종료</Button>
                 </>
-              ) : (
+              ) : canWrite() && (
                 <>
                   {!hasOpenDiscussion && (
                     <Button variant="secondary" onClick={async () => {

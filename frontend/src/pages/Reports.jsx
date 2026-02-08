@@ -9,7 +9,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import { useSidePanelStore } from '../stores/useSidePanelStore';
 import { formatRelativeTime } from '../utils/formatters';
-import { useAuthContext } from '../context/AuthContext';
 
 // Tab icons
 const TabIcons = {
@@ -144,8 +143,7 @@ function DocumentCard({ type, data, onClick, onDelete, showDelete }) {
 }
 
 export function Reports() {
-  const { user } = useAuth();
-  const { adminMode } = useAuthContext();
+  const { user, adminMode, canWrite } = useAuth();
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const { openDocument, openColumnEditor } = useSidePanelStore();
@@ -265,7 +263,7 @@ export function Reports() {
             문서
           </h1>
         </div>
-        {activeTab === 'columns' && (
+        {activeTab === 'columns' && canWrite() && (
           <Button onClick={() => openColumnEditor(null, fetchData)} className="gap-2 shrink-0">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />

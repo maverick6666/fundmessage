@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle } from '../common/Card';
 import { attendanceService } from '../../services/attendanceService';
+import { useAuth } from '../../hooks/useAuth';
 
 export function AttendanceCalendar({ userId = null }) {
+  const { canWrite } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [attendances, setAttendances] = useState([]);
   const [stats, setStats] = useState(null);
@@ -144,8 +146,8 @@ export function AttendanceCalendar({ userId = null }) {
         </div>
       )}
 
-      {/* 출석 체크 버튼 */}
-      {!userId && isCurrentMonth && (
+      {/* 출석 체크 버튼 - viewer는 체크인 불가 */}
+      {!userId && isCurrentMonth && canWrite() && (
         <div className="flex justify-center">
           <button
             onClick={handleCheckIn}
