@@ -1091,21 +1091,29 @@ export function PositionDetail() {
                       </p>
                     </div>
                   )}
-                  <div className="min-w-[160px]">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">목표 진행</p>
-                    <TargetProgressBar
-                      currentPrice={currentPrice}
-                      averagePrice={position.average_buy_price}
-                      takeProfitTargets={position.take_profit_targets}
-                      stopLossTargets={position.stop_loss_targets}
-                      market={position.market}
-                      size="md"
-                    />
-                    {/* 타겟이 없으면 단순 프로그레스바 표시 */}
-                    {!(position.take_profit_targets?.some(t => t.price && !t.completed) || position.stop_loss_targets?.some(t => t.price && !t.completed)) && profitInfo && (
-                      <ProfitProgressBar value={profitInfo.profitRate / 100} size="lg" />
-                    )}
-                  </div>
+                  {/* 목표 진행: 수량이 0이면 "거래 완료" 표시, 아니면 프로그래스바 */}
+                  {parseFloat(position.total_quantity) > 0 ? (
+                    <div className="min-w-[160px]">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">목표 진행</p>
+                      <TargetProgressBar
+                        currentPrice={currentPrice}
+                        averagePrice={position.average_buy_price}
+                        takeProfitTargets={position.take_profit_targets}
+                        stopLossTargets={position.stop_loss_targets}
+                        market={position.market}
+                        size="md"
+                      />
+                      {/* 미체결 타겟이 없으면 단순 수익률 표시 */}
+                      {!(position.take_profit_targets?.some(t => t.price && !t.completed) || position.stop_loss_targets?.some(t => t.price && !t.completed)) && profitInfo && (
+                        <ProfitProgressBar value={profitInfo.profitRate / 100} size="lg" />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="min-w-[100px]">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">거래 상태</p>
+                      <p className="text-lg font-bold text-gray-500 dark:text-gray-400">전량 매도</p>
+                    </div>
+                  )}
                   {/* 실현손익 (부분 익절/손절 시) */}
                   {position.realized_profit_loss != null && parseFloat(position.realized_profit_loss) !== 0 && (
                     <div>
