@@ -41,26 +41,36 @@ class NotificationService:
         """WebSocket으로 알림을 실시간 전송 (best-effort)"""
         try:
             from app.websocket import manager
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(manager.send_personal_message(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "id": notification.id,
-                            "notification_type": notification.notification_type,
-                            "title": notification.title,
-                            "message": notification.message,
-                            "related_type": notification.related_type,
-                            "related_id": notification.related_id,
-                            "is_read": False,
-                            "created_at": notification.created_at.isoformat() if notification.created_at else None
-                        }
-                    },
-                    notification.user_id
-                ))
-        except Exception:
-            pass  # WebSocket 전송 실패 시 무시 (알림은 DB에 저장됨)
+            message = {
+                "type": "notification",
+                "data": {
+                    "id": notification.id,
+                    "notification_type": notification.notification_type,
+                    "title": notification.title,
+                    "message": notification.message,
+                    "related_type": notification.related_type,
+                    "related_id": notification.related_id,
+                    "is_read": False,
+                    "created_at": notification.created_at.isoformat() if notification.created_at else None
+                }
+            }
+            try:
+                # Python 3.10+: use get_running_loop() for async context
+                loop = asyncio.get_running_loop()
+                loop.create_task(manager.send_personal_message(message, notification.user_id))
+            except RuntimeError:
+                # No running loop - try get_event_loop for backward compatibility
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        loop.create_task(manager.send_personal_message(message, notification.user_id))
+                    else:
+                        # Run synchronously if no running loop
+                        asyncio.run(manager.send_personal_message(message, notification.user_id))
+                except Exception:
+                    pass  # 이벤트 루프 접근 실패 시 무시
+        except Exception as e:
+            print(f"WebSocket broadcast error: {e}")  # 디버깅을 위해 에러 출력
 
     def create_notification_for_managers(
         self,
