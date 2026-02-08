@@ -10,6 +10,7 @@ from app.websocket import manager
 from app.websocket.handlers import handle_websocket_message
 from app.utils.security import decode_token
 from app.services.scheduler import init_scheduler, shutdown_scheduler
+from app.services.stock_search_service import stock_search_service
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -81,6 +82,13 @@ async def websocket_endpoint(
 @app.on_event("startup")
 async def startup_event():
     init_scheduler()
+    # 한국 종목 목록 미리 로드 (첫 검색 시 지연 방지)
+    print("한국 종목 목록 로드 시작...")
+    try:
+        await stock_search_service.load_korean_stocks()
+        print(f"한국 종목 목록 로드 완료 (총 {len(stock_search_service._korean_stocks_list)}개)")
+    except Exception as e:
+        print(f"한국 종목 목록 로드 실패: {e}")
     print("Fund Team Messenger API started")
 
 

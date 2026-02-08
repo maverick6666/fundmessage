@@ -93,6 +93,11 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
       crosshair: {
         mode: 0, // Normal mode for selection
       },
+      // TradingView 로고 제거
+      watermark: {
+        visible: false,
+      },
+      attributionLogo: false,
     });
 
     const candlestickSeries = chart.addCandlestickSeries({
@@ -230,6 +235,14 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="차트 공유" size="lg">
+      {/* TradingView 로고 CSS 숨김 */}
+      <style>{`
+        .tv-lightweight-charts a[href*="tradingview"],
+        .tv-lightweight-charts a[target="_blank"],
+        [class*="tv-lightweight-charts"] a {
+          display: none !important;
+        }
+      `}</style>
       <div className="space-y-4">
         {/* 종목 검색 */}
         <div className="relative">

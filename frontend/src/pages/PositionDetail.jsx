@@ -54,8 +54,10 @@ export function PositionDetail() {
   const [closeData, setCloseData] = useState({
     ticker_name: '',
     average_buy_price: '',
-    total_quantity: '',
-    total_sell_amount: '',
+    total_buy_quantity: '',  // 총 매수 수량
+    average_sell_price: '',  // 평균 매도가
+    total_sell_quantity: '', // 총 매도 수량
+    total_sell_amount: '',   // 청산 금액
   });
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -543,31 +545,20 @@ export function PositionDetail() {
     }
   };
 
-  // 계획 항목 추가
-  const handleAddPlanItem = async (planType) => {
-    const newItem = { price: '', quantity: '', completed: false };
-    const currentPlans = {
-      buy_plan: position.buy_plan || [],
-      take_profit_targets: position.take_profit_targets || [],
-      stop_loss_targets: position.stop_loss_targets || []
-    };
-
+  // 계획 항목 추가 (로컬 상태만 변경, API 호출 X)
+  const handleAddPlanItem = (planType) => {
+    const newItem = { price: '', quantity: '', completed: false, _isNew: true };
     const key = planType === 'buy' ? 'buy_plan' : planType === 'take_profit' ? 'take_profit_targets' : 'stop_loss_targets';
-    const updatedPlans = { ...currentPlans, [key]: [...currentPlans[key], newItem] };
 
-    try {
-      const updatedPosition = await positionService.updatePlans(id, {
-        buyPlan: updatedPlans.buy_plan,
-        takeProfitTargets: updatedPlans.take_profit_targets,
-        stopLossTargets: updatedPlans.stop_loss_targets
-      });
-      setPosition(updatedPosition);
-      const newIndex = updatedPlans[key].length - 1;
-      setEditingPlanItem({ planType, index: newIndex });
-      setEditPlanData({ price: '', quantity: '' });
-    } catch (error) {
-      toast.error(error.response?.data?.detail || '추가에 실패했습니다.');
-    }
+    // 로컬 상태만 업데이트 (DB 저장 X)
+    setPosition(prev => ({
+      ...prev,
+      [key]: [...(prev[key] || []), newItem]
+    }));
+
+    const newIndex = (position[key] || []).length;
+    setEditingPlanItem({ planType, index: newIndex });
+    setEditPlanData({ price: '', quantity: '' });
   };
 
   // 계획 항목 삭제
@@ -654,16 +645,19 @@ export function PositionDetail() {
     setEditPlanData({ price: cleanNumberInput(item.price), quantity: cleanNumberInput(item.quantity) });
   };
 
-  const cancelEditPlanItem = async () => {
-    // 편집 취소 시 빈 항목(가격/수량 없음)이면 삭제
+  const cancelEditPlanItem = () => {
+    // 편집 취소 시 빈 항목(가격/수량 없음)이면 로컬에서 제거 (API 호출 X)
     if (editingPlanItem) {
       const { planType, index } = editingPlanItem;
       const key = planType === 'buy' ? 'buy_plan' : planType === 'take_profit' ? 'take_profit_targets' : 'stop_loss_targets';
       const currentItem = (position[key] || [])[index];
 
-      // 값이 없는 빈 항목이면 삭제
+      // 값이 없는 빈 항목이면 로컬 상태에서 제거
       if (currentItem && !currentItem.price && !currentItem.quantity) {
-        await handleRemovePlanItem(planType, index);
+        setPosition(prev => ({
+          ...prev,
+          [key]: (prev[key] || []).filter((_, i) => i !== index)
+        }));
       }
     }
     setEditingPlanItem(null);
@@ -708,17 +702,29 @@ export function PositionDetail() {
     return discussions.some(d => d.status === 'open');
   }, [discussions]);
 
-  // 수익률 계산 (현재가 기준)
+  // 수익률 계산 (실현손익 + 미실현손익)
   const profitInfo = useMemo(() => {
     if (!position || position.status === 'closed') return null;
-    if (!currentPrice || !position.average_buy_price || !position.total_quantity) return null;
+    if (!currentPrice) return null;
 
-    const buyAmount = position.average_buy_price * position.total_quantity;
-    const evalAmount = currentPrice * position.total_quantity;
-    const profitLoss = evalAmount - buyAmount;
-    const profitRate = buyAmount > 0 ? (profitLoss / buyAmount) * 100 : 0;
+    const quantity = parseFloat(position.total_quantity) || 0;
+    const avgPrice = parseFloat(position.average_buy_price) || 0;
+    const totalBuyAmount = parseFloat(position.total_buy_amount) || 0;
+    const realized = parseFloat(position.realized_profit_loss) || 0;
 
-    return { evalAmount, profitLoss, profitRate };
+    // 평가금액 (현재 보유분)
+    const evalAmount = currentPrice * quantity;
+
+    // 미실현 손익 (현재가 - 평균매입가) × 수량
+    const unrealized = quantity > 0 ? (currentPrice - avgPrice) * quantity : 0;
+
+    // 총 손익 = 실현 + 미실현
+    const totalProfitLoss = realized + unrealized;
+
+    // 수익률 = 총 손익 / 총 매입금액
+    const profitRate = totalBuyAmount > 0 ? (totalProfitLoss / totalBuyAmount) * 100 : 0;
+
+    return { evalAmount, unrealized, realized, totalProfitLoss, profitRate };
   }, [position, currentPrice]);
 
   const handleClose = () => {
@@ -738,17 +744,20 @@ export function PositionDetail() {
     setActionLoading(true);
     try {
       const buyPriceChanged = parseFloat(closeData.average_buy_price) !== parseFloat(position.average_buy_price);
-      const quantityChanged = parseFloat(closeData.total_quantity) !== parseFloat(position.total_quantity);
+      const quantityChanged = parseFloat(closeData.total_buy_quantity) !== parseFloat(position.total_quantity);
       const nameChanged = closeData.ticker_name !== position.ticker_name;
 
       if (buyPriceChanged || quantityChanged || nameChanged) {
         await positionService.confirmPositionInfo(id, {
           average_buy_price: parseFloat(closeData.average_buy_price),
-          total_quantity: parseFloat(closeData.total_quantity),
+          total_quantity: parseFloat(closeData.total_buy_quantity),
           ticker_name: closeData.ticker_name || null,
         });
       }
-      await positionService.closePosition(id, { total_sell_amount: parseFloat(closeData.total_sell_amount) });
+      await positionService.closePosition(id, {
+        total_sell_amount: parseFloat(closeData.total_sell_amount),
+        average_sell_price: parseFloat(closeData.average_sell_price) || null,
+      });
       setShowCloseModal(false);
       fetchPosition();
     } catch (error) {
@@ -841,19 +850,9 @@ export function PositionDetail() {
       );
     }
 
-    if (!hasValidValues && !isClosed) {
-      return (
-        <div key={index} className={`flex items-center justify-between text-sm p-2 rounded ${colorClass}`}>
-          <span className="text-gray-400 dark:text-gray-500 italic cursor-pointer hover:text-gray-600 dark:hover:text-gray-300" onClick={() => startEditPlanItem(planType, index, item)}>
-            클릭하여 가격/수량 입력
-          </span>
-          <button onClick={() => handleRemovePlanItem(planType, index)} className="p-1 text-gray-400 hover:text-red-500">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      );
+    // 빈 항목은 렌더링하지 않음
+    if (!hasValidValues) {
+      return null;
     }
 
     return (
@@ -874,22 +873,13 @@ export function PositionDetail() {
             {formatPriceQuantity(item.price, item.quantity, position.market)}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-xs px-2 py-0.5 rounded ${
-            item.completed ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-            isCancelled ? 'bg-gray-200 text-gray-500 dark:bg-gray-600 dark:text-gray-400' :
-            'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-          }`}>
-            {item.completed ? '완료' : isCancelled ? '취소됨' : '대기'}
-          </span>
-          {!isClosed && (
-            <button onClick={() => handleRemovePlanItem(planType, index)} className="p-1 text-gray-400 hover:text-red-500">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
+        <span className={`text-xs px-2 py-0.5 rounded ${
+          item.completed ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+          isCancelled ? 'bg-gray-200 text-gray-500 dark:bg-gray-600 dark:text-gray-400' :
+          'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+        }`}>
+          {item.completed ? '완료' : isCancelled ? '취소됨' : '대기'}
+        </span>
       </div>
     );
   };
@@ -938,7 +928,31 @@ export function PositionDetail() {
                     setDiscussionTitle(`${position.ticker_name || position.ticker} 토론`);
                     setShowDiscussionModal(true);
                   }}>토론방 열기</Button>
-                  <Button variant="danger" onClick={() => setShowCloseModal(true)}>포지션 종료</Button>
+                  <Button variant="danger" onClick={() => {
+                    // 체결 데이터에서 매도 정보 계산
+                    const sellExecutions = tradingPlans.filter(p =>
+                      p.record_type === 'execution' && (p.plan_type === 'take_profit' || p.plan_type === 'stop_loss')
+                    );
+                    const totalSellQty = sellExecutions.reduce((sum, e) => sum + (parseFloat(e.executed_quantity) || 0), 0);
+                    const totalSellAmt = sellExecutions.reduce((sum, e) => sum + (parseFloat(e.executed_amount) || 0), 0);
+                    const avgSellPrice = totalSellQty > 0 ? totalSellAmt / totalSellQty : 0;
+
+                    // 매수 체결 데이터에서 총 매수 수량 계산
+                    const buyExecutions = tradingPlans.filter(p =>
+                      p.record_type === 'execution' && p.plan_type === 'buy'
+                    );
+                    const totalBuyQty = buyExecutions.reduce((sum, e) => sum + (parseFloat(e.executed_quantity) || 0), 0);
+
+                    setCloseData({
+                      ticker_name: position.ticker_name || '',
+                      average_buy_price: cleanNumberInput(position.average_buy_price),
+                      total_buy_quantity: cleanNumberInput(totalBuyQty || position.total_quantity),
+                      average_sell_price: cleanNumberInput(avgSellPrice),
+                      total_sell_quantity: cleanNumberInput(totalSellQty),
+                      total_sell_amount: cleanNumberInput(totalSellAmt),
+                    });
+                    setShowCloseModal(true);
+                  }}>포지션 종료</Button>
                 </>
               ) : canWrite() && (
                 <>
@@ -1059,8 +1073,25 @@ export function PositionDetail() {
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">현재가</p>
                     <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(currentPrice, position.market)}</p>
                   </div>
+                  {profitInfo && (
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">평가금액</p>
+                      <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(profitInfo.evalAmount, position.market)}</p>
+                    </div>
+                  )}
+                  {profitInfo && (
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">총 수익률</p>
+                      <p className={`text-lg font-bold ${getProfitLossClass(profitInfo.totalProfitLoss)}`}>
+                        {profitInfo.profitRate >= 0 ? '+' : ''}{profitInfo.profitRate.toFixed(2)}%
+                        <span className="ml-2 text-sm font-normal">
+                          ({formatCurrency(profitInfo.totalProfitLoss, position.market)})
+                        </span>
+                      </p>
+                    </div>
+                  )}
                   <div className="min-w-[160px]">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">평가손익</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">목표 진행</p>
                     <TargetProgressBar
                       currentPrice={currentPrice}
                       averagePrice={position.average_buy_price}
@@ -1093,7 +1124,8 @@ export function PositionDetail() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">수익률</p>
-                    <ProfitProgressBar value={position.profit_rate} size="lg" />
+                    {/* profit_rate는 퍼센트(예: 45.11)이므로 100으로 나눠 소수(0.4511)로 변환 */}
+                    <ProfitProgressBar value={position.profit_rate != null ? position.profit_rate / 100 : null} size="lg" />
                   </div>
                 </>
               )}
@@ -1805,26 +1837,76 @@ export function PositionDetail() {
       {/* Modals */}
       <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="포지션 종료">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">포지션 정보를 확인하고 청산 금액을 입력해주세요.</p>
-          <div className="border-b dark:border-gray-700 pb-4">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">포지션 정보</h4>
-            <Input label="종목명" value={closeData.ticker_name} onChange={(e) => setCloseData({ ...closeData, ticker_name: e.target.value })} />
-            <div className="grid grid-cols-2 gap-3 mt-3">
+          <Input label="종목명" value={closeData.ticker_name} onChange={(e) => setCloseData({ ...closeData, ticker_name: e.target.value })} />
+
+          {/* 매수 정보 */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+            <h4 className="text-sm font-medium text-blue-700 dark:text-blue-400 mb-2">매수 정보</h4>
+            <div className="grid grid-cols-2 gap-3">
               <Input label="평균 매입가" type="number" value={closeData.average_buy_price} onChange={(e) => setCloseData({ ...closeData, average_buy_price: e.target.value })} />
-              <Input label="수량" type="number" value={closeData.total_quantity} onChange={(e) => setCloseData({ ...closeData, total_quantity: e.target.value })} />
+              <Input label="총 매수 수량" type="number" value={closeData.total_buy_quantity} onChange={(e) => setCloseData({ ...closeData, total_buy_quantity: e.target.value })} />
+            </div>
+            {closeData.average_buy_price && closeData.total_buy_quantity && (
+              <div className="mt-2 text-sm text-blue-600 dark:text-blue-400">
+                총 매수 금액: {formatCurrency(parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_buy_quantity), position?.market)}
+              </div>
+            )}
+          </div>
+
+          {/* 매도 정보 */}
+          <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+            <h4 className="text-sm font-medium text-red-700 dark:text-red-400 mb-2">매도 정보</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="평균 매도가" type="number" value={closeData.average_sell_price} onChange={(e) => {
+                const newAvgPrice = e.target.value;
+                const newTotalAmt = newAvgPrice && closeData.total_sell_quantity
+                  ? parseFloat(newAvgPrice) * parseFloat(closeData.total_sell_quantity)
+                  : closeData.total_sell_amount;
+                setCloseData({ ...closeData, average_sell_price: newAvgPrice, total_sell_amount: cleanNumberInput(newTotalAmt) });
+              }} />
+              <Input label="총 매도 수량" type="number" value={closeData.total_sell_quantity} onChange={(e) => {
+                const newQty = e.target.value;
+                const newTotalAmt = closeData.average_sell_price && newQty
+                  ? parseFloat(closeData.average_sell_price) * parseFloat(newQty)
+                  : closeData.total_sell_amount;
+                setCloseData({ ...closeData, total_sell_quantity: newQty, total_sell_amount: cleanNumberInput(newTotalAmt) });
+              }} />
+            </div>
+            <div className="mt-3">
+              <Input label="청산 금액 (실제 돌아온 금액)" type="number" value={closeData.total_sell_amount} onChange={(e) => setCloseData({ ...closeData, total_sell_amount: e.target.value })} required />
             </div>
           </div>
-          <Input label="청산 금액 (실제 돌아온 금액)" type="number" value={closeData.total_sell_amount} onChange={(e) => setCloseData({ ...closeData, total_sell_amount: e.target.value })} required />
-          {closeData.total_sell_amount && closeData.average_buy_price && closeData.total_quantity && (
-            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">예상 수익금</span>
-                <span className={getProfitLossClass(parseFloat(closeData.total_sell_amount) - (parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity)))}>
-                  {formatCurrency(parseFloat(closeData.total_sell_amount) - (parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_quantity)), position.market)}
-                </span>
+
+          {/* 손익 계산 */}
+          {closeData.total_sell_amount && closeData.average_buy_price && closeData.total_buy_quantity && (
+            <div className="bg-gray-100 dark:bg-gray-700/50 p-4 rounded-lg">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">총 매수 금액</span>
+                  <span className="text-gray-900 dark:text-gray-100">{formatCurrency(parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_buy_quantity), position?.market)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">총 청산 금액</span>
+                  <span className="text-gray-900 dark:text-gray-100">{formatCurrency(parseFloat(closeData.total_sell_amount), position?.market)}</span>
+                </div>
+                <div className="flex justify-between text-base font-semibold pt-2 border-t dark:border-gray-600">
+                  <span className="text-gray-700 dark:text-gray-300">손익</span>
+                  {(() => {
+                    const buyAmt = parseFloat(closeData.average_buy_price) * parseFloat(closeData.total_buy_quantity);
+                    const sellAmt = parseFloat(closeData.total_sell_amount);
+                    const pnl = sellAmt - buyAmt;
+                    const rate = buyAmt > 0 ? (pnl / buyAmt) * 100 : 0;
+                    return (
+                      <span className={pnl >= 0 ? 'text-red-500' : 'text-blue-500'}>
+                        {formatCurrency(pnl, position?.market)} ({pnl >= 0 ? '+' : ''}{rate.toFixed(2)}%)
+                      </span>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
           )}
+
           <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
             <Button variant="secondary" onClick={() => setShowCloseModal(false)}>취소</Button>
             <Button variant="danger" onClick={handleClose} loading={actionLoading}>종료</Button>

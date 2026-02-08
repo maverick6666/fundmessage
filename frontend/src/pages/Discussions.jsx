@@ -118,19 +118,19 @@ export function Discussions() {
                   </div>
 
                   {/* 종목 정보 */}
-                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2 min-w-0 flex-wrap">
                     {discussion.ticker_name && (
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
+                      <span className="font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                         {discussion.ticker_name}
                       </span>
                     )}
                     {discussion.ticker && (
-                      <span className="text-gray-400 dark:text-gray-500">({discussion.ticker})</span>
+                      <span className="text-gray-400 dark:text-gray-500 whitespace-nowrap">({discussion.ticker})</span>
                     )}
                     {discussion.requester && (
                       <>
                         <span className="text-gray-300 dark:text-gray-600">|</span>
-                        <span>요청자: {discussion.requester.full_name}</span>
+                        <span className="whitespace-nowrap">요청자: {discussion.requester.full_name}</span>
                       </>
                     )}
                   </div>

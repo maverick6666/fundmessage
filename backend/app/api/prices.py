@@ -141,7 +141,9 @@ async def get_positions_with_prices(
             "evaluation_amount": info.get("evaluation_amount"),
             "profit_loss": info.get("profit_loss"),
             "profit_rate": info.get("profit_rate"),
-            "is_info_confirmed": pos.is_info_confirmed
+            "is_info_confirmed": pos.is_info_confirmed,
+            "take_profit_targets": pos.take_profit_targets or [],
+            "stop_loss_targets": pos.stop_loss_targets or []
         })
 
     return APIResponse(

@@ -34,8 +34,8 @@ export const useLayoutStore = create(
 
       // 사이드 패널 너비 설정
       setSidePanelWidth: (width) => {
-        // 최소 320px, 최대 800px
-        const clampedWidth = Math.min(Math.max(width, 320), 800);
+        // 최소 400px, 최대 800px (크기 고정 강화)
+        const clampedWidth = Math.min(Math.max(width, 400), 800);
         set({ sidePanelWidth: clampedWidth });
       },
     }),

@@ -1127,9 +1127,42 @@ function PositionCard({
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">{isOpen ? '수익률' : '실현 수익률'}</p>
-                {isOpen && (position.remaining_take_profits > 0 || position.remaining_stop_losses > 0) ? (
-                  <ProfitProgressBar value={profitRate} size="lg" />
-                ) : (
+                {isOpen && hasTargets && price?.current_price ? (() => {
+                  // 타겟 기반 진행도 계산 (대시보드와 동일)
+                  const { progress, direction } = calculateTargetProgress(
+                    price.current_price,
+                    position.average_buy_price,
+                    position.take_profit_targets,
+                    position.stop_loss_targets
+                  );
+                  const isNearTarget = progress >= 70;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <div className={`w-20 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden ${
+                        isNearTarget ? 'ring-1 ring-offset-1 ring-offset-white dark:ring-offset-gray-800 ' +
+                          (direction === 'profit' ? 'ring-red-400' : 'ring-blue-400') : ''
+                      }`}>
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            direction === 'profit'
+                              ? isNearTarget
+                                ? 'bg-gradient-to-r from-red-400 via-red-500 to-orange-400 animate-pulse'
+                                : 'bg-red-500'
+                              : direction === 'loss'
+                                ? isNearTarget
+                                  ? 'bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-400 animate-pulse'
+                                  : 'bg-blue-500'
+                                : 'bg-gray-400'
+                          }`}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <span className={`text-base font-medium whitespace-nowrap ${getProfitLossClass(profitRate)}`}>
+                        {profitRate != null ? `${profitRate >= 0 ? '+' : ''}${formatPercent(profitRate)}` : '-'}
+                      </span>
+                    </div>
+                  );
+                })() : (
                   <span className={`text-base font-medium ${getProfitLossClass(profitRate)}`}>
                     {profitRate != null ? `${profitRate >= 0 ? '+' : ''}${formatPercent(profitRate)}` : '-'}
                   </span>

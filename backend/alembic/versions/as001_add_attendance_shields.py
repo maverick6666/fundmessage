@@ -1,7 +1,7 @@
 """Add attendance_shields to users and shield_granted to team_columns
 
 Revision ID: as001
-Revises: nd002
+Revises: cm001
 Create Date: 2026-02-09
 """
 from alembic import op
@@ -11,7 +11,7 @@ from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision = 'as001'
-down_revision = 'nd002'
+down_revision = 'cm001'
 branch_labels = None
 depends_on = None
 

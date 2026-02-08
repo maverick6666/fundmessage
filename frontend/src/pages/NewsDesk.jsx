@@ -186,7 +186,12 @@ function BenchmarkChart({ selected, period, onPeriodChange }) {
       },
       crosshair: {
         mode: 1
-      }
+      },
+      // TradingView 로고 제거
+      watermark: {
+        visible: false,
+      },
+      attributionLogo: false,
     });
 
     chartRef.current = chart;
@@ -255,6 +260,14 @@ function BenchmarkChart({ selected, period, onPeriodChange }) {
 
   return (
     <div className="bg-white dark:bg-gray-800 border-2 border-black dark:border-gray-600 p-4">
+      {/* TradingView 로고 CSS 숨김 */}
+      <style>{`
+        .tv-lightweight-charts a[href*="tradingview"],
+        .tv-lightweight-charts a[target="_blank"],
+        [class*="tv-lightweight-charts"] a {
+          display: none !important;
+        }
+      `}</style>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100">
           벤치마크 비교

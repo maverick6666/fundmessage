@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.database import get_db
 from app.models.trading_plan import TradingPlan
@@ -328,6 +329,35 @@ async def create_execution_record(
             if idx >= 0 and idx < len(plans):
                 plans[idx]['completed'] = True
                 setattr(position, plan_key, plans)
+                # SQLAlchemy가 JSON 필드 변경을 감지하도록 명시
+                flag_modified(position, plan_key)
+
+    # 매수 체결 시 평균매입가와 수량 업데이트
+    if execution_data.plan_type == 'buy':
+        old_qty = float(position.total_quantity) if position.total_quantity else 0
+        old_avg = float(position.average_buy_price) if position.average_buy_price else 0
+        new_qty = float(execution_data.executed_quantity)
+        new_price = float(execution_data.executed_price)
+
+        # 가중평균 계산
+        total_qty = old_qty + new_qty
+        if total_qty > 0:
+            new_avg = (old_avg * old_qty + new_price * new_qty) / total_qty
+            position.average_buy_price = new_avg
+            position.total_quantity = total_qty
+            position.total_buy_amount = new_avg * total_qty
+
+    # 익절/손절 체결 시 수량 차감
+    elif execution_data.plan_type in ['take_profit', 'stop_loss']:
+        old_qty = float(position.total_quantity) if position.total_quantity else 0
+        sold_qty = float(execution_data.executed_quantity)
+        remaining_qty = max(0, old_qty - sold_qty)
+        position.total_quantity = remaining_qty
+
+        # 전량 매도 시 포지션 종료 처리 (선택사항)
+        if remaining_qty <= 0:
+            # 자동 종료하지 않고, 사용자가 직접 종료하도록 유지
+            pass
 
     db.commit()
     db.refresh(execution_record)

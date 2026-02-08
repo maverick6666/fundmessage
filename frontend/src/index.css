@@ -856,3 +856,78 @@
   color: white;
   font-weight: 600;
 }
+
+/* ============================================
+   COMPONENT MIN-WIDTH & OVERFLOW PROTECTION
+   ============================================ */
+
+/* 카드/패널 최소 크기 */
+.card {
+  min-width: 280px;
+  overflow: hidden;
+}
+
+/* 테이블 셀 텍스트 보호 */
+td, th {
+  min-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 텍스트 오버플로우 보호 */
+.text-overflow-protect {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 그리드 아이템 최소 크기 */
+.grid > * {
+  min-width: 0;
+}
+
+/* 플렉스 아이템 축소 방지 */
+.flex-nowrap > * {
+  flex-shrink: 0;
+}
+
+/* 반응형 텍스트 줄임 */
+@media (max-width: 640px) {
+  .responsive-truncate {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* 레이아웃 최소 너비 */
+main {
+  min-width: 320px;
+}
+
+/* 사이드바 열린 상태에서 메인 콘텐츠 보호 */
+.main-content {
+  min-width: 400px;
+  overflow-x: auto;
+}
+
+/* 작은 화면에서 숨기기 */
+@media (max-width: 480px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+/* 모든 컨테이너에 오버플로우 보호 */
+.overflow-protect {
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* 문서 뷰어 고정 너비 */
+.document-viewer {
+  min-width: 400px;
+  max-width: 100%;
+}

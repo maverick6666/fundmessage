@@ -59,6 +59,8 @@ export function StockChart({
         timeVisible: true,
         secondsVisible: false,
         borderColor: '#e0e0e0',
+        rightOffset: 12, // 오른쪽 여백 추가 - 최신 캔들과 가격 레이블이 잘 보이도록
+        barSpacing: 8,
       },
       rightPriceScale: {
         borderColor: '#e0e0e0',
@@ -66,6 +68,11 @@ export function StockChart({
       crosshair: {
         mode: 1,
       },
+      // TradingView 로고 제거
+      watermark: {
+        visible: false,
+      },
+      attributionLogo: false,
     });
 
     // 캔들스틱 시리즈
@@ -165,13 +172,10 @@ export function StockChart({
       // 새 데이터를 처음 로드한 경우에만 최신 위치로 스크롤
       // 과거 데이터를 추가로 불러온 경우에는 현재 위치 유지
       const isInitialLoad = lastCandlesLengthRef.current === 0;
-      const isNewStock = lastCandlesLengthRef.current > 0 &&
-        Math.abs(lastCandlesLengthRef.current - candles.length) < candles.length * 0.5;
 
-      if (isInitialLoad || !isNewStock) {
-        if (chartRef.current && lastCandlesLengthRef.current === 0) {
-          chartRef.current.timeScale().scrollToPosition(-1, false);
-        }
+      if (isInitialLoad && chartRef.current) {
+        // 최신 데이터(오른쪽 끝)로 스크롤
+        chartRef.current.timeScale().scrollToRealTime();
       }
 
       lastCandlesLengthRef.current = candles.length;
@@ -191,6 +195,18 @@ export function StockChart({
 
   return (
     <div className="relative">
+      {/* TradingView 로고 CSS 숨김 */}
+      <style>{`
+        .tv-lightweight-charts a[href*="tradingview"],
+        .tv-lightweight-charts a[target="_blank"],
+        [class*="tv-lightweight-charts"] a,
+        div[style*="position: absolute"] > a[href*="tradingview"] {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+        }
+      `}</style>
       <div ref={chartContainerRef} style={{ height: `${height}px` }} />
 
       {/* 메인 로딩 */}

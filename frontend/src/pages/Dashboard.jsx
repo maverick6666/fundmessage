@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle } from '../components/common/Card';
 import { TabGroup } from '../components/common/TabGroup';
 import { EmptyState } from '../components/common/EmptyState';
@@ -15,6 +15,8 @@ import { statsService } from '../services/statsService';
 import { userService } from '../services/userService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
+import { useSidePanelStore } from '../stores/useSidePanelStore';
+import { calculateTargetProgress } from '../components/common/ProfitProgressBar';
 import {
   formatCurrency,
   formatPercent,
@@ -30,6 +32,8 @@ import {
 export function Dashboard() {
   const { user, isManagerOrAdmin, isManager } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
+  const { openDocument } = useSidePanelStore();
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'team'
   const [positions, setPositions] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -293,6 +297,7 @@ export function Dashboard() {
     switch (role) {
       case 'manager': return '팀장';
       case 'admin': return '관리자';
+      case 'viewer': return '일반';
       default: return '팀원';
     }
   };
@@ -302,6 +307,7 @@ export function Dashboard() {
     switch (role) {
       case 'manager': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
       case 'admin': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+      case 'viewer': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
       default: return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
     }
   };
@@ -541,24 +547,55 @@ export function Dashboard() {
                         </span>
                       )}
                     </div>
-                    {position.profit_rate != null && (
-                      <div className="flex items-center gap-2 shrink-0">
-                        {/* 미니 수익률 바 */}
-                        <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              position.profit_rate >= 0 ? 'bg-emerald-500' : 'bg-rose-500'
-                            }`}
-                            style={{
-                              width: `${Math.min(Math.abs(position.profit_rate) * 5, 100)}%`
-                            }}
-                          />
+                    {position.profit_rate != null && (() => {
+                      // 포지션에서 직접 타겟 정보 추출
+                      const takeProfitTargets = position.take_profit_targets || [];
+                      const stopLossTargets = position.stop_loss_targets || [];
+                      const hasTargets = takeProfitTargets.length > 0 || stopLossTargets.length > 0;
+
+                      // 타겟 기반 진행도 계산
+                      const { progress, direction } = hasTargets
+                        ? calculateTargetProgress(
+                            position.current_price,
+                            position.average_buy_price,
+                            takeProfitTargets,
+                            stopLossTargets
+                          )
+                        : { progress: 0, direction: 'neutral' };
+
+                      // 70% 이상이면 그라데이션 효과
+                      const isNearTarget = progress >= 70;
+
+                      return (
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* 미니 수익률 바 - 매매계획 있을 때만 표시 */}
+                          {hasTargets && (
+                            <div className={`w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden ${
+                              isNearTarget ? 'ring-1 ring-offset-1 ring-offset-white dark:ring-offset-gray-800 ' +
+                                (direction === 'profit' ? 'ring-red-400' : 'ring-blue-400') : ''
+                            }`}>
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  direction === 'profit'
+                                    ? isNearTarget
+                                      ? 'bg-gradient-to-r from-red-400 via-red-500 to-orange-400 animate-pulse'
+                                      : 'bg-red-500'
+                                    : direction === 'loss'
+                                      ? isNearTarget
+                                        ? 'bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-400 animate-pulse'
+                                        : 'bg-blue-500'
+                                      : 'bg-gray-400'
+                                }`}
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                          )}
+                          <span className={`text-sm font-semibold whitespace-nowrap ${getProfitLossClass(position.profit_rate)}`}>
+                            {position.profit_rate >= 0 ? '+' : ''}{formatPercent(position.profit_rate)}
+                          </span>
                         </div>
-                        <span className={`text-sm font-semibold whitespace-nowrap ${getProfitLossClass(position.profit_rate)}`}>
-                          {position.profit_rate >= 0 ? '+' : ''}{formatPercent(position.profit_rate)}
-                        </span>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 text-sm">
                     <div className="flex justify-between text-gray-500 dark:text-gray-400">
@@ -606,7 +643,8 @@ export function Dashboard() {
               {requests.map(request => (
                 <div
                   key={request.id}
-                  className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                  onClick={() => navigate(isManagerOrAdmin() ? '/requests' : '/my-requests')}
+                  className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -791,7 +829,20 @@ export function Dashboard() {
                 {columns.map(column => (
                   <div
                     key={column.id}
-                    className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg min-w-0"
+                    onClick={() => openDocument(column, 'column', (result) => {
+                      // 검증 상태 변경 시 칼럼 목록 즉시 업데이트
+                      if (result?.action === 'unverify' && showVerifiedColumns) {
+                        // 검증 취소 시, 검증됨 탭이면 해당 칼럼을 목록에서 제거
+                        setColumns(prev => prev.filter(c => c.id !== result.columnId));
+                      } else if (result?.action === 'verify' && showVerifiedColumns) {
+                        // 검증 시, 목록 새로고침
+                        fetchColumns(true);
+                      } else {
+                        // 그 외의 경우 전체 새로고침
+                        fetchColumns(showVerifiedColumns);
+                      }
+                    })}
+                    className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg min-w-0 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-2 mb-1 min-w-0">
                       <p className="font-medium dark:text-gray-100 truncate flex-1 min-w-0">{column.title}</p>

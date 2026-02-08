@@ -37,6 +37,11 @@ export function MiniChart({ chartData, height = 150 }) {
       },
       handleScale: false,
       handleScroll: false,
+      // TradingView 로고 제거
+      watermark: {
+        visible: false,
+      },
+      attributionLogo: false,
     });
 
     const candlestickSeries = chart.addCandlestickSeries({
@@ -103,6 +108,14 @@ export function MiniChart({ chartData, height = 150 }) {
 
   return (
     <div className="rounded-lg overflow-hidden bg-gray-900">
+      {/* TradingView 로고 CSS 숨김 */}
+      <style>{`
+        .tv-lightweight-charts a[href*="tradingview"],
+        .tv-lightweight-charts a[target="_blank"],
+        [class*="tv-lightweight-charts"] a {
+          display: none !important;
+        }
+      `}</style>
       {/* 헤더 */}
       <div className="px-3 py-2 bg-gray-800 flex items-center justify-between">
         <div className="flex items-center gap-2">

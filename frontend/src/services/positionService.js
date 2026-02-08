@@ -76,10 +76,21 @@ export const positionService = {
 
   // 매매 계획 수정
   async updatePlans(id, { buyPlan, takeProfitTargets, stopLossTargets }) {
+    // 빈 블럭 필터링 (price와 quantity가 모두 비어있는 항목 제외)
+    const filterEmptyItems = (items) => {
+      if (!items) return null;
+      const filtered = items.filter(item => {
+        const hasPrice = item.price !== '' && item.price !== null && item.price !== undefined;
+        const hasQuantity = item.quantity !== '' && item.quantity !== null && item.quantity !== undefined;
+        return hasPrice || hasQuantity; // 둘 중 하나라도 있으면 유지
+      });
+      return filtered.length > 0 ? filtered : null;
+    };
+
     const response = await api.patch(`/positions/${id}/plans`, {
-      buy_plan: buyPlan,
-      take_profit_targets: takeProfitTargets,
-      stop_loss_targets: stopLossTargets
+      buy_plan: filterEmptyItems(buyPlan),
+      take_profit_targets: filterEmptyItems(takeProfitTargets),
+      stop_loss_targets: filterEmptyItems(stopLossTargets)
     });
     return response.data.data;
   },

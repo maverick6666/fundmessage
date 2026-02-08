@@ -84,6 +84,7 @@ export function SidePanel() {
         `}
         style={{
           width: `${sidePanelWidth}px`,
+          minWidth: '400px',
           maxWidth: '90vw',
         }}
       >

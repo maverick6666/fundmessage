@@ -307,44 +307,62 @@ export function Stats() {
           <div>
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">평가자산</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* 통화별 평가자산 */}
-              {Object.entries(byCurrency).map(([currency, data]) => (
-                <Card key={currency}>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{currency} 평가자산</p>
-                  <div className="flex items-baseline gap-2">
-                    <p className="text-2xl font-bold">
-                      {formatCurrency(data.evaluation, currency === 'KRW' ? 'KOSPI' : currency === 'USD' ? 'NASDAQ' : 'CRYPTO')}
+              {/* KRW 평가자산 - 항상 표시 */}
+              <Card>
+                <p className="text-sm text-gray-500 dark:text-gray-400">KRW 평가자산</p>
+                {byCurrency['KRW'] ? (
+                  <>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-2xl font-bold">
+                        {formatCurrency(byCurrency['KRW'].evaluation, 'KOSPI')}
+                      </p>
+                      <span className={`text-sm font-medium ${getProfitLossClass(byCurrency['KRW'].unrealized_pl)}`}>
+                        {formatPercent(byCurrency['KRW'].pl_rate)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      투자: {formatCurrency(byCurrency['KRW'].invested, 'KOSPI')}
+                      {' / '}
+                      <span className={getProfitLossClass(byCurrency['KRW'].unrealized_pl)}>
+                        {byCurrency['KRW'].unrealized_pl >= 0 ? '+' : ''}{formatCurrency(byCurrency['KRW'].unrealized_pl, 'KOSPI')}
+                      </span>
                     </p>
-                    <span className={`text-sm font-medium ${getProfitLossClass(data.unrealized_pl)}`}>
-                      {formatPercent(data.pl_rate)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    투자: {formatCurrency(data.invested, currency === 'KRW' ? 'KOSPI' : currency === 'USD' ? 'NASDAQ' : 'CRYPTO')}
-                    {' / '}
-                    <span className={getProfitLossClass(data.unrealized_pl)}>
-                      {data.unrealized_pl >= 0 ? '+' : ''}{formatCurrency(data.unrealized_pl, currency === 'KRW' ? 'KOSPI' : currency === 'USD' ? 'NASDAQ' : 'CRYPTO')}
-                    </span>
-                  </p>
-                  {currency === 'USD' && exchangeRate && (
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                      {formatKrwEquivalent(data.evaluation)} (₩{exchangeRate.toLocaleString('ko-KR', {maximumFractionDigits: 0})}/$)
+                  </>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-400 dark:text-gray-500">-</p>
+                )}
+              </Card>
+
+              {/* USD 평가자산 - 항상 표시 */}
+              <Card>
+                <p className="text-sm text-gray-500 dark:text-gray-400">USD 평가자산</p>
+                {byCurrency['USD'] || byCurrency['USDT'] ? (
+                  <>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-2xl font-bold">
+                        {formatCurrency((byCurrency['USD']?.evaluation || 0) + (byCurrency['USDT']?.evaluation || 0), 'NASDAQ')}
+                      </p>
+                      <span className={`text-sm font-medium ${getProfitLossClass((byCurrency['USD']?.unrealized_pl || 0) + (byCurrency['USDT']?.unrealized_pl || 0))}`}>
+                        {formatPercent(((byCurrency['USD']?.pl_rate || 0) + (byCurrency['USDT']?.pl_rate || 0)) / ((byCurrency['USD'] ? 1 : 0) + (byCurrency['USDT'] ? 1 : 0)) || 0)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      투자: {formatCurrency((byCurrency['USD']?.invested || 0) + (byCurrency['USDT']?.invested || 0), 'NASDAQ')}
+                      {' / '}
+                      <span className={getProfitLossClass((byCurrency['USD']?.unrealized_pl || 0) + (byCurrency['USDT']?.unrealized_pl || 0))}>
+                        {((byCurrency['USD']?.unrealized_pl || 0) + (byCurrency['USDT']?.unrealized_pl || 0)) >= 0 ? '+' : ''}{formatCurrency((byCurrency['USD']?.unrealized_pl || 0) + (byCurrency['USDT']?.unrealized_pl || 0), 'NASDAQ')}
+                      </span>
                     </p>
-                  )}
-                  {currency === 'USDT' && exchangeRate && (
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                      {formatKrwEquivalent(data.evaluation)} (₩{exchangeRate.toLocaleString('ko-KR', {maximumFractionDigits: 0})}/$)
-                    </p>
-                  )}
-                </Card>
-              ))}
-              {/* 진행중 포지션이 없을 때 */}
-              {Object.keys(byCurrency).length === 0 && (
-                <Card>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">평가자산</p>
-                  <p className="text-2xl font-bold text-gray-400">-</p>
-                </Card>
-              )}
+                    {exchangeRate && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                        {formatKrwEquivalent((byCurrency['USD']?.evaluation || 0) + (byCurrency['USDT']?.evaluation || 0))} (₩{exchangeRate.toLocaleString('ko-KR', {maximumFractionDigits: 0})}/$)
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-400 dark:text-gray-500">-</p>
+                )}
+              </Card>
             </div>
           </div>
 

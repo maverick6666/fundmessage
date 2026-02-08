@@ -239,7 +239,14 @@ class PriceService:
         return results
 
     async def _get_position_price_info(self, position) -> Dict[str, Any]:
-        """포지션의 현재가 및 평가 정보"""
+        """포지션의 현재가 및 평가 정보
+
+        수익률 계산:
+        - 미실현 손익 = (현재가 × 남은수량) - (평균매입가 × 남은수량)
+        - 실현 손익 = realized_profit_loss (익절/손절 체결 시 누적)
+        - 총 손익 = 실현 손익 + 미실현 손익
+        - 수익률 = 총 손익 / 총 매입금액
+        """
         current_price = await self.get_price(position.ticker, position.market)
 
         if current_price is None:
@@ -252,15 +259,26 @@ class PriceService:
 
         quantity = position.total_quantity or Decimal(0)
         buy_amount = position.total_buy_amount or Decimal(0)
+        realized = position.realized_profit_loss or Decimal(0)
+        avg_price = position.average_buy_price or Decimal(0)
 
-        evaluation_amount = current_price * quantity
-        profit_loss = evaluation_amount - buy_amount
-        profit_rate = (profit_loss / buy_amount) if buy_amount > 0 else Decimal(0)
+        if quantity <= 0:
+            # 전량 매도됨 - 실현 손익만 사용
+            evaluation_amount = Decimal(0)
+            total_profit_loss = realized
+        else:
+            # 미실현 손익 계산 (남은 주식 기준)
+            cost_of_remaining = avg_price * quantity
+            evaluation_amount = current_price * quantity
+            unrealized = evaluation_amount - cost_of_remaining
+            total_profit_loss = realized + unrealized
+
+        profit_rate = (total_profit_loss / buy_amount) if buy_amount > 0 else Decimal(0)
 
         return {
             "current_price": float(current_price),
             "evaluation_amount": float(evaluation_amount),
-            "profit_loss": float(profit_loss),
+            "profit_loss": float(total_profit_loss),
             "profit_rate": float(profit_rate)
         }
 
