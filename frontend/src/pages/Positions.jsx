@@ -336,20 +336,22 @@ export function Positions() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold dark:text-gray-100">포지션</h1>
-        <Button
-          variant={showSearch ? 'secondary' : 'primary'}
-          onClick={() => {
-            if (showSearch) {
-              // 검색 닫을 때 인라인 차트도 리셋
-              setShowInlineChart(false);
-              setInlineCandles([]);
-            }
-            setShowSearch(!showSearch);
-          }}
-          className="px-6 py-2.5 text-base font-semibold"
-        >
-          {showSearch ? '닫기' : '+ 포지션 요청'}
-        </Button>
+        {canWrite() && (
+          <Button
+            variant={showSearch ? 'secondary' : 'primary'}
+            onClick={() => {
+              if (showSearch) {
+                // 검색 닫을 때 인라인 차트도 리셋
+                setShowInlineChart(false);
+                setInlineCandles([]);
+              }
+              setShowSearch(!showSearch);
+            }}
+            className="px-6 py-2.5 text-base font-semibold"
+          >
+            {showSearch ? '닫기' : '+ 포지션 요청'}
+          </Button>
+        )}
       </div>
 
       {/* 종목 검색 영역 */}
