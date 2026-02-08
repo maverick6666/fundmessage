@@ -13,7 +13,7 @@ from app.schemas.trading_plan import (
 )
 from app.schemas.user import UserBrief
 from app.schemas.common import APIResponse
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_writer_user
 from app.services.audit_service import AuditService
 
 router = APIRouter()
@@ -75,7 +75,7 @@ async def create_trading_plan(
     position_id: int,
     plan_data: TradingPlanCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """매매계획 저장 (draft)"""
     position = db.query(Position).filter(Position.id == position_id).first()
@@ -167,7 +167,7 @@ async def submit_trading_plan(
     position_id: int,
     plan_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """매매계획 제출 (submitted)"""
     plan = db.query(TradingPlan).filter(
@@ -220,7 +220,7 @@ async def delete_trading_plan(
     position_id: int,
     plan_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """매매계획 삭제 (draft만 삭제 가능, 작성자 또는 매니저만)"""
     plan = db.query(TradingPlan).filter(
@@ -251,7 +251,7 @@ async def create_execution_record(
     position_id: int,
     execution_data: ExecutionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """체결 기록 생성 (팀장만)
 

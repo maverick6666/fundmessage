@@ -323,7 +323,7 @@ async def start_discussion(
 async def request_discussion(
     request_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """Request a discussion for own request (for team members to ask managers)"""
     request_service = RequestService(db)

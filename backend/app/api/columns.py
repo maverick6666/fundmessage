@@ -8,7 +8,7 @@ from app.schemas.common import APIResponse
 from app.schemas.team_column import TeamColumnCreate, TeamColumnUpdate
 from app.models.team_column import TeamColumn
 from app.models.attendance import Attendance
-from app.dependencies import get_current_user, get_manager
+from app.dependencies import get_current_user, get_manager, get_writer_user
 from app.models.user import User
 
 # 한국 시간대
@@ -117,7 +117,7 @@ async def get_column(
 async def create_column(
     column_data: TeamColumnCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """칼럼 작성 (모든 인증된 사용자)"""
     col = TeamColumn(
@@ -142,7 +142,7 @@ async def update_column(
     column_id: int,
     column_data: TeamColumnUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """칼럼 수정 (작성자만)"""
     col = db.query(TeamColumn).filter(TeamColumn.id == column_id).first()
@@ -180,7 +180,7 @@ async def update_column(
 async def delete_column(
     column_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """칼럼 삭제 (작성자 또는 매니저)"""
     col = db.query(TeamColumn).filter(TeamColumn.id == column_id).first()

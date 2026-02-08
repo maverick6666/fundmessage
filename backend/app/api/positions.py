@@ -13,7 +13,7 @@ from app.schemas.common import APIResponse
 from app.services.position_service import PositionService
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
-from app.dependencies import get_current_user, get_manager_or_admin, get_manager
+from app.dependencies import get_current_user, get_manager_or_admin, get_manager, get_writer_user
 from app.models.user import User
 from app.models.team_settings import TeamSettings
 
@@ -401,7 +401,7 @@ async def update_plans(
     position_id: int,
     plans_data: UpdatePlans,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """매매 계획 수정 (분할매수, 익절, 손절) - 모든 팀원"""
     position_service = PositionService(db)
@@ -458,7 +458,7 @@ async def get_position_audit_logs(
 async def request_discussion(
     position_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """포지션에 대한 토론 요청 (팀원이 매니저에게 요청)"""
     position_service = PositionService(db)

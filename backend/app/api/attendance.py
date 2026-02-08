@@ -9,7 +9,7 @@ from app.database import get_db
 from app.schemas.common import APIResponse
 from app.models.attendance import Attendance
 from app.models.team_column import TeamColumn
-from app.dependencies import get_current_user, get_manager
+from app.dependencies import get_current_user, get_manager, get_writer_user
 from app.models.user import User
 
 # 한국 시간대 (UTC+9)
@@ -43,7 +43,7 @@ def attendance_to_dict(att: Attendance) -> dict:
 @router.post("/check-in", response_model=APIResponse)
 async def check_in(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """오늘 출석 체크 (한국 시간 기준)
 

@@ -262,7 +262,7 @@ async def reopen_discussion(
 async def request_reopen_discussion(
     discussion_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_writer_user)
 ):
     """Request to reopen a closed discussion (for team members)"""
     discussion_service = DiscussionService(db)
