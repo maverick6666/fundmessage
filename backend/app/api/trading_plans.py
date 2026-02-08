@@ -347,12 +347,17 @@ async def create_execution_record(
             position.total_quantity = total_qty
             position.total_buy_amount = new_avg * total_qty
 
-    # 익절/손절 체결 시 수량 차감
+    # 익절/손절 체결 시 수량 차감 + 실현손익 누적
     elif execution_data.plan_type in ['take_profit', 'stop_loss']:
         old_qty = float(position.total_quantity) if position.total_quantity else 0
         sold_qty = float(execution_data.executed_quantity)
         remaining_qty = max(0, old_qty - sold_qty)
         position.total_quantity = remaining_qty
+
+        # 실현손익 누적 (핵심!)
+        if profit_loss is not None:
+            current_realized = float(position.realized_profit_loss) if position.realized_profit_loss else 0
+            position.realized_profit_loss = current_realized + profit_loss
 
         # 전량 매도 시 포지션 종료 처리 (선택사항)
         if remaining_qty <= 0:
