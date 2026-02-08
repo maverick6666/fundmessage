@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle } from '../common/Card';
 import { attendanceService } from '../../services/attendanceService';
-import { useAuth } from '../../hooks/useAuth';
 
 export function AttendanceCalendar({ userId = null }) {
-  const { canWrite } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [attendances, setAttendances] = useState([]);
   const [stats, setStats] = useState(null);
@@ -35,15 +33,6 @@ export function AttendanceCalendar({ userId = null }) {
       console.error('Failed to fetch attendance:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCheckIn = async () => {
-    try {
-      await attendanceService.checkIn();
-      fetchData();
-    } catch (error) {
-      console.error('Check-in failed:', error);
     }
   };
 
@@ -143,23 +132,6 @@ export function AttendanceCalendar({ userId = null }) {
             <div className="text-2xl font-bold text-gray-600 dark:text-gray-300">{stats.total_rate.toFixed(0)}%</div>
             <div className="text-xs text-gray-500 dark:text-gray-400">전체</div>
           </div>
-        </div>
-      )}
-
-      {/* 출석 체크 버튼 - viewer는 체크인 불가 */}
-      {!userId && isCurrentMonth && canWrite() && (
-        <div className="flex justify-center">
-          <button
-            onClick={handleCheckIn}
-            disabled={todayAttendance?.status === 'present'}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-              todayAttendance?.status === 'present'
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 cursor-not-allowed'
-                : 'bg-primary-600 text-white hover:bg-primary-700'
-            }`}
-          >
-            {todayAttendance?.status === 'present' ? '✓ 오늘 출석 완료!' : '출석 체크하기'}
-          </button>
         </div>
       )}
 
