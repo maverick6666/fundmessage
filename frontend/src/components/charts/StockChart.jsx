@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { createChart } from 'lightweight-charts';
 
 export function StockChart({
@@ -7,7 +7,7 @@ export function StockChart({
   height = 400,
   hasMore = false,
   onLoadMore = null,
-  loadingMore = false
+  loadingMore = false,
 }) {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
@@ -16,41 +16,35 @@ export function StockChart({
   const isLoadingMoreRef = useRef(false);
   const lastCandlesLengthRef = useRef(0);
 
-  // 과거 데이터 로드 트리거
-  const handleVisibleRangeChange = useCallback((newVisibleRange) => {
-    if (!onLoadMore || !hasMore || isLoadingMoreRef.current || loadingMore) return;
-    if (!candles || candles.length === 0) return;
+  const handleVisibleRangeChange = useCallback(
+    (newVisibleRange) => {
+      if (!onLoadMore || !hasMore || isLoadingMoreRef.current || loadingMore) return;
+      if (!candles || candles.length === 0) return;
 
-    // 현재 보이는 범위의 첫번째 시간
-    const visibleFrom = newVisibleRange?.from;
-    if (!visibleFrom) return;
+      const visibleFrom = typeof newVisibleRange?.from === 'number' ? newVisibleRange.from : null;
+      if (!visibleFrom) return;
 
-    // 데이터의 가장 오래된 시간
-    const oldestDataTime = candles[0]?.time;
-    if (!oldestDataTime) return;
+      const oldestDataTime = candles[0]?.time;
+      const newestDataTime = candles[candles.length - 1]?.time;
+      if (!oldestDataTime || !newestDataTime) return;
 
-    // 보이는 범위가 데이터 시작점에 가까우면 더 불러오기
-    // 차트의 왼쪽 경계가 데이터의 10% 이내에 도달하면 로드
-    const dataRange = candles[candles.length - 1].time - oldestDataTime;
-    const bufferThreshold = Math.max(dataRange * 0.1, 86400 * 5); // 최소 5일
+      const dataRange = newestDataTime - oldestDataTime;
+      const bufferThreshold = Math.max(dataRange * 0.1, 86400 * 5);
 
-    if (visibleFrom <= oldestDataTime + bufferThreshold) {
-      isLoadingMoreRef.current = true;
-      onLoadMore(oldestDataTime);
-    }
-  }, [candles, hasMore, onLoadMore, loadingMore]);
+      if (visibleFrom <= oldestDataTime + bufferThreshold) {
+        isLoadingMoreRef.current = true;
+        onLoadMore(oldestDataTime);
+      }
+    },
+    [candles, hasMore, onLoadMore, loadingMore]
+  );
 
-  // 차트 초기화
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // getBoundingClientRect로 실제 렌더링된 너비 가져오기
-    const rect = chartContainerRef.current.getBoundingClientRect();
-    const containerWidth = Math.floor(rect.width) || chartContainerRef.current.clientWidth || 600;
-
     const chart = createChart(chartContainerRef.current, {
-      width: containerWidth,
-      height: height,
+      autoSize: true,
+      height,
       layout: {
         background: { color: '#ffffff' },
         textColor: '#333',
@@ -63,26 +57,27 @@ export function StockChart({
         timeVisible: true,
         secondsVisible: false,
         borderColor: '#e0e0e0',
-        rightOffset: 12, // 오른쪽 여백 추가 - 최신 캔들과 가격 레이블이 잘 보이도록
+        rightOffset: 0,
         barSpacing: 8,
       },
       rightPriceScale: {
         borderColor: '#e0e0e0',
       },
+      leftPriceScale: {
+        visible: false,
+      },
       crosshair: {
         mode: 1,
       },
-      // TradingView 로고 제거
       watermark: {
         visible: false,
       },
       attributionLogo: false,
     });
 
-    // 캔들스틱 시리즈
     const candlestickSeries = chart.addCandlestickSeries({
-      upColor: '#ef5350',      // 한국식: 상승 = 빨강
-      downColor: '#26a69a',    // 하락 = 파랑/초록
+      upColor: '#ef5350',
+      downColor: '#26a69a',
       borderVisible: false,
       wickUpColor: '#ef5350',
       wickDownColor: '#26a69a',
@@ -95,7 +90,6 @@ export function StockChart({
       },
     });
 
-    // 거래량 시리즈
     const volumeSeries = chart.addHistogramSeries({
       color: '#26a69a',
       priceFormat: {
@@ -115,59 +109,22 @@ export function StockChart({
     candlestickSeriesRef.current = candlestickSeries;
     volumeSeriesRef.current = volumeSeries;
 
-    // 컨테이너 크기에 맞게 차트 리사이즈 (초기 렌더링 이슈 해결)
-    const resizeChart = () => {
-      if (chartContainerRef.current && chartRef.current) {
-        const width = chartContainerRef.current.clientWidth;
-        if (width > 0) {
-          chartRef.current.applyOptions({ width });
-        }
-      }
-    };
-
-    // 초기 리사이즈 (마운트 직후 + 약간의 딜레이 후)
-    resizeChart(); // 즉시 한번
-    const resizeTimeout = setTimeout(resizeChart, 50); // 50ms 후 다시
-    const resizeTimeout2 = setTimeout(resizeChart, 200); // 200ms 후 다시
-
-    // ResizeObserver로 컨테이너 크기 변경 감지
-    const resizeObserver = new ResizeObserver(resizeChart);
-    if (chartContainerRef.current) {
-      resizeObserver.observe(chartContainerRef.current);
-    }
-
-    // 보이는 범위 변경 감지 (lazy loading용)
-    const subscription = chart.timeScale().subscribeVisibleTimeRangeChange(handleVisibleRangeChange);
+    chart.timeScale().subscribeVisibleTimeRangeChange(handleVisibleRangeChange);
 
     return () => {
-      clearTimeout(resizeTimeout);
-      clearTimeout(resizeTimeout2);
-      resizeObserver.disconnect();
-      if (subscription && typeof subscription.unsubscribe === 'function') {
-        subscription.unsubscribe();
-      } else if (typeof subscription === 'function') {
-        subscription();
-      }
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(handleVisibleRangeChange);
       chart.remove();
+      chartRef.current = null;
+      candlestickSeriesRef.current = null;
+      volumeSeriesRef.current = null;
     };
   }, [height, handleVisibleRangeChange]);
 
-  // 캔들 데이터 업데이트
   useEffect(() => {
-    console.log('StockChart received candles:', candles?.length);
+    if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
+    if (!candles || candles.length === 0) return;
 
-    if (!candlestickSeriesRef.current || !volumeSeriesRef.current) {
-      console.log('Chart series not ready');
-      return;
-    }
-    if (!candles || candles.length === 0) {
-      console.log('No candles data');
-      return;
-    }
-
-    console.log('Setting chart data with', candles.length, 'candles');
-
-    const candlestickData = candles.map(candle => ({
+    const candlestickData = candles.map((candle) => ({
       time: candle.time,
       open: candle.open,
       high: candle.high,
@@ -175,7 +132,7 @@ export function StockChart({
       close: candle.close,
     }));
 
-    const volumeData = candles.map(candle => ({
+    const volumeData = candles.map((candle) => ({
       time: candle.time,
       value: candle.volume,
       color: candle.close >= candle.open ? '#ef535080' : '#26a69a80',
@@ -185,35 +142,20 @@ export function StockChart({
       candlestickSeriesRef.current.setData(candlestickData);
       volumeSeriesRef.current.setData(volumeData);
 
-      // 새 데이터를 처음 로드한 경우 전체 데이터가 보이도록 설정
-      // 과거 데이터를 추가로 불러온 경우에는 현재 위치 유지
       const isInitialLoad = lastCandlesLengthRef.current === 0;
-
-      if (isInitialLoad && chartRef.current && candlestickData.length > 0) {
-        // 전체 데이터를 화면에 맞추되, 데이터가 많으면 최근 데이터 중심으로
-        if (candlestickData.length <= 150) {
-          // 데이터가 적으면 전체를 화면에 맞춤 (빈 공간 없이)
-          chartRef.current.timeScale().fitContent();
-        } else {
-          // 데이터가 많으면 최근 150개 캔들만 보여줌
-          const visibleBars = 150;
-          const fromIndex = candlestickData.length - visibleBars;
-          chartRef.current.timeScale().setVisibleRange({
-            from: candlestickData[fromIndex].time,
-            to: candlestickData[candlestickData.length - 1].time,
-          });
-        }
+      if (isInitialLoad && chartRef.current) {
+        // Fill the plotting area with current data range without extra leading offset.
+        chartRef.current.timeScale().fitContent();
       }
 
       lastCandlesLengthRef.current = candles.length;
       isLoadingMoreRef.current = false;
     } catch (err) {
-      console.error('차트 업데이트 오류:', err);
+      console.error('Chart update failed:', err);
       isLoadingMoreRef.current = false;
     }
   }, [candles]);
 
-  // 새 종목 검색 시 lastCandlesLength 리셋
   useEffect(() => {
     if (loading) {
       lastCandlesLengthRef.current = 0;
@@ -222,7 +164,6 @@ export function StockChart({
 
   return (
     <div className="relative">
-      {/* TradingView 로고 CSS 숨김 + 차트 100% 너비 */}
       <style>{`
         .tv-lightweight-charts a[href*="tradingview"],
         .tv-lightweight-charts a[target="_blank"],
@@ -233,37 +174,45 @@ export function StockChart({
           opacity: 0 !important;
           pointer-events: none !important;
         }
-        .stock-chart-container > div,
-        .stock-chart-container > div > table,
-        .stock-chart-container canvas {
-          width: 100% !important;
+        /* Hide left price scale cell */
+        .stock-chart-container table tr td:first-child {
+          width: 0 !important;
+          min-width: 0 !important;
+          padding: 0 !important;
         }
       `}</style>
+
       <div
         ref={chartContainerRef}
         className="stock-chart-container"
         style={{ height: `${height}px`, width: '100%' }}
       />
 
-      {/* 메인 로딩 */}
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75">
           <div className="flex items-center gap-2 text-gray-500">
-            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <svg className="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
             </svg>
             <span>로딩 중...</span>
           </div>
         </div>
       )}
 
-      {/* 과거 데이터 로딩 인디케이터 */}
       {loadingMore && !loading && (
-        <div className="absolute top-2 left-2 flex items-center gap-2 px-3 py-1.5 bg-white/90 dark:bg-gray-800/90 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <svg className="animate-spin h-4 w-4 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        <div className="absolute left-2 top-2 flex items-center gap-2 rounded-lg border border-gray-200 bg-white/90 px-3 py-1.5 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
+          <svg className="h-4 w-4 animate-spin text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
           </svg>
           <span className="text-xs text-gray-600 dark:text-gray-400">과거 데이터 로딩...</span>
         </div>
