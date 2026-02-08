@@ -18,6 +18,7 @@ import { decisionNoteService } from '../services/decisionNoteService';
 import { tradingPlanService } from '../services/tradingPlanService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
+import { useSidePanelStore } from '../stores/useSidePanelStore';
 import {
   formatCurrency,
   formatPercent,
@@ -43,6 +44,7 @@ export function PositionDetail() {
   const navigate = useNavigate();
   const { user, isManagerOrAdmin, isManager, adminMode, canWrite } = useAuth();
   const toast = useToast();
+  const { openDocument } = useSidePanelStore();
   const [position, setPosition] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -75,7 +77,6 @@ export function PositionDetail() {
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
-  const [expandedNoteId, setExpandedNoteId] = useState(null);
   const [showAIModal, setShowAIModal] = useState(false);
   const [showOperationReportModal, setShowOperationReportModal] = useState(false);
   const [generatedReport, setGeneratedReport] = useState('');
@@ -1541,38 +1542,32 @@ export function PositionDetail() {
             ) : (
               <div className="space-y-2">
                 {decisionNotes.filter(n => n.note_type !== 'report').map(note => (
-                  <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                    <div
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={() => setExpandedNoteId(expandedNoteId === note.id ? null : note.id)}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <svg className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform shrink-0 ${expandedNoteId === note.id ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                        </svg>
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{note.title}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{note.author?.full_name} · {formatDate(note.updated_at || note.created_at)}</p>
-                        </div>
+                  <div
+                    key={note.id}
+                    className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    onClick={() => openDocument(note, 'decision-note', fetchDecisionNotes)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <svg className="w-4 h-4 text-primary-500 dark:text-primary-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{note.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{note.author?.full_name} · {formatDate(note.updated_at || note.created_at)}</p>
                       </div>
-                      {isManager() && (
-                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                          <button onClick={() => handleEditNote(note)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded" title="수정">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                          </button>
-                          <button onClick={() => handleDeleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded" title="삭제">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      )}
                     </div>
-                    {expandedNoteId === note.id && (
-                      <div className="p-4 border-t border-gray-200 dark:border-gray-700 prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown>{note.content}</ReactMarkdown>
+                    {isManager() && (
+                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => handleEditNote(note)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded" title="수정">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        <button onClick={() => handleDeleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded" title="삭제">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1638,33 +1633,27 @@ export function PositionDetail() {
             ) : (
               <div className="space-y-2">
                 {decisionNotes.filter(n => n.note_type === 'report').map(note => (
-                  <div key={note.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                    <div
-                      className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                      onClick={() => setExpandedNoteId(expandedNoteId === note.id ? null : note.id)}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <svg className={`w-4 h-4 text-amber-500 dark:text-amber-400 transition-transform shrink-0 ${expandedNoteId === note.id ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                        </svg>
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{note.title}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{note.author?.full_name} · {formatDate(note.updated_at || note.created_at)}</p>
-                        </div>
+                  <div
+                    key={note.id}
+                    className="flex items-center justify-between p-3 border border-amber-200 dark:border-amber-700/50 rounded-lg bg-amber-50 dark:bg-amber-900/20 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                    onClick={() => openDocument(note, 'report', fetchDecisionNotes)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <svg className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{note.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{note.author?.full_name} · {formatDate(note.updated_at || note.created_at)}</p>
                       </div>
-                      {isManager() && (
-                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                          <button onClick={() => handleDeleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded" title="삭제">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      )}
                     </div>
-                    {expandedNoteId === note.id && (
-                      <div className="p-4 border-t border-gray-200 dark:border-gray-700 prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown>{note.content}</ReactMarkdown>
+                    {isManager() && (
+                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => handleDeleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 rounded" title="삭제">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </div>
                     )}
                   </div>
