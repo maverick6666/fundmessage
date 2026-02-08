@@ -92,23 +92,23 @@ function DocumentCard({ type, data, onClick, onDelete, showDelete }) {
         </div>
 
         {/* Content */}
-        <div className="h-[calc(100%-2rem)] px-2.5 py-2 flex flex-col">
+        <div className="h-[calc(100%-2rem)] px-2.5 py-2 flex flex-col overflow-hidden">
 
           {/* Title - 상단 배치, 볼드, 더 큰 폰트 */}
-          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base leading-tight line-clamp-4 group-hover:underline decoration-2 underline-offset-2">
-            {data.title}
+          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight line-clamp-3 group-hover:underline decoration-2 underline-offset-2 break-words">
+            {data.title || (isColumn ? '제목 없음' : `${data.position?.ticker_name || data.position?.ticker || '포지션'} 보고서`)}
           </h3>
 
           {/* Spacer */}
-          <div className="flex-1" />
+          <div className="flex-1 min-h-[8px]" />
 
           {/* Meta row */}
           <div className="flex items-center justify-between gap-1 mb-1.5">
-            <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 uppercase">
+            <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap shrink-0">
               {formatRelativeTime(data.created_at)}
             </span>
             {!isColumn && data.position?.status === 'open' && (
-              <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50 px-1.5 py-0.5">
+              <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50 px-1.5 py-0.5 shrink-0">
                 OPEN
               </span>
             )}
