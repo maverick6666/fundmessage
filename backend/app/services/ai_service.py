@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
+from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 import openai
 import json
@@ -15,6 +16,8 @@ from app.models.decision_note import DecisionNote
 from app.models.trading_plan import TradingPlan
 from app.models.user import User
 
+KST = ZoneInfo("Asia/Seoul")
+
 
 class AIService:
     """AI 의사결정서 생성 서비스"""
@@ -26,6 +29,10 @@ class AIService:
         else:
             self.client = None
 
+    def _get_today_kst(self) -> date:
+        """한국시간(KST) 기준 오늘 날짜"""
+        return datetime.now(KST).date()
+
     def _get_settings(self) -> TeamSettings:
         """팀 설정 조회 (없으면 생성)"""
         team_settings = self.db.query(TeamSettings).first()
@@ -33,7 +40,7 @@ class AIService:
             team_settings = TeamSettings(
                 ai_daily_limit=3,
                 ai_usage_count=0,
-                ai_usage_reset_date=date.today()
+                ai_usage_reset_date=self._get_today_kst()
             )
             self.db.add(team_settings)
             self.db.commit()
@@ -43,7 +50,7 @@ class AIService:
     def get_ai_status(self) -> dict:
         """AI 사용 가능 여부 및 남은 횟수"""
         team_settings = self._get_settings()
-        today = date.today()
+        today = self._get_today_kst()
 
         # 날짜가 바뀌었으면 리셋
         if team_settings.ai_usage_reset_date != today:
@@ -66,10 +73,53 @@ class AIService:
         status = self.get_ai_status()
         return status["can_use"]
 
+    def _reserve_usage(self) -> bool:
+        """사용량 예약 (check + increment 원자적 처리, 동시 요청 방지)
+
+        Returns:
+            True if usage was successfully reserved, False if limit exceeded
+        """
+        today = self._get_today_kst()
+
+        # Row-level lock으로 동시 요청 시 경합 방지
+        team_settings = self.db.query(TeamSettings).with_for_update().first()
+        if not team_settings:
+            team_settings = TeamSettings(
+                ai_daily_limit=3,
+                ai_usage_count=0,
+                ai_usage_reset_date=today
+            )
+            self.db.add(team_settings)
+            self.db.flush()
+            team_settings = self.db.query(TeamSettings).with_for_update().first()
+
+        # 날짜가 바뀌었으면 리셋
+        if team_settings.ai_usage_reset_date != today:
+            team_settings.ai_usage_count = 0
+            team_settings.ai_usage_reset_date = today
+
+        # 제한 체크
+        current_count = team_settings.ai_usage_count or 0
+        if current_count >= team_settings.ai_daily_limit:
+            self.db.commit()  # lock 해제
+            return False
+
+        # 사용량 선점 (AI 호출 전에 카운트 증가)
+        team_settings.ai_usage_count = current_count + 1
+        self.db.commit()
+        return True
+
+    def _rollback_usage(self):
+        """AI 호출 실패 시 사용량 복원"""
+        team_settings = self.db.query(TeamSettings).with_for_update().first()
+        if team_settings and (team_settings.ai_usage_count or 0) > 0:
+            team_settings.ai_usage_count -= 1
+            self.db.commit()
+
     def _increment_usage(self):
-        """사용량 증가"""
+        """사용량 증가 (하위 호환용, _reserve_usage 사용 권장)"""
         team_settings = self._get_settings()
-        today = date.today()
+        today = self._get_today_kst()
 
         if team_settings.ai_usage_reset_date != today:
             team_settings.ai_usage_count = 1
@@ -115,18 +165,19 @@ class AIService:
                 "error": "OpenAI API 키가 설정되지 않았습니다"
             }
 
-        if not self.can_use_ai():
-            return {
-                "success": False,
-                "error": "오늘 AI 사용 횟수를 모두 소진했습니다"
-            }
-
-        # 메시지 수집
+        # 메시지 수집 (사용량 예약 전에 검증)
         messages_text = self.get_session_messages(session_ids)
         if not messages_text:
             return {
                 "success": False,
                 "error": "선택한 세션에 메시지가 없습니다"
+            }
+
+        # 사용량 원자적 예약 (check + increment)
+        if not self._reserve_usage():
+            return {
+                "success": False,
+                "error": "오늘 AI 사용 횟수를 모두 소진했습니다"
             }
 
         # 포지션 정보 추가
@@ -250,9 +301,6 @@ class AIService:
                 # 제목 줄을 본문에서 제거
                 content = re.sub(r'\*\*제목\*\*:\s*.+?\n*', '', content, count=1).strip()
 
-            # 사용량 증가
-            self._increment_usage()
-
             # 남은 횟수 조회
             status = self.get_ai_status()
 
@@ -265,6 +313,8 @@ class AIService:
             }
 
         except Exception as e:
+            # AI 호출 실패 시 사용량 복원
+            self._rollback_usage()
             return {
                 "success": False,
                 "error": f"AI 생성 중 오류가 발생했습니다: {str(e)}"
@@ -401,18 +451,19 @@ class AIService:
                 "error": "OpenAI API 키가 설정되지 않았습니다"
             }
 
-        if not self.can_use_ai():
-            return {
-                "success": False,
-                "error": "오늘 AI 사용 횟수를 모두 소진했습니다"
-            }
-
-        # 모든 데이터 수집
+        # 모든 데이터 수집 (사용량 예약 전에 검증)
         data = self.collect_position_data(position_id)
         if not data:
             return {
                 "success": False,
                 "error": "포지션을 찾을 수 없습니다"
+            }
+
+        # 사용량 원자적 예약 (check + increment)
+        if not self._reserve_usage():
+            return {
+                "success": False,
+                "error": "오늘 AI 사용 횟수를 모두 소진했습니다"
             }
 
         # 데이터를 JSON으로 변환
@@ -520,9 +571,6 @@ class AIService:
 
             content = response.choices[0].message.content
 
-            # 사용량 증가
-            self._increment_usage()
-
             # 남은 횟수 조회
             status = self.get_ai_status()
 
@@ -534,6 +582,8 @@ class AIService:
             }
 
         except Exception as e:
+            # AI 호출 실패 시 사용량 복원
+            self._rollback_usage()
             return {
                 "success": False,
                 "error": f"AI 생성 중 오류가 발생했습니다: {str(e)}"

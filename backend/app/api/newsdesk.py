@@ -183,12 +183,13 @@ async def generate_newsdesk(
     today = get_korean_today()
     target_date = request.target_date if request and request.target_date else today
 
-    # 기존 뉴스데스크 확인
+    # 기존 뉴스데스크 확인 (Row-level lock으로 동시 요청 방지)
     existing = db.query(NewsDesk).filter(
         NewsDesk.publish_date == target_date
-    ).first()
+    ).with_for_update().first()
 
     if existing and existing.status == "generating":
+        db.commit()  # lock 해제
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="뉴스데스크가 생성 중입니다. 잠시 후 다시 시도해주세요."
@@ -196,12 +197,13 @@ async def generate_newsdesk(
 
     # 하루 1회 제한 체크 (이미 성공적으로 생성된 경우)
     if existing and existing.status == "ready" and existing.generation_count >= 1:
+        db.commit()  # lock 해제
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"오늘({target_date.strftime('%m월 %d일')}) 뉴스데스크는 이미 생성되었습니다. 하루에 1회만 생성할 수 있습니다."
         )
 
-    # 상태 업데이트 또는 생성
+    # 상태 업데이트 또는 생성 (lock 보유 중이므로 원자적 처리)
     if existing:
         existing.status = "generating"
         existing.error_message = None
