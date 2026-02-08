@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { createChart } from 'lightweight-charts';
+import { useTheme } from '../../context/ThemeContext';
 
 export function StockChart({
   candles,
@@ -15,6 +16,8 @@ export function StockChart({
   const volumeSeriesRef = useRef(null);
   const isLoadingMoreRef = useRef(false);
   const lastCandlesLengthRef = useRef(0);
+
+  const { isCurrentThemeDark } = useTheme();
 
   const handleVisibleRangeChange = useCallback(
     (newVisibleRange) => {
@@ -42,26 +45,41 @@ export function StockChart({
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
+    // 테마에 따른 차트 색상
+    const chartColors = isCurrentThemeDark
+      ? {
+          background: '#1a1a2e',
+          text: '#d1d5db',
+          grid: '#2d2d44',
+          border: '#3d3d5c',
+        }
+      : {
+          background: '#ffffff',
+          text: '#333333',
+          grid: '#f0f0f0',
+          border: '#e0e0e0',
+        };
+
     const chart = createChart(chartContainerRef.current, {
       autoSize: true,
       height,
       layout: {
-        background: { color: '#ffffff' },
-        textColor: '#333',
+        background: { color: chartColors.background },
+        textColor: chartColors.text,
       },
       grid: {
-        vertLines: { color: '#f0f0f0' },
-        horzLines: { color: '#f0f0f0' },
+        vertLines: { color: chartColors.grid },
+        horzLines: { color: chartColors.grid },
       },
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
-        borderColor: '#e0e0e0',
+        borderColor: chartColors.border,
         rightOffset: 0,
         barSpacing: 8,
       },
       rightPriceScale: {
-        borderColor: '#e0e0e0',
+        borderColor: chartColors.border,
       },
       leftPriceScale: {
         visible: false,
@@ -118,7 +136,7 @@ export function StockChart({
       candlestickSeriesRef.current = null;
       volumeSeriesRef.current = null;
     };
-  }, [height, handleVisibleRangeChange]);
+  }, [height, handleVisibleRangeChange, isCurrentThemeDark]);
 
   useEffect(() => {
     if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
