@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -26,6 +26,9 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    # 출석 방패 (칼럼 검증 시 미출석이 없으면 적립, 미출석 발생 시 자동 소모)
+    attendance_shields = Column(Integer, default=0, nullable=False, server_default=text('0'))
+
     # Relationships
     requests = relationship("Request", back_populates="requester", foreign_keys="Request.requester_id")
     approved_requests = relationship("Request", back_populates="approver", foreign_keys="Request.approved_by")
@@ -39,6 +42,7 @@ class User(Base):
     columns = relationship("TeamColumn", back_populates="author", foreign_keys="TeamColumn.author_id")
     attendances = relationship("Attendance", back_populates="user", foreign_keys="Attendance.user_id")
     trading_plans = relationship("TradingPlan", back_populates="user")
+    comments = relationship("Comment", back_populates="user")
 
     def is_manager_or_admin(self) -> bool:
         return self.role in [UserRole.MANAGER.value, UserRole.ADMIN.value]
