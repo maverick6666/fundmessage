@@ -32,9 +32,11 @@ export function StockChart({
   const { isCurrentThemeDark } = useTheme();
 
   // Stable callback - doesn't depend on candles/hasMore/etc directly
-  // Only trigger load when visible area shows empty space (past the oldest data)
+  // Load more data BEFORE empty space becomes visible (preemptive loading)
   const handleVisibleRangeChange = useCallback((newVisibleRange) => {
-    if (!onLoadMoreRef.current || !hasMoreRef.current || isLoadingMoreRef.current || loadingMoreRef.current) return;
+    // Skip if already loading or no more data
+    if (!onLoadMoreRef.current || !hasMoreRef.current) return;
+    if (isLoadingMoreRef.current || loadingMoreRef.current) return;
     if (!candlesRef.current || candlesRef.current.length === 0) return;
 
     const visibleFrom = typeof newVisibleRange?.from === 'number' ? newVisibleRange.from : null;
@@ -43,9 +45,13 @@ export function StockChart({
     const oldestDataTime = candlesRef.current[0]?.time;
     if (!oldestDataTime) return;
 
-    // Only load more when the visible area actually extends past the oldest data
-    // This prevents loading while just browsing existing data
-    if (visibleFrom < oldestDataTime) {
+    // Calculate buffer: load when within 20% of visible range from oldest data
+    // This ensures data is loaded BEFORE user sees empty space
+    const visibleTo = typeof newVisibleRange?.to === 'number' ? newVisibleRange.to : oldestDataTime;
+    const visibleRange = visibleTo - visibleFrom;
+    const bufferThreshold = Math.max(visibleRange * 0.2, 86400 * 10); // 20% of visible range or 10 days
+
+    if (visibleFrom <= oldestDataTime + bufferThreshold) {
       isLoadingMoreRef.current = true;
       onLoadMoreRef.current(oldestDataTime);
     }
