@@ -259,7 +259,7 @@ export function Positions() {
 
     setInlineChartLoading(true);
     try {
-      const result = await priceService.getCandles(selectedStock.ticker, selectedStock.market, inlineTimeframe, 200);
+      const result = await priceService.getCandles(selectedStock.ticker, selectedStock.market, inlineTimeframe, 100);
       if (result.success && result.data) {
         setInlineCandles(result.data.candles || []);
         setInlineHasMore(result.data.has_more === true);
@@ -279,7 +279,7 @@ export function Positions() {
     if (!selectedStock) return;
     setInlineChartLoading(true);
     try {
-      const result = await priceService.getCandles(selectedStock.ticker, selectedStock.market, newTimeframe, 200);
+      const result = await priceService.getCandles(selectedStock.ticker, selectedStock.market, newTimeframe, 100);
       if (result.success && result.data) {
         setInlineCandles(result.data.candles || []);
         setInlineHasMore(result.data.has_more === true);
@@ -292,8 +292,12 @@ export function Positions() {
   };
 
   // 인라인 차트 더보기 로드
-  const handleInlineLoadMore = async (beforeTimestamp) => {
+  // neededBars: 빈 공간을 채우기 위해 필요한 데이터 수 (최대 500)
+  const handleInlineLoadMore = async (beforeTimestamp, neededBars = 200) => {
     if (!selectedStock || inlineLoadingMore || !inlineHasMore) return;
+
+    // API 최대 limit은 500
+    const limit = Math.min(Math.max(neededBars, 50), 500);
 
     setInlineLoadingMore(true);
     try {
@@ -301,7 +305,7 @@ export function Positions() {
         selectedStock.ticker,
         selectedStock.market,
         inlineTimeframe,
-        200,
+        limit,
         beforeTimestamp
       );
 

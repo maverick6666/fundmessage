@@ -129,7 +129,7 @@ export default function StockSearch() {
 
     try {
       // 캔들 데이터 조회 (종목 정보 포함) - 200개 요청 (lazy loading으로 더 불러옴)
-      const result = await priceService.getCandles(searchTicker, searchMarket, timeframe, 200);
+      const result = await priceService.getCandles(searchTicker, searchMarket, timeframe, 100);
 
       if (result.success && result.data) {
         setStockInfo({
@@ -207,7 +207,7 @@ export default function StockSearch() {
     if (stockInfo) {
       setLoading(true);
       try {
-        const result = await priceService.getCandles(stockInfo.ticker, stockInfo.market || market, newTimeframe, 200);
+        const result = await priceService.getCandles(stockInfo.ticker, stockInfo.market || market, newTimeframe, 100);
         if (result.success && result.data) {
           setCandles(result.data.candles || []);
           setHasMore(result.data.has_more === true);
@@ -221,8 +221,12 @@ export default function StockSearch() {
   }, [stockInfo, market]);
 
   // 과거 데이터 추가 로드 (lazy loading)
-  const handleLoadMore = useCallback(async (beforeTimestamp) => {
+  // neededBars: 빈 공간을 채우기 위해 필요한 데이터 수 (최대 500)
+  const handleLoadMore = useCallback(async (beforeTimestamp, neededBars = 200) => {
     if (!stockInfo || loadingMore || !hasMore) return;
+
+    // API 최대 limit은 500
+    const limit = Math.min(Math.max(neededBars, 50), 500);
 
     setLoadingMore(true);
     try {
@@ -230,7 +234,7 @@ export default function StockSearch() {
         stockInfo.ticker,
         stockInfo.market || market,
         timeframe,
-        200,
+        limit,
         beforeTimestamp
       );
 

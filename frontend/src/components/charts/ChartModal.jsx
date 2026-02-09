@@ -27,7 +27,7 @@ export function ChartModal({ isOpen, onClose, stock }) {
 
     setLoading(true);
     try {
-      const result = await priceService.getCandles(stock.ticker, stock.market, timeframe, 200);
+      const result = await priceService.getCandles(stock.ticker, stock.market, timeframe, 100);
       if (result.success && result.data) {
         setCandles(result.data.candles || []);
         setHasMore(result.data.has_more === true);
@@ -39,8 +39,12 @@ export function ChartModal({ isOpen, onClose, stock }) {
     }
   };
 
-  const handleLoadMore = useCallback(async (beforeTimestamp) => {
+  // neededBars: 빈 공간을 채우기 위해 필요한 데이터 수 (최대 500)
+  const handleLoadMore = useCallback(async (beforeTimestamp, neededBars = 200) => {
     if (!stock || loadingMore || !hasMore) return;
+
+    // API 최대 limit은 500
+    const limit = Math.min(Math.max(neededBars, 50), 500);
 
     setLoadingMore(true);
     try {
@@ -48,7 +52,7 @@ export function ChartModal({ isOpen, onClose, stock }) {
         stock.ticker,
         stock.market,
         timeframe,
-        200,
+        limit,
         beforeTimestamp
       );
 

@@ -399,12 +399,25 @@ class PriceService:
                 if before and timestamp >= before:
                     continue
 
+                open_price = float(row["Open"])
+                high_price = float(row["High"])
+                low_price = float(row["Low"])
+                close_price = float(row["Close"])
+
+                # Yahoo Finance 버그: 진행 중인 주/월봉의 Low가 0으로 반환되는 경우 수정
+                if low_price <= 0 or low_price < min(open_price, close_price) * 0.1:
+                    low_price = min(open_price, close_price)
+
+                # High도 비정상적인 경우 수정
+                if high_price <= 0:
+                    high_price = max(open_price, close_price)
+
                 candles.append({
                     "time": timestamp,
-                    "open": float(row["Open"]),
-                    "high": float(row["High"]),
-                    "low": float(row["Low"]),
-                    "close": float(row["Close"]),
+                    "open": open_price,
+                    "high": high_price,
+                    "low": low_price,
+                    "close": close_price,
                     "volume": float(row["Volume"])
                 })
 

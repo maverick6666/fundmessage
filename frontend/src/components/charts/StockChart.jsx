@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef } from 'react';
+﻿import { useCallback, useEffect, useRef } from 'react';
 import { createChart } from 'lightweight-charts';
 import { useTheme } from '../../context/ThemeContext';
+
+const RANGE_EPSILON = 0.001;
 
 export function StockChart({
   candles,
@@ -14,8 +16,9 @@ export function StockChart({
   const chartRef = useRef(null);
   const candlestickSeriesRef = useRef(null);
   const volumeSeriesRef = useRef(null);
-  const isLoadingMoreRef = useRef(false);
   const lastCandlesLengthRef = useRef(0);
+  const isAdjustingRangeRef = useRef(false);
+  const isLoadRequestPendingRef = useRef(false);
 
   // Refs for stable callback access (prevents chart recreation)
   const candlesRef = useRef(candles);
@@ -31,36 +34,79 @@ export function StockChart({
 
   const { isCurrentThemeDark } = useTheme();
 
-  // Stable callback - doesn't depend on candles/hasMore/etc directly
-  // Load more data BEFORE empty space becomes visible (preemptive loading)
-  const handleVisibleRangeChange = useCallback((newVisibleRange) => {
-    // Skip if already loading or no more data
-    if (!onLoadMoreRef.current || !hasMoreRef.current) return;
-    if (isLoadingMoreRef.current || loadingMoreRef.current) return;
+  // 뷰포트에 빈 공간이 있으면 (왼쪽에 데이터가 없는 영역이 보이면) 과거 데이터 로드
+  // 빈 공간 크기를 계산해서 필요한 만큼 한 번에 요청
+  const maybeLoadMore = useCallback(() => {
+    if (!chartRef.current) return;
     if (!candlesRef.current || candlesRef.current.length === 0) return;
+    if (!hasMoreRef.current || !onLoadMoreRef.current) return;
+    if (loadingMoreRef.current || isLoadRequestPendingRef.current) return;
 
-    const visibleFrom = typeof newVisibleRange?.from === 'number' ? newVisibleRange.from : null;
-    if (!visibleFrom) return;
+    const logicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
+    if (!logicalRange) return;
 
-    const oldestDataTime = candlesRef.current[0]?.time;
-    if (!oldestDataTime) return;
+    // 뷰포트 왼쪽이 데이터 범위를 벗어났으면 (빈 공간이 보이면) 로드
+    // logicalRange.from < 0 이면 첫번째 데이터보다 왼쪽이 보이는 것
+    if (logicalRange.from < 0) {
+      const oldestDataTime = candlesRef.current[0]?.time;
+      if (!oldestDataTime) return;
 
-    // Calculate buffer: load when within 20% of visible range from oldest data
-    // This ensures data is loaded BEFORE user sees empty space
-    const visibleTo = typeof newVisibleRange?.to === 'number' ? newVisibleRange.to : oldestDataTime;
-    const visibleRange = visibleTo - visibleFrom;
-    const bufferThreshold = Math.max(visibleRange * 0.2, 86400 * 10); // 20% of visible range or 10 days
+      // 빈 공간 크기 계산 (여유분 20% 추가)
+      const emptyBars = Math.abs(logicalRange.from);
+      const neededBars = Math.ceil(emptyBars * 1.2);
 
-    if (visibleFrom <= oldestDataTime + bufferThreshold) {
-      isLoadingMoreRef.current = true;
-      onLoadMoreRef.current(oldestDataTime);
+      isLoadRequestPendingRef.current = true;
+      // 필요한 데이터 수량을 함께 전달
+      onLoadMoreRef.current(oldestDataTime, neededBars);
     }
   }, []);
+
+  // 오른쪽 끝만 제한 (미래는 데이터가 없으므로), 왼쪽은 자유롭게 스크롤 허용
+  const clampRightEdge = useCallback(() => {
+    if (!chartRef.current) return;
+    if (!candlesRef.current || candlesRef.current.length < 2) return;
+
+    const timeScale = chartRef.current.timeScale();
+    const logicalRange = timeScale.getVisibleLogicalRange();
+    if (!logicalRange) return;
+
+    const lastIndex = candlesRef.current.length - 1;
+
+    let nextFrom = logicalRange.from;
+    let nextTo = logicalRange.to;
+
+    if (!Number.isFinite(nextFrom) || !Number.isFinite(nextTo) || nextTo <= nextFrom) return;
+
+    const visibleSpan = nextTo - nextFrom;
+    let shouldClamp = false;
+
+    // 오른쪽 끝만 제한 (미래로 스크롤 방지)
+    if (nextTo > lastIndex + RANGE_EPSILON) {
+      nextTo = lastIndex;
+      nextFrom = nextTo - visibleSpan;
+      shouldClamp = true;
+    }
+
+    if (!shouldClamp) return;
+
+    isAdjustingRangeRef.current = true;
+    timeScale.setVisibleLogicalRange({ from: nextFrom, to: nextTo });
+
+    requestAnimationFrame(() => {
+      isAdjustingRangeRef.current = false;
+    });
+  }, []);
+
+  const handleVisibleLogicalRangeChange = useCallback(() => {
+    if (isAdjustingRangeRef.current) return;
+
+    clampRightEdge();
+    maybeLoadMore();
+  }, [clampRightEdge, maybeLoadMore]);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // 테마에 따른 차트 색상
     const chartColors = isCurrentThemeDark
       ? {
           background: '#1a1a2e',
@@ -92,9 +138,18 @@ export function StockChart({
         borderColor: chartColors.border,
         rightOffset: 0,
         barSpacing: 8,
+        fixLeftEdge: false,  // 왼쪽 스크롤 허용 (과거 데이터 자동 로드)
+        fixRightEdge: true,
+        rightBarStaysOnScroll: true,
+        lockVisibleTimeRangeOnResize: true,
       },
       rightPriceScale: {
         borderColor: chartColors.border,
+        autoScale: true,
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.2,
+        },
       },
       leftPriceScale: {
         visible: false,
@@ -114,6 +169,26 @@ export function StockChart({
       borderVisible: false,
       wickUpColor: '#ef5350',
       wickDownColor: '#26a69a',
+      // Y축이 0 아래로 내려가지 않도록 autoscale 조정
+      // scaleMargins.bottom=0.3 적용 후에도 스케일이 음수가 되지 않도록
+      // minValue를 충분히 높여서 margin 확장 후에도 0 이상 유지
+      autoscaleInfoProvider: (original) => {
+        const res = original();
+        if (res !== null && res.priceRange) {
+          const { minValue, maxValue } = res.priceRange;
+          const range = maxValue - minValue;
+          // scaleMargins: top=0.1, bottom=0.3 → 데이터가 60% 영역 차지
+          // bottom 30%가 minValue 아래로 확장됨 (range * 0.3 / 0.6 = range * 0.5)
+          const marginExtension = range * 0.5;
+
+          // margin 확장 후에도 0 이상이 되도록 minValue 조정
+          if (minValue - marginExtension < 0) {
+            // minValue를 marginExtension 이상으로 설정
+            res.priceRange.minValue = marginExtension * 1.1; // 약간의 여유
+          }
+        }
+        return res;
+      },
     });
 
     candlestickSeries.priceScale().applyOptions({
@@ -142,16 +217,16 @@ export function StockChart({
     candlestickSeriesRef.current = candlestickSeries;
     volumeSeriesRef.current = volumeSeries;
 
-    chart.timeScale().subscribeVisibleTimeRangeChange(handleVisibleRangeChange);
+    chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
 
     return () => {
-      chart.timeScale().unsubscribeVisibleTimeRangeChange(handleVisibleRangeChange);
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
       chart.remove();
       chartRef.current = null;
       candlestickSeriesRef.current = null;
       volumeSeriesRef.current = null;
     };
-  }, [height, isCurrentThemeDark, handleVisibleRangeChange]);
+  }, [height, isCurrentThemeDark, handleVisibleLogicalRangeChange]);
 
   useEffect(() => {
     if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
@@ -172,28 +247,84 @@ export function StockChart({
     }));
 
     try {
-      candlestickSeriesRef.current.setData(candlestickData);
-      volumeSeriesRef.current.setData(volumeData);
-
       const isInitialLoad = lastCandlesLengthRef.current === 0;
-      if (isInitialLoad && chartRef.current) {
-        // Fill the plotting area with current data range without extra leading offset.
-        chartRef.current.timeScale().fitContent();
-      }
+      const prevLength = lastCandlesLengthRef.current;
+      const addedCount = candles.length - prevLength;
 
-      lastCandlesLengthRef.current = candles.length;
-      isLoadingMoreRef.current = false;
+      if (!isInitialLoad && addedCount > 0 && chartRef.current) {
+        // 과거 데이터 로드: 논리적 인덱스 기반으로 뷰 위치 유지
+        // 빈 공간은 새 데이터로 채워지고, 뷰포인트는 유지됨
+        const timeScale = chartRef.current.timeScale();
+        const logicalRange = timeScale.getVisibleLogicalRange();
+
+        candlestickSeriesRef.current.setData(candlestickData);
+        volumeSeriesRef.current.setData(volumeData);
+
+        // 새 데이터가 앞에 추가되면 논리적 인덱스가 밀림
+        // 동일한 "시각적 위치"를 유지하려면 추가된 개수만큼 오프셋 적용
+        if (logicalRange) {
+          const newFrom = logicalRange.from + addedCount;
+          const newTo = logicalRange.to + addedCount;
+
+          isAdjustingRangeRef.current = true;
+          timeScale.setVisibleLogicalRange({ from: newFrom, to: newTo });
+
+          requestAnimationFrame(() => {
+            isAdjustingRangeRef.current = false;
+
+            // 빈 공간이 아직 남아있으면 추가 로드
+            const updatedRange = timeScale.getVisibleLogicalRange();
+            if (updatedRange && updatedRange.from < 0) {
+              maybeLoadMore();
+            }
+          });
+        }
+
+        lastCandlesLengthRef.current = candles.length;
+      } else {
+        candlestickSeriesRef.current.setData(candlestickData);
+        volumeSeriesRef.current.setData(volumeData);
+
+        lastCandlesLengthRef.current = candles.length;
+
+        if (isInitialLoad && chartRef.current) {
+          chartRef.current.timeScale().fitContent();
+
+          requestAnimationFrame(() => {
+            clampRightEdge();
+            maybeLoadMore();
+          });
+        }
+      }
     } catch (err) {
       console.error('Chart update failed:', err);
-      isLoadingMoreRef.current = false;
     }
-  }, [candles]);
+  }, [candles, clampRightEdge, maybeLoadMore]);
 
   useEffect(() => {
     if (loading) {
       lastCandlesLengthRef.current = 0;
+      isLoadRequestPendingRef.current = false;
     }
   }, [loading]);
+
+  const prevLoadingMoreRef = useRef(loadingMore);
+  useEffect(() => {
+    const wasLoading = prevLoadingMoreRef.current;
+    prevLoadingMoreRef.current = loadingMore;
+
+    if (!loadingMore) {
+      isLoadRequestPendingRef.current = false;
+    }
+
+    // 로딩 완료 후 오른쪽 끝 제한만 적용
+    // maybeLoadMore는 사용자 인터랙션에서만 호출 (무한 루프 방지)
+    if (wasLoading && !loadingMore) {
+      requestAnimationFrame(() => {
+        clampRightEdge();
+      });
+    }
+  }, [loadingMore, clampRightEdge]);
 
   return (
     <div className="relative">
