@@ -22,6 +22,7 @@ import { useSidePanelStore } from '../stores/useSidePanelStore';
 import {
   formatCurrency,
   formatPercent,
+  formatProfitRate,
   formatDate,
   formatHours,
   formatQuantity,
@@ -32,12 +33,7 @@ import {
   getProfitLossClass,
   cleanNumberInput
 } from '../utils/formatters';
-
-const TIMEFRAMES = [
-  { value: '1d', label: '일봉' },
-  { value: '1w', label: '주봉' },
-  { value: '1M', label: '월봉' },
-];
+import { TIMEFRAMES, CHART_CANDLE_LIMIT } from '../utils/constants';
 
 export function PositionDetail() {
   const { id } = useParams();
@@ -99,8 +95,20 @@ export function PositionDetail() {
   const [showPlanHistory, setShowPlanHistory] = useState(false);
   const [savingPlan, setSavingPlan] = useState(false);
   const [planMemo, setPlanMemo] = useState('');
-  // 변경 추적 (저장 전까지 누적)
-  const [pendingChanges, setPendingChanges] = useState([]);
+
+  // 로컬 계획 상태 (DB 저장 전까지의 편집 상태)
+  const [localPlans, setLocalPlans] = useState({
+    buy_plan: [],
+    take_profit_targets: [],
+    stop_loss_targets: []
+  });
+  // DB에 저장된 원본 계획 (수정 추적용)
+  const [savedPlans, setSavedPlans] = useState({
+    buy_plan: [],
+    take_profit_targets: [],
+    stop_loss_targets: []
+  });
+  // pendingChanges 제거 - 이제 savedPlans와 localPlans 비교로 변경사항 계산
 
   // 체결 확인 모달 (가격/수량 수정 가능)
   const [executeConfirmModal, setExecuteConfirmModal] = useState({
@@ -143,7 +151,7 @@ export function PositionDetail() {
     if (!position) return;
     setChartLoading(true);
     try {
-      const result = await priceService.getCandles(position.ticker, position.market, timeframe, 100);
+      const result = await priceService.getCandles(position.ticker, position.market, timeframe, CHART_CANDLE_LIMIT);
       if (result.success && result.data) {
         setCandles(result.data.candles || []);
         setHasMore(result.data.has_more === true);
@@ -227,6 +235,71 @@ export function PositionDetail() {
     }
   };
 
+  // savedPlans와 localPlans 비교하여 변경사항 계산
+  const pendingChanges = useMemo(() => {
+    const changes = [];
+    const planTypes = [
+      { key: 'buy_plan', type: 'buy' },
+      { key: 'take_profit_targets', type: 'take_profit' },
+      { key: 'stop_loss_targets', type: 'stop_loss' }
+    ];
+
+    planTypes.forEach(({ key, type }) => {
+      const saved = savedPlans[key] || [];
+      const local = localPlans[key] || [];
+
+      // 추가된 항목 (local에는 있지만 saved에는 없음)
+      local.forEach((item, i) => {
+        if (!item.price || !item.quantity) return; // 빈 항목 무시
+        const savedItem = saved[i];
+        if (!savedItem || (!savedItem.price && !savedItem.quantity)) {
+          // 새 항목
+          changes.push({
+            action: 'add',
+            type,
+            user: user?.name || '알 수 없음',
+            price: parseFloat(item.price),
+            quantity: parseFloat(item.quantity),
+            timestamp: new Date().toISOString()
+          });
+        } else if (
+          parseFloat(savedItem.price) !== parseFloat(item.price) ||
+          parseFloat(savedItem.quantity) !== parseFloat(item.quantity)
+        ) {
+          // 수정된 항목
+          changes.push({
+            action: 'modify',
+            type,
+            user: user?.name || '알 수 없음',
+            price: parseFloat(item.price),
+            quantity: parseFloat(item.quantity),
+            old_price: parseFloat(savedItem.price),
+            old_quantity: parseFloat(savedItem.quantity),
+            timestamp: new Date().toISOString()
+          });
+        }
+      });
+
+      // 삭제된 항목 (saved에는 있지만 local에는 없음)
+      saved.forEach((item, i) => {
+        if (!item.price || !item.quantity) return;
+        const localItem = local[i];
+        if (!localItem || (!localItem.price && !localItem.quantity)) {
+          changes.push({
+            action: 'delete',
+            type,
+            user: user?.name || '알 수 없음',
+            price: parseFloat(item.price),
+            quantity: parseFloat(item.quantity),
+            timestamp: new Date().toISOString()
+          });
+        }
+      });
+    });
+
+    return changes;
+  }, [savedPlans, localPlans, user?.name]);
+
   // 계획 저장 확인 모달 표시
   const showSavePlanConfirmModal = () => {
     if (!position) return;
@@ -237,24 +310,41 @@ export function PositionDetail() {
     setSavePlanConfirm(true);
   };
 
-  // 실제 계획 저장 실행
+  // 실제 계획 저장 실행 - Position DB 저장 + 이력 생성
   const handleSaveTradingPlan = async () => {
     if (!position) return;
     setSavePlanConfirm(false);
     setSavingPlan(true);
     try {
+      // 1. Position에 계획 저장 (DB 반영)
+      const updatedPosition = await positionService.updatePlans(id, {
+        buyPlan: localPlans.buy_plan.filter(p => p.price && p.quantity),
+        takeProfitTargets: localPlans.take_profit_targets.filter(p => p.price && p.quantity),
+        stopLossTargets: localPlans.stop_loss_targets.filter(p => p.price && p.quantity)
+      });
+
+      // 2. TradingPlan 이력 저장
       const planData = {
-        buy_plan: position.buy_plan || [],
-        take_profit_targets: position.take_profit_targets || [],
-        stop_loss_targets: position.stop_loss_targets || [],
+        buy_plan: localPlans.buy_plan.filter(p => p.price && p.quantity),
+        take_profit_targets: localPlans.take_profit_targets.filter(p => p.price && p.quantity),
+        stop_loss_targets: localPlans.stop_loss_targets.filter(p => p.price && p.quantity),
         memo: planMemo || null,
         changes: pendingChanges
       };
       await tradingPlanService.createPlan(id, planData);
+
+      // 3. 상태 업데이트
+      setPosition(updatedPosition);
+      const newPlans = {
+        buy_plan: updatedPosition.buy_plan || [],
+        take_profit_targets: updatedPosition.take_profit_targets || [],
+        stop_loss_targets: updatedPosition.stop_loss_targets || []
+      };
+      setLocalPlans(newPlans);
+      setSavedPlans(JSON.parse(JSON.stringify(newPlans)));
       setPlanMemo('');
-      setPendingChanges([]); // 저장 후 초기화
       fetchTradingPlans();
-      if (showAuditLogs) fetchAuditLogs(); // 감사 로그 새로고침
+      if (showAuditLogs) fetchAuditLogs();
       toast.success('매매계획이 저장되었습니다.');
     } catch (error) {
       toast.error(error.response?.data?.detail || '저장에 실패했습니다.');
@@ -263,13 +353,11 @@ export function PositionDetail() {
     }
   };
 
-  // 계획 요약 생성 (모달 표시용)
+  // 계획 요약 생성 (모달 표시용) - localPlans 사용
   const formatPlanSummary = () => {
-    if (!position) return { buy: [], takeProfit: [], stopLoss: [] };
-
-    const buyPlan = (position.buy_plan || []).filter(p => !p.completed);
-    const takeProfitTargets = (position.take_profit_targets || []).filter(p => !p.completed);
-    const stopLossTargets = (position.stop_loss_targets || []).filter(p => !p.completed);
+    const buyPlan = (localPlans.buy_plan || []).filter(p => !p.completed && p.price && p.quantity);
+    const takeProfitTargets = (localPlans.take_profit_targets || []).filter(p => !p.completed && p.price && p.quantity);
+    const stopLossTargets = (localPlans.stop_loss_targets || []).filter(p => !p.completed && p.price && p.quantity);
 
     return {
       buy: buyPlan.map(p => ({
@@ -285,21 +373,6 @@ export function PositionDetail() {
         quantity: p.quantity
       }))
     };
-  };
-
-  // 변경 기록 추가 헬퍼
-  const addPendingChange = (action, type, price, quantity, oldPrice = null, oldQuantity = null) => {
-    const change = {
-      action,
-      type,
-      user: user?.name || '알 수 없음',
-      price: price ? parseFloat(price) : null,
-      quantity: quantity ? parseFloat(quantity) : null,
-      old_price: oldPrice ? parseFloat(oldPrice) : null,
-      old_quantity: oldQuantity ? parseFloat(oldQuantity) : null,
-      timestamp: new Date().toISOString()
-    };
-    setPendingChanges(prev => [...prev, change]);
   };
 
   const handleSubmitTradingPlan = async (planId) => {
@@ -411,6 +484,14 @@ export function PositionDetail() {
         total_quantity: cleanNumberInput(data.total_quantity),
         total_sell_amount: '',
       });
+      // 로컬 계획 상태 초기화 (DB에서 로드한 값으로)
+      const plans = {
+        buy_plan: data.buy_plan || [],
+        take_profit_targets: data.take_profit_targets || [],
+        stop_loss_targets: data.stop_loss_targets || []
+      };
+      setLocalPlans(plans);
+      setSavedPlans(JSON.parse(JSON.stringify(plans))); // 깊은 복사
     } catch (error) {
       console.error('Failed to fetch position:', error);
     } finally {
@@ -463,7 +544,7 @@ export function PositionDetail() {
     }
   };
 
-  // 체크박스 토글 (팀장만)
+  // 체크박스 토글 (팀장만) - localPlans 기반
   const handleTogglePlan = async (planType, index, completed) => {
     // 완료 체크 시 체결 모달 표시 (가격/수량 수정 가능)
     if (completed) {
@@ -471,13 +552,13 @@ export function PositionDetail() {
       let typeLabel = '';
 
       if (planType === 'buy') {
-        item = position.buy_plan?.[index];
+        item = localPlans.buy_plan?.[index];
         typeLabel = '매수';
       } else if (planType === 'take_profit') {
-        item = position.take_profit_targets?.[index];
+        item = localPlans.take_profit_targets?.[index];
         typeLabel = '익절';
       } else if (planType === 'stop_loss') {
-        item = position.stop_loss_targets?.[index];
+        item = localPlans.stop_loss_targets?.[index];
         typeLabel = '손절';
       }
 
@@ -555,49 +636,31 @@ export function PositionDetail() {
     const newItem = { price: '', quantity: '', completed: false, _isNew: true };
     const key = planType === 'buy' ? 'buy_plan' : planType === 'take_profit' ? 'take_profit_targets' : 'stop_loss_targets';
 
-    // 로컬 상태만 업데이트 (DB 저장 X)
-    setPosition(prev => ({
+    // localPlans 상태만 업데이트 (DB 저장 X)
+    setLocalPlans(prev => ({
       ...prev,
       [key]: [...(prev[key] || []), newItem]
     }));
 
-    const newIndex = (position[key] || []).length;
+    const newIndex = (localPlans[key] || []).length;
     setEditingPlanItem({ planType, index: newIndex });
     setEditPlanData({ price: '', quantity: '' });
   };
 
-  // 계획 항목 삭제
-  const handleRemovePlanItem = async (planType, index) => {
-    const currentPlans = {
-      buy_plan: position.buy_plan || [],
-      take_profit_targets: position.take_profit_targets || [],
-      stop_loss_targets: position.stop_loss_targets || []
-    };
-
+  // 계획 항목 삭제 (로컬에서만 제거, "현재계획저장" 클릭 시 DB 반영)
+  const handleRemovePlanItem = (planType, index) => {
     const key = planType === 'buy' ? 'buy_plan' : planType === 'take_profit' ? 'take_profit_targets' : 'stop_loss_targets';
-    const deletedItem = currentPlans[key][index];
-    const updatedPlans = { ...currentPlans, [key]: currentPlans[key].filter((_, i) => i !== index) };
 
-    try {
-      const updatedPosition = await positionService.updatePlans(id, {
-        buyPlan: updatedPlans.buy_plan.length > 0 ? updatedPlans.buy_plan : null,
-        takeProfitTargets: updatedPlans.take_profit_targets.length > 0 ? updatedPlans.take_profit_targets : null,
-        stopLossTargets: updatedPlans.stop_loss_targets.length > 0 ? updatedPlans.stop_loss_targets : null
-      });
-      setPosition(updatedPosition);
-      setEditingPlanItem(null);
-      if (showAuditLogs) fetchAuditLogs();
-      // 삭제 변경 기록
-      if (deletedItem?.price && deletedItem?.quantity) {
-        addPendingChange('delete', planType, deletedItem.price, deletedItem.quantity);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
-    }
+    // 로컬 상태에서만 제거
+    setLocalPlans(prev => ({
+      ...prev,
+      [key]: (prev[key] || []).filter((_, i) => i !== index)
+    }));
+    setEditingPlanItem(null);
   };
 
-  // 계획 항목 수정 저장
-  const handleSavePlanItem = async () => {
+  // 계획 항목 수정 저장 (로컬 상태만 변경, API 호출 X)
+  const handleSavePlanItem = () => {
     if (!editingPlanItem) return;
 
     const { planType, index } = editingPlanItem;
@@ -607,42 +670,23 @@ export function PositionDetail() {
       return;
     }
 
-    const currentPlans = {
-      buy_plan: [...(position.buy_plan || [])],
-      take_profit_targets: [...(position.take_profit_targets || [])],
-      stop_loss_targets: [...(position.stop_loss_targets || [])]
-    };
-
     const key = planType === 'buy' ? 'buy_plan' : planType === 'take_profit' ? 'take_profit_targets' : 'stop_loss_targets';
-    const existingItem = currentPlans[key][index];
-    const isNewItem = !existingItem?.price || !existingItem?.quantity;
-    const oldPrice = existingItem?.price;
-    const oldQuantity = existingItem?.quantity;
 
-    currentPlans[key][index] = {
-      ...currentPlans[key][index],
-      price: parseFloat(editPlanData.price),
-      quantity: parseFloat(editPlanData.quantity)
-    };
-
-    try {
-      const updatedPosition = await positionService.updatePlans(id, {
-        buyPlan: currentPlans.buy_plan,
-        takeProfitTargets: currentPlans.take_profit_targets,
-        stopLossTargets: currentPlans.stop_loss_targets
-      });
-      setPosition(updatedPosition);
-      setEditingPlanItem(null);
-      if (showAuditLogs) fetchAuditLogs();
-      // 변경 기록
-      if (isNewItem) {
-        addPendingChange('add', planType, editPlanData.price, editPlanData.quantity);
-      } else {
-        addPendingChange('modify', planType, editPlanData.price, editPlanData.quantity, oldPrice, oldQuantity);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.detail || '수정에 실패했습니다.');
-    }
+    // localPlans 상태만 업데이트 (DB 저장 X)
+    setLocalPlans(prev => {
+      const newPlans = { ...prev };
+      const planList = [...(newPlans[key] || [])];
+      planList[index] = {
+        ...planList[index],
+        price: parseFloat(editPlanData.price),
+        quantity: parseFloat(editPlanData.quantity),
+        _isNew: undefined // 저장되면 _isNew 제거
+      };
+      newPlans[key] = planList;
+      return newPlans;
+    });
+    setEditingPlanItem(null);
+    setEditPlanData({ price: '', quantity: '' });
   };
 
   const startEditPlanItem = (planType, index, item) => {
@@ -655,11 +699,11 @@ export function PositionDetail() {
     if (editingPlanItem) {
       const { planType, index } = editingPlanItem;
       const key = planType === 'buy' ? 'buy_plan' : planType === 'take_profit' ? 'take_profit_targets' : 'stop_loss_targets';
-      const currentItem = (position[key] || [])[index];
+      const currentItem = (localPlans[key] || [])[index];
 
       // 값이 없는 빈 항목이면 로컬 상태에서 제거
       if (currentItem && !currentItem.price && !currentItem.quantity) {
-        setPosition(prev => ({
+        setLocalPlans(prev => ({
           ...prev,
           [key]: (prev[key] || []).filter((_, i) => i !== index)
         }));
@@ -683,25 +727,24 @@ export function PositionDetail() {
     setShowAuditLogs(!showAuditLogs);
   };
 
-  // 잔량 경고
+  // 잔량 경고 (localPlans 기반)
   const quantityWarning = useMemo(() => {
     if (!position || position.status === 'closed') return null;
     const totalQty = parseFloat(position.total_quantity) || 0;
-    const tpQty = (position.take_profit_targets || []).filter(t => !t.completed && t.price && t.quantity).reduce((sum, t) => sum + (parseFloat(t.quantity) || 0), 0);
-    const slQty = (position.stop_loss_targets || []).filter(t => !t.completed && t.price && t.quantity).reduce((sum, t) => sum + (parseFloat(t.quantity) || 0), 0);
+    const tpQty = (localPlans.take_profit_targets || []).filter(t => !t.completed && t.price && t.quantity).reduce((sum, t) => sum + (parseFloat(t.quantity) || 0), 0);
+    const slQty = (localPlans.stop_loss_targets || []).filter(t => !t.completed && t.price && t.quantity).reduce((sum, t) => sum + (parseFloat(t.quantity) || 0), 0);
     const warnings = [];
     if (tpQty > totalQty) warnings.push(`익절 계획 수량(${tpQty})이 보유 수량(${totalQty})보다 많습니다`);
     if (slQty > totalQty) warnings.push(`손절 계획 수량(${slQty})이 보유 수량(${totalQty})보다 많습니다`);
     return warnings.length > 0 ? warnings : null;
-  }, [position]);
+  }, [position, localPlans]);
 
   const hasUncompletedPlans = useMemo(() => {
-    if (!position) return false;
-    const uncompletedTp = (position.take_profit_targets || []).filter(t => !t.completed && t.price && t.quantity).length;
-    const uncompletedSl = (position.stop_loss_targets || []).filter(t => !t.completed && t.price && t.quantity).length;
-    const uncompletedBuy = (position.buy_plan || []).filter(b => !b.completed && b.price && b.quantity).length;
+    const uncompletedTp = (localPlans.take_profit_targets || []).filter(t => !t.completed && t.price && t.quantity).length;
+    const uncompletedSl = (localPlans.stop_loss_targets || []).filter(t => !t.completed && t.price && t.quantity).length;
+    const uncompletedBuy = (localPlans.buy_plan || []).filter(b => !b.completed && b.price && b.quantity).length;
     return uncompletedTp > 0 || uncompletedSl > 0 || uncompletedBuy > 0;
-  }, [position]);
+  }, [localPlans]);
 
   const hasOpenDiscussion = useMemo(() => {
     return discussions.some(d => d.status === 'open');
@@ -841,6 +884,11 @@ export function PositionDetail() {
             <button onClick={cancelEditPlanItem} className="p-1.5 text-gray-400 hover:text-gray-600 shrink-0" title="취소">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <button onClick={() => handleRemovePlanItem(planType, index)} className="p-1.5 text-red-500 hover:text-red-600 shrink-0" title="삭제">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
           </div>
@@ -1061,19 +1109,26 @@ export function PositionDetail() {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">진입금액</p>
                 <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(position.total_buy_amount, position.market)}</p>
               </div>
-              {/* 2. 총 가치 (진입금액 + 총손익) */}
+              {/* 2. 총 가치 (진입금액 + 총손익) - 빨강: 이익, 파랑: 손실 */}
               {position.status === 'open' && currentPrice && profitInfo && (
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">총 가치</p>
-                  <p className="text-lg font-semibold dark:text-gray-200">
+                  <p className={`text-lg font-semibold ${
+                    profitInfo.totalProfitLoss > 0 ? 'text-red-500' :
+                    profitInfo.totalProfitLoss < 0 ? 'text-blue-500' : 'dark:text-gray-200'
+                  }`}>
                     {formatCurrency((parseFloat(position.total_buy_amount) || 0) + profitInfo.totalProfitLoss, position.market)}
                   </p>
                 </div>
               )}
+              {/* 청산금액 - 빨강: 이익 (진입금액보다 높음), 파랑: 손실 */}
               {position.status === 'closed' && (
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">청산금액</p>
-                  <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(position.total_sell_amount, position.market)}</p>
+                  <p className={`text-lg font-semibold ${
+                    parseFloat(position.total_sell_amount) > parseFloat(position.total_buy_amount) ? 'text-red-500' :
+                    parseFloat(position.total_sell_amount) < parseFloat(position.total_buy_amount) ? 'text-blue-500' : 'dark:text-gray-200'
+                  }`}>{formatCurrency(position.total_sell_amount, position.market)}</p>
                 </div>
               )}
               {/* 3. 평균매입가 */}
@@ -1081,11 +1136,14 @@ export function PositionDetail() {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">평균매입가</p>
                 <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(position.average_buy_price, position.market)}</p>
               </div>
-              {/* 4. 현재가 */}
+              {/* 4. 현재가 - 빨강: 매입가보다 높음, 파랑: 낮음, 흰색: 같음 */}
               {position.status === 'open' && currentPrice && (
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">현재가</p>
-                  <p className="text-lg font-semibold dark:text-gray-200">{formatCurrency(currentPrice, position.market)}</p>
+                  <p className={`text-lg font-semibold ${
+                    currentPrice > parseFloat(position.average_buy_price) ? 'text-red-500' :
+                    currentPrice < parseFloat(position.average_buy_price) ? 'text-blue-500' : 'dark:text-gray-200'
+                  }`}>{formatCurrency(currentPrice, position.market)}</p>
                 </div>
               )}
               {/* 5. 보유수량 */}
@@ -1113,31 +1171,27 @@ export function PositionDetail() {
                   <ProfitProgressBar value={position.profit_rate != null ? position.profit_rate / 100 : null} size="lg" />
                 </div>
               )}
-              {/* 6. 목표진행 */}
-              {position.status === 'open' && currentPrice && (
-                <>
-                  {parseFloat(position.total_quantity) > 0 ? (
-                    <div className="min-w-[160px]">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">목표진행</p>
-                      <TargetProgressBar
-                        currentPrice={currentPrice}
-                        averagePrice={position.average_buy_price}
-                        takeProfitTargets={position.take_profit_targets}
-                        stopLossTargets={position.stop_loss_targets}
-                        market={position.market}
-                        size="md"
-                      />
-                      {!(position.take_profit_targets?.some(t => t.price && !t.completed) || position.stop_loss_targets?.some(t => t.price && !t.completed)) && profitInfo && (
-                        <ProfitProgressBar value={profitInfo.profitRate / 100} size="lg" />
-                      )}
-                    </div>
-                  ) : (
-                    <div className="min-w-[100px]">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">거래상태</p>
-                      <p className="text-lg font-bold text-gray-500 dark:text-gray-400">전량 매도</p>
-                    </div>
-                  )}
-                </>
+              {/* 6. 목표진행 - 타겟이 있을 때만 표시 (localPlans 기반) */}
+              {position.status === 'open' && currentPrice && parseFloat(position.total_quantity) > 0 &&
+               (localPlans.take_profit_targets?.some(t => t.price && !t.completed) || localPlans.stop_loss_targets?.some(t => t.price && !t.completed)) && (
+                <div className="min-w-[160px]">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">목표진행</p>
+                  <TargetProgressBar
+                    currentPrice={currentPrice}
+                    averagePrice={position.average_buy_price}
+                    takeProfitTargets={localPlans.take_profit_targets}
+                    stopLossTargets={localPlans.stop_loss_targets}
+                    market={position.market}
+                    size="md"
+                  />
+                </div>
+              )}
+              {/* 전량 매도 상태 */}
+              {position.status === 'open' && currentPrice && parseFloat(position.total_quantity) <= 0 && (
+                <div className="min-w-[100px]">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">거래상태</p>
+                  <p className="text-lg font-bold text-gray-500 dark:text-gray-400">전량 매도</p>
+                </div>
               )}
             </div>
             {isManager() && position.status === 'open' && (
@@ -1207,10 +1261,10 @@ export function PositionDetail() {
                 )}
               </div>
               <div className="space-y-1">
-                {(position.buy_plan || []).length === 0 ? (
+                {(localPlans.buy_plan || []).length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400">설정 안됨</p>
                 ) : (
-                  position.buy_plan.map((item, i) => renderPlanItem(item, i, 'buy', 'bg-blue-50 dark:bg-blue-900/20', position.status === 'closed'))
+                  localPlans.buy_plan.map((item, i) => renderPlanItem(item, i, 'buy', 'bg-blue-50 dark:bg-blue-900/20', position.status === 'closed'))
                 )}
               </div>
             </div>
@@ -1224,10 +1278,10 @@ export function PositionDetail() {
                 )}
               </div>
               <div className="space-y-1">
-                {(position.take_profit_targets || []).length === 0 ? (
+                {(localPlans.take_profit_targets || []).length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400">설정 안됨</p>
                 ) : (
-                  position.take_profit_targets.map((item, i) => renderPlanItem(item, i, 'take_profit', 'bg-red-50 dark:bg-red-900/20', position.status === 'closed'))
+                  localPlans.take_profit_targets.map((item, i) => renderPlanItem(item, i, 'take_profit', 'bg-red-50 dark:bg-red-900/20', position.status === 'closed'))
                 )}
               </div>
             </div>
@@ -1241,10 +1295,10 @@ export function PositionDetail() {
                 )}
               </div>
               <div className="space-y-1">
-                {(position.stop_loss_targets || []).length === 0 ? (
+                {(localPlans.stop_loss_targets || []).length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400">설정 안됨</p>
                 ) : (
-                  position.stop_loss_targets.map((item, i) => renderPlanItem(item, i, 'stop_loss', 'bg-blue-50 dark:bg-blue-900/20', position.status === 'closed'))
+                  localPlans.stop_loss_targets.map((item, i) => renderPlanItem(item, i, 'stop_loss', 'bg-blue-50 dark:bg-blue-900/20', position.status === 'closed'))
                 )}
               </div>
             </div>
@@ -1378,7 +1432,7 @@ export function PositionDetail() {
                                 <span className="text-gray-500 dark:text-gray-400 w-12">손익:</span>
                                 <span className={plan.profit_loss >= 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-blue-600 dark:text-blue-400 font-medium'}>
                                   {plan.profit_loss >= 0 ? '+' : ''}{formatCurrency(plan.profit_loss, position?.market)}
-                                  ({plan.profit_rate >= 0 ? '+' : ''}{formatPercent(plan.profit_rate * 100)})
+                                  ({formatProfitRate(plan.profit_rate)})
                                 </span>
                               </div>
                             )}

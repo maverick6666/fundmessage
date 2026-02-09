@@ -5,15 +5,22 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { priceService } from '../../services/priceService';
 import { useToast } from '../../context/ToastContext';
+import { useTheme } from '../../context/ThemeContext';
+import { SEARCH_DEBOUNCE_MS, CHART_CANDLE_LIMIT } from '../../utils/constants';
+
+const RANGE_EPSILON = 0.001;
 
 export function ChartShareModal({ isOpen, onClose, onShare }) {
   const toast = useToast();
+  const { isCurrentThemeDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedStock, setSelectedStock] = useState(null);
   const [candles, setCandles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [selectedRange, setSelectedRange] = useState({ from: null, to: null });
   const [isSelecting, setIsSelecting] = useState(false);
 
@@ -22,6 +29,21 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
   const candlestickSeriesRef = useRef(null);
   const isSelectingRef = useRef(false);
   const startTimeRef = useRef(null);
+
+  // StockChart와 동일한 refs (과거 데이터 로딩용)
+  const lastCandlesLengthRef = useRef(0);
+  const isAdjustingRangeRef = useRef(false);
+  const isLoadRequestPendingRef = useRef(false);
+  const candlesRef = useRef(candles);
+  const hasMoreRef = useRef(hasMore);
+  const loadingMoreRef = useRef(loadingMore);
+  const selectedStockRef = useRef(selectedStock);
+
+  // Keep refs in sync
+  candlesRef.current = candles;
+  hasMoreRef.current = hasMore;
+  loadingMoreRef.current = loadingMore;
+  selectedStockRef.current = selectedStock;
 
   // 종목 검색 (디바운싱 적용)
   useEffect(() => {
@@ -34,7 +56,6 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
       setSearchLoading(true);
       try {
         const result = await priceService.searchStocks(searchQuery, null, 10);
-        // API 응답: { success: true, data: { results: [...] } }
         setSearchResults(result.data?.results || []);
       } catch (error) {
         console.error('Search failed:', error);
@@ -44,9 +65,103 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
       }
     };
 
-    const debounce = setTimeout(searchStocks, 300);
+    const debounce = setTimeout(searchStocks, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(debounce);
   }, [searchQuery]);
+
+  // 과거 데이터 로드 함수
+  const loadMoreCandles = useCallback(async (beforeTime, neededBars) => {
+    if (!selectedStockRef.current) return;
+
+    setLoadingMore(true);
+    try {
+      const data = await priceService.getCandles(
+        selectedStockRef.current.ticker,
+        selectedStockRef.current.market,
+        '1d',
+        Math.max(neededBars, 50),
+        beforeTime
+      );
+
+      const newCandles = data.data?.candles || [];
+      if (newCandles.length === 0) {
+        setHasMore(false);
+      } else {
+        // 기존 캔들 앞에 새 캔들 추가 (중복 제거)
+        setCandles(prev => {
+          const existingTimes = new Set(prev.map(c => c.time));
+          const uniqueNew = newCandles.filter(c => !existingTimes.has(c.time));
+          return [...uniqueNew, ...prev].sort((a, b) => a.time - b.time);
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load more candles:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, []);
+
+  // 뷰포트에 빈 공간이 있으면 과거 데이터 로드
+  const maybeLoadMore = useCallback(() => {
+    if (!chartRef.current) return;
+    if (!candlesRef.current || candlesRef.current.length === 0) return;
+    if (!hasMoreRef.current) return;
+    if (loadingMoreRef.current || isLoadRequestPendingRef.current) return;
+
+    const logicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
+    if (!logicalRange) return;
+
+    if (logicalRange.from < 0) {
+      const oldestDataTime = candlesRef.current[0]?.time;
+      if (!oldestDataTime) return;
+
+      const emptyBars = Math.abs(logicalRange.from);
+      const neededBars = Math.ceil(emptyBars * 1.2);
+
+      isLoadRequestPendingRef.current = true;
+      loadMoreCandles(oldestDataTime, neededBars);
+    }
+  }, [loadMoreCandles]);
+
+  // 오른쪽 끝 제한
+  const clampRightEdge = useCallback(() => {
+    if (!chartRef.current) return;
+    if (!candlesRef.current || candlesRef.current.length < 2) return;
+
+    const timeScale = chartRef.current.timeScale();
+    const logicalRange = timeScale.getVisibleLogicalRange();
+    if (!logicalRange) return;
+
+    const lastIndex = candlesRef.current.length - 1;
+    let nextFrom = logicalRange.from;
+    let nextTo = logicalRange.to;
+
+    if (!Number.isFinite(nextFrom) || !Number.isFinite(nextTo) || nextTo <= nextFrom) return;
+
+    const visibleSpan = nextTo - nextFrom;
+    let shouldClamp = false;
+
+    if (nextTo > lastIndex + RANGE_EPSILON) {
+      nextTo = lastIndex;
+      nextFrom = nextTo - visibleSpan;
+      shouldClamp = true;
+    }
+
+    if (!shouldClamp) return;
+
+    isAdjustingRangeRef.current = true;
+    timeScale.setVisibleLogicalRange({ from: nextFrom, to: nextTo });
+
+    requestAnimationFrame(() => {
+      isAdjustingRangeRef.current = false;
+    });
+  }, []);
+
+  const handleVisibleLogicalRangeChange = useCallback(() => {
+    if (isAdjustingRangeRef.current) return;
+    clampRightEdge();
+    maybeLoadMore();
+  }, [clampRightEdge, maybeLoadMore]);
 
   // 종목 선택
   const handleSelectStock = async (stock) => {
@@ -54,10 +169,11 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
     setSearchResults([]);
     setSearchQuery(stock.name);
     setLoading(true);
+    setHasMore(true);
+    lastCandlesLengthRef.current = 0;
 
     try {
-      const data = await priceService.getCandles(stock.ticker, stock.market, '1d', 100);
-      // API 응답: { success: true, data: { candles: [...] } }
+      const data = await priceService.getCandles(stock.ticker, stock.market, '1d', CHART_CANDLE_LIMIT);
       setCandles(data.data?.candles || []);
     } catch (error) {
       console.error('Failed to load candles:', error);
@@ -66,34 +182,62 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
     }
   };
 
-  // 차트 초기화
+  // 차트 생성 (candles 제외 - StockChart 패턴)
   useEffect(() => {
-    if (!isOpen || !chartContainerRef.current || candles.length === 0) return;
+    if (!isOpen || !chartContainerRef.current) return;
 
     // 기존 차트 정리
     if (chartRef.current) {
       chartRef.current.remove();
+      chartRef.current = null;
+      candlestickSeriesRef.current = null;
     }
+
+    const chartColors = isCurrentThemeDark
+      ? {
+          background: '#1f2937',
+          text: '#d1d5db',
+          grid: '#374151',
+          border: '#4b5563',
+        }
+      : {
+          background: '#ffffff',
+          text: '#333333',
+          grid: '#f0f0f0',
+          border: '#e0e0e0',
+        };
 
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: 300,
       layout: {
-        background: { color: '#ffffff' },
-        textColor: '#333',
+        background: { color: chartColors.background },
+        textColor: chartColors.text,
       },
       grid: {
-        vertLines: { color: '#f0f0f0' },
-        horzLines: { color: '#f0f0f0' },
+        vertLines: { color: chartColors.grid },
+        horzLines: { color: chartColors.grid },
       },
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
+        borderColor: chartColors.border,
+        rightOffset: 0,
+        barSpacing: 8,
+        fixLeftEdge: false,
+        fixRightEdge: true,
+        rightBarStaysOnScroll: true,
+        lockVisibleTimeRangeOnResize: true,
+      },
+      rightPriceScale: {
+        borderColor: chartColors.border,
+      },
+      leftPriceScale: {
+        visible: false,
       },
       crosshair: {
-        mode: 0, // Normal mode for selection
+        mode: 0,
       },
-      // TradingView 로고 제거
       watermark: {
         visible: false,
       },
@@ -108,35 +252,24 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
       wickDownColor: '#26a69a',
     });
 
-    const candlestickData = candles.map(candle => ({
-      time: candle.time,
-      open: candle.open,
-      high: candle.high,
-      low: candle.low,
-      close: candle.close,
-    }));
-
-    candlestickSeries.setData(candlestickData);
-    chart.timeScale().fitContent();
-
     chartRef.current = chart;
     candlestickSeriesRef.current = candlestickSeries;
 
-    // 범위 선택 핸들러 (ref 사용으로 클로저 문제 해결)
+    // 과거 데이터 로딩을 위한 구독
+    chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
+
+    // 범위 선택 핸들러
     chart.subscribeClick((param) => {
       if (param.time) {
         if (!isSelectingRef.current) {
-          // 시작점 설정
           isSelectingRef.current = true;
           startTimeRef.current = param.time;
           setIsSelecting(true);
           setSelectedRange({ from: param.time, to: null });
         } else {
-          // 끝점 설정
           isSelectingRef.current = false;
           const endTime = param.time;
           const startTime = startTimeRef.current;
-          // 시간 순서 정렬
           if (startTime < endTime) {
             setSelectedRange({ from: startTime, to: endTime });
           } else {
@@ -149,16 +282,102 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
     });
 
     return () => {
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
       chart.remove();
+      chartRef.current = null;
+      candlestickSeriesRef.current = null;
     };
-  }, [isOpen, candles]);
+  }, [isOpen, isCurrentThemeDark, handleVisibleLogicalRangeChange]);
+
+  // 데이터 업데이트 (차트 재생성 없이 - StockChart 패턴 완전 적용)
+  useEffect(() => {
+    if (!chartRef.current || !candlestickSeriesRef.current) return;
+    if (!candles || candles.length === 0) return;
+
+    const candlestickData = candles.map(candle => ({
+      time: candle.time,
+      open: candle.open,
+      high: candle.high,
+      low: candle.low,
+      close: candle.close,
+    }));
+
+    try {
+      const isInitialLoad = lastCandlesLengthRef.current === 0;
+      const prevLength = lastCandlesLengthRef.current;
+      const addedCount = candles.length - prevLength;
+
+      if (!isInitialLoad && addedCount > 0 && chartRef.current) {
+        // 과거 데이터 로드: 논리적 인덱스 기반으로 뷰 위치 유지
+        // 빈 공간은 새 데이터로 채워지고, 뷰포인트는 유지됨
+        const timeScale = chartRef.current.timeScale();
+        const logicalRange = timeScale.getVisibleLogicalRange();
+
+        candlestickSeriesRef.current.setData(candlestickData);
+
+        // 새 데이터가 앞에 추가되면 논리적 인덱스가 밀림
+        // 동일한 "시각적 위치"를 유지하려면 추가된 개수만큼 오프셋 적용
+        if (logicalRange) {
+          const newFrom = logicalRange.from + addedCount;
+          const newTo = logicalRange.to + addedCount;
+
+          isAdjustingRangeRef.current = true;
+          timeScale.setVisibleLogicalRange({ from: newFrom, to: newTo });
+
+          requestAnimationFrame(() => {
+            isAdjustingRangeRef.current = false;
+
+            // 빈 공간이 아직 남아있으면 추가 로드
+            const updatedRange = timeScale.getVisibleLogicalRange();
+            if (updatedRange && updatedRange.from < 0) {
+              maybeLoadMore();
+            }
+          });
+        }
+
+        lastCandlesLengthRef.current = candles.length;
+      } else {
+        candlestickSeriesRef.current.setData(candlestickData);
+
+        lastCandlesLengthRef.current = candles.length;
+
+        if (isInitialLoad && chartRef.current) {
+          chartRef.current.timeScale().fitContent();
+
+          requestAnimationFrame(() => {
+            clampRightEdge();
+            maybeLoadMore();
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Chart update failed:', err);
+    }
+  }, [candles, clampRightEdge, maybeLoadMore]);
+
+  // loadingMore 상태 변경 처리
+  const prevLoadingMoreRef = useRef(loadingMore);
+  useEffect(() => {
+    const wasLoading = prevLoadingMoreRef.current;
+    prevLoadingMoreRef.current = loadingMore;
+
+    if (!loadingMore) {
+      isLoadRequestPendingRef.current = false;
+    }
+
+    // 로딩 완료 후 오른쪽 끝 제한만 적용
+    if (wasLoading && !loadingMore) {
+      requestAnimationFrame(() => {
+        clampRightEdge();
+      });
+    }
+  }, [loadingMore, clampRightEdge]);
 
   // 선택된 범위 하이라이트
   useEffect(() => {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
     if (selectedRange.from && selectedRange.to) {
-      // 선택된 범위에 마커 추가
       const markers = [
         { time: selectedRange.from, position: 'belowBar', color: '#2196F3', shape: 'arrowUp', text: '시작' },
         { time: selectedRange.to, position: 'belowBar', color: '#2196F3', shape: 'arrowUp', text: '끝' },
@@ -181,7 +400,6 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
       return;
     }
 
-    // 선택된 범위의 캔들 데이터 추출
     const selectedCandles = candles.filter(
       c => c.time >= selectedRange.from && c.time <= selectedRange.to
     );
@@ -207,7 +425,6 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
       })),
     };
 
-    // 차트 설명 텍스트 생성
     const fromDate = new Date(selectedRange.from * 1000).toLocaleDateString('ko-KR');
     const toDate = new Date(selectedRange.to * 1000).toLocaleDateString('ko-KR');
     const content = `📈 ${selectedStock.name} (${selectedStock.ticker}) 차트 공유\n기간: ${fromDate} ~ ${toDate} (${selectedCandles.length}일)`;
@@ -223,8 +440,12 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
     setCandles([]);
     setSelectedRange({ from: null, to: null });
     setIsSelecting(false);
+    setHasMore(true);
+    setLoadingMore(false);
     isSelectingRef.current = false;
     startTimeRef.current = null;
+    lastCandlesLengthRef.current = 0;
+    isLoadRequestPendingRef.current = false;
     onClose();
   };
 
@@ -235,12 +456,16 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="차트 공유" size="lg">
-      {/* TradingView 로고 CSS 숨김 */}
       <style>{`
         .tv-lightweight-charts a[href*="tradingview"],
         .tv-lightweight-charts a[target="_blank"],
         [class*="tv-lightweight-charts"] a {
           display: none !important;
+        }
+        .chart-share-container table tr td:first-child {
+          width: 0 !important;
+          min-width: 0 !important;
+          padding: 0 !important;
         }
       `}</style>
       <div className="space-y-4">
@@ -279,10 +504,13 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
         </div>
 
         {/* 차트 영역 */}
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          {loading ? (
-            <div className="h-[300px] flex items-center justify-center bg-gray-50 dark:bg-gray-800">
-              <div className="flex items-center gap-2 text-gray-500">
+        <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <div ref={chartContainerRef} className="chart-share-container" style={{ height: 300 }} />
+
+          {/* 로딩 오버레이 */}
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/75 dark:bg-gray-800/75">
+              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
                 <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -290,10 +518,22 @@ export function ChartShareModal({ isOpen, onClose, onShare }) {
                 <span>차트 로딩중...</span>
               </div>
             </div>
-          ) : candles.length > 0 ? (
-            <div ref={chartContainerRef} />
-          ) : (
-            <div className="h-[300px] flex items-center justify-center bg-gray-50 dark:bg-gray-800">
+          )}
+
+          {/* 과거 데이터 로딩 인디케이터 - StockChart와 동일 */}
+          {loadingMore && !loading && (
+            <div className="absolute left-2 top-2 flex items-center gap-2 rounded-lg border border-gray-200 bg-white/90 px-3 py-1.5 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
+              <svg className="h-4 w-4 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span className="text-xs text-gray-600 dark:text-gray-400">과거 데이터 로딩...</span>
+            </div>
+          )}
+
+          {/* 빈 상태 오버레이 */}
+          {!loading && candles.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-800">
               <p className="text-gray-500 dark:text-gray-400">종목을 검색하세요</p>
             </div>
           )}

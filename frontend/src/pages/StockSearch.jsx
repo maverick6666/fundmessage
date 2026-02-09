@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -7,24 +7,13 @@ import { StockChart } from '../components/charts/StockChart';
 import { BuyRequestForm } from '../components/forms/BuyRequestForm';
 import { priceService } from '../services/priceService';
 import { positionService } from '../services/positionService';
-
-const MARKETS = [
-  { value: 'KOSPI', label: '코스피' },
-  { value: 'KOSDAQ', label: '코스닥' },
-  { value: 'NASDAQ', label: '나스닥' },
-  { value: 'NYSE', label: 'NYSE' },
-  { value: 'CRYPTO', label: '크립토' },
-];
-
-const TIMEFRAMES = [
-  { value: '1d', label: '일봉' },
-  { value: '1w', label: '주봉' },
-  { value: '1M', label: '월봉' },
-];
+import { useClickOutside } from '../hooks/useClickOutside';
+import { useStockSearch } from '../hooks/useStockSearch';
+import { formatNumber, getCurrencyUnit } from '../utils/formatters';
+import { MARKETS, TIMEFRAMES, SEARCH_DEBOUNCE_MS, CHART_CANDLE_LIMIT, MAX_PRICE, MAX_QUANTITY } from '../utils/constants';
 
 export default function StockSearch() {
   const [market, setMarket] = useState('KOSPI');
-  const [searchQuery, setSearchQuery] = useState('');
   const [ticker, setTicker] = useState('');
   const [timeframe, setTimeframe] = useState('1d');
 
@@ -40,69 +29,18 @@ export default function StockSearch() {
 
   const [showBuyForm, setShowBuyForm] = useState(false);
 
-  // 검색 자동완성
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
+  // 검색 자동완성 (커스텀 훅)
+  const {
+    searchQuery, setSearchQuery,
+    searchResults, searchLoading,
+    showDropdown, setShowDropdown,
+    dropdownRef,
+    clearSearch: clearStockSearch,
+  } = useStockSearch(market, SEARCH_DEBOUNCE_MS);
   const searchRef = useRef(null);
-  const dropdownRef = useRef(null);
-
-  // 검색어 변경 시 자동완성 검색
-  useEffect(() => {
-    const searchStocks = async () => {
-      if (!searchQuery || searchQuery.length < 1) {
-        setSearchResults([]);
-        setShowDropdown(false);
-        return;
-      }
-
-      setSearchLoading(true);
-      try {
-        // 시장 필터: KOSPI/KOSDAQ는 합쳐서, 나머지는 개별
-        let marketFilter = null;
-        if (market === 'KOSPI' || market === 'KOSDAQ') {
-          marketFilter = null; // 둘 다 검색
-        } else {
-          marketFilter = market;
-        }
-
-        const result = await priceService.searchStocks(searchQuery, marketFilter, 15);
-        if (result.success) {
-          // 시장 필터 적용 (KOSPI/KOSDAQ 중 선택된 것만)
-          let filtered = result.data.results;
-          if (market === 'KOSPI' || market === 'KOSDAQ') {
-            filtered = filtered.filter(s => s.market === 'KOSPI' || s.market === 'KOSDAQ');
-          }
-          setSearchResults(filtered);
-          setShowDropdown(filtered.length > 0);
-        }
-      } catch (err) {
-        console.error('Search error:', err);
-      } finally {
-        setSearchLoading(false);
-      }
-    };
-
-    const debounce = setTimeout(searchStocks, 300);
-    return () => clearTimeout(debounce);
-  }, [searchQuery, market]);
 
   // 외부 클릭 시 드롭다운 닫기
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target) &&
-        searchRef.current &&
-        !searchRef.current.contains(e.target)
-      ) {
-        setShowDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useClickOutside(searchRef, () => setShowDropdown(false));
 
   // 검색 결과 선택
   const handleSelectStock = (stock) => {
@@ -129,7 +67,7 @@ export default function StockSearch() {
 
     try {
       // 캔들 데이터 조회 (종목 정보 포함) - 200개 요청 (lazy loading으로 더 불러옴)
-      const result = await priceService.getCandles(searchTicker, searchMarket, timeframe, 100);
+      const result = await priceService.getCandles(searchTicker, searchMarket, timeframe, CHART_CANDLE_LIMIT);
 
       if (result.success && result.data) {
         setStockInfo({
@@ -207,7 +145,7 @@ export default function StockSearch() {
     if (stockInfo) {
       setLoading(true);
       try {
-        const result = await priceService.getCandles(stockInfo.ticker, stockInfo.market || market, newTimeframe, 100);
+        const result = await priceService.getCandles(stockInfo.ticker, stockInfo.market || market, newTimeframe, CHART_CANDLE_LIMIT);
         if (result.success && result.data) {
           setCandles(result.data.candles || []);
           setHasMore(result.data.has_more === true);
@@ -272,10 +210,8 @@ export default function StockSearch() {
   // 시장 선택 변경 시 검색어 초기화
   const handleMarketChange = (newMarket) => {
     setMarket(newMarket);
-    setSearchQuery('');
+    clearStockSearch();
     setTicker('');
-    setSearchResults([]);
-    setShowDropdown(false);
   };
 
   // 금액 포맷
@@ -633,8 +569,6 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
   // 유효성 검사
   const validateForm = () => {
     const errors = [];
-    const MAX_PRICE = 1000000000000; // 1조
-    const MAX_QUANTITY = 1000000000; // 10억
 
     // 매수 검증
     const buyOrders = formData.buy_orders.filter(o => o.price || o.quantity);
@@ -826,17 +760,6 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
     }
   };
 
-  const formatNumber = (num) => {
-    if (num === null || num === undefined) return '-';
-    return num.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
-  };
-
-  const getCurrencyUnit = () => {
-    if (market === 'NASDAQ' || market === 'NYSE') return ' USD';
-    if (market === 'CRYPTO') return ' USDT';
-    return '원';
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* 종목 정보 표시 */}
@@ -932,15 +855,15 @@ function BuyRequestFormWithPreset({ ticker, tickerName, market, currentPrice, ex
         <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
           <div className="flex justify-between items-center text-sm">
             <span className="text-gray-600 dark:text-gray-400">총 수량</span>
-            <span className="font-medium text-gray-900 dark:text-gray-100">{formatNumber(totalBuyQuantity)}</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{formatNumber(totalBuyQuantity, 2)}</span>
           </div>
           <div className="flex justify-between items-center text-sm mt-1">
             <span className="text-gray-600 dark:text-gray-400">평균 매수가</span>
-            <span className="font-medium text-gray-900 dark:text-gray-100">{formatNumber(avgBuyPrice)}{getCurrencyUnit()}</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{formatNumber(avgBuyPrice, 2)}{getCurrencyUnit(market)}</span>
           </div>
           <div className="flex justify-between items-center mt-2 pt-2 border-t">
             <span className="text-sm text-gray-600">예상 거래대금</span>
-            <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatNumber(totalAmount)}{getCurrencyUnit()}</span>
+            <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatNumber(totalAmount, 2)}{getCurrencyUnit(market)}</span>
           </div>
         </div>
       )}

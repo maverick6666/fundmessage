@@ -4,33 +4,31 @@ import { Button } from '../components/common/Button';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { TabGroup } from '../components/common/TabGroup';
 import { EmptyState } from '../components/common/EmptyState';
-import { ProfitProgressBar, calculateTargetProgress } from '../components/common/ProfitProgressBar';
+import { MiniTargetProgressBar, calculateTargetProgress } from '../components/common/ProfitProgressBar';
 import { StockChart } from '../components/charts/StockChart';
 import { QuickPriceButtons } from '../components/common/NumberInputWithQuickButtons';
 import { usePositions } from '../hooks/usePositions';
+import { useClickOutside } from '../hooks/useClickOutside';
+import { useStockSearch } from '../hooks/useStockSearch';
 import { priceService } from '../services/priceService';
 import { positionService } from '../services/positionService';
 import { requestService } from '../services/requestService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import {
+  formatNumber,
   formatCurrency,
   formatPercent,
+  formatProfitRate,
   formatQuantity,
   formatHours,
   calcHoldingHours,
   getStatusBadgeClass,
   getStatusLabel,
+  getCurrencyUnit,
   getProfitLossClass
 } from '../utils/formatters';
-
-const MARKETS = [
-  { value: 'KOSPI', label: '코스피' },
-  { value: 'KOSDAQ', label: '코스닥' },
-  { value: 'NASDAQ', label: '나스닥' },
-  { value: 'NYSE', label: 'NYSE' },
-  { value: 'CRYPTO', label: '크립토' },
-];
+import { MARKETS, SEARCH_DEBOUNCE_MS, PRICE_REFRESH_INTERVAL_MS, CHART_CANDLE_LIMIT } from '../utils/constants';
 
 export function Positions() {
   const { adminMode, canWrite } = useAuth();
@@ -44,15 +42,19 @@ export function Positions() {
   // 종목 검색 상태
   const [showSearch, setShowSearch] = useState(false);
   const [market, setMarket] = useState('KOSPI');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
   const [selectedStock, setSelectedStock] = useState(null);
   const [stockPrice, setStockPrice] = useState(null);
   const [existingPosition, setExistingPosition] = useState(null);
   const searchRef = useRef(null);
-  const dropdownRef = useRef(null);
+
+  // 검색 자동완성 (커스텀 훅)
+  const {
+    searchQuery, setSearchQuery,
+    searchResults, searchLoading,
+    showDropdown, setShowDropdown,
+    dropdownRef,
+    clearSearch: clearStockSearch,
+  } = useStockSearch(market, SEARCH_DEBOUNCE_MS);
 
   // 인라인 차트 상태
   const [showInlineChart, setShowInlineChart] = useState(false);
@@ -73,63 +75,13 @@ export function Positions() {
   useEffect(() => {
     if (statusFilter === 'open' && positions.length > 0) {
       fetchPrices();
-      const interval = setInterval(fetchPrices, 60000);
+      const interval = setInterval(fetchPrices, PRICE_REFRESH_INTERVAL_MS);
       return () => clearInterval(interval);
     }
   }, [positions, statusFilter]);
 
-  // 검색어 변경 시 자동완성
-  useEffect(() => {
-    const searchStocks = async () => {
-      if (!searchQuery || searchQuery.length < 1) {
-        setSearchResults([]);
-        setShowDropdown(false);
-        return;
-      }
-
-      setSearchLoading(true);
-      try {
-        let marketFilter = null;
-        if (market !== 'KOSPI' && market !== 'KOSDAQ') {
-          marketFilter = market;
-        }
-
-        const result = await priceService.searchStocks(searchQuery, marketFilter, 15);
-        if (result.success) {
-          let filtered = result.data.results;
-          if (market === 'KOSPI' || market === 'KOSDAQ') {
-            filtered = filtered.filter(s => s.market === 'KOSPI' || s.market === 'KOSDAQ');
-          }
-          setSearchResults(filtered);
-          setShowDropdown(filtered.length > 0);
-        }
-      } catch (err) {
-        console.error('Search error:', err);
-      } finally {
-        setSearchLoading(false);
-      }
-    };
-
-    const debounce = setTimeout(searchStocks, 300);
-    return () => clearTimeout(debounce);
-  }, [searchQuery, market]);
-
   // 외부 클릭 시 드롭다운 닫기
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target) &&
-        searchRef.current &&
-        !searchRef.current.contains(e.target)
-      ) {
-        setShowDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useClickOutside(searchRef, () => setShowDropdown(false));
 
   const fetchPrices = async () => {
     try {
@@ -217,9 +169,7 @@ export function Positions() {
   // 검색 초기화
   const clearSearch = () => {
     setSelectedStock(null);
-    setSearchQuery('');
-    setSearchResults([]);
-    setShowDropdown(false);
+    clearStockSearch();
     setStockPrice(null);
     setExistingPosition(null);
     setShowBuyForm(false);
@@ -232,10 +182,8 @@ export function Positions() {
   // 시장 변경
   const handleMarketChange = (newMarket) => {
     setMarket(newMarket);
-    setSearchQuery('');
+    clearStockSearch();
     setSelectedStock(null);
-    setSearchResults([]);
-    setShowDropdown(false);
     setStockPrice(null);
     setExistingPosition(null);
     // 인라인 차트 리셋
@@ -259,7 +207,7 @@ export function Positions() {
 
     setInlineChartLoading(true);
     try {
-      const result = await priceService.getCandles(selectedStock.ticker, selectedStock.market, inlineTimeframe, 100);
+      const result = await priceService.getCandles(selectedStock.ticker, selectedStock.market, inlineTimeframe, CHART_CANDLE_LIMIT);
       if (result.success && result.data) {
         setInlineCandles(result.data.candles || []);
         setInlineHasMore(result.data.has_more === true);
@@ -279,7 +227,7 @@ export function Positions() {
     if (!selectedStock) return;
     setInlineChartLoading(true);
     try {
-      const result = await priceService.getCandles(selectedStock.ticker, selectedStock.market, newTimeframe, 100);
+      const result = await priceService.getCandles(selectedStock.ticker, selectedStock.market, newTimeframe, CHART_CANDLE_LIMIT);
       if (result.success && result.data) {
         setInlineCandles(result.data.candles || []);
         setInlineHasMore(result.data.has_more === true);
@@ -705,12 +653,6 @@ function SimpleBuyForm({ stock, currentPrice, onSuccess, onCancel }) {
     : 0;
   const totalAmount = validBuyOrders.reduce((sum, o) => sum + parseFloat(o.price || 0) * parseFloat(o.quantity || 0), 0);
 
-  const getCurrencyUnit = () => {
-    if (stock.market === 'NASDAQ' || stock.market === 'NYSE') return ' USD';
-    if (stock.market === 'CRYPTO') return ' USDT';
-    return '원';
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -824,15 +766,15 @@ function SimpleBuyForm({ stock, currentPrice, onSuccess, onCancel }) {
         <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
           <div className="flex justify-between items-center text-sm">
             <span className="text-gray-600 dark:text-gray-400">총 수량</span>
-            <span className="font-medium text-gray-900 dark:text-gray-100">{totalBuyQuantity.toLocaleString()}</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{formatNumber(totalBuyQuantity, 2)}</span>
           </div>
           <div className="flex justify-between items-center text-sm mt-1">
             <span className="text-gray-600 dark:text-gray-400">평균 매수가</span>
-            <span className="font-medium text-gray-900 dark:text-gray-100">{avgBuyPrice.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}{getCurrencyUnit()}</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{formatNumber(avgBuyPrice, 2)}{getCurrencyUnit(stock.market)}</span>
           </div>
           <div className="flex justify-between items-center mt-2 pt-2 border-t dark:border-gray-600">
             <span className="text-sm text-gray-600 dark:text-gray-400">예상 거래대금</span>
-            <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{totalAmount.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}{getCurrencyUnit()}</span>
+            <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatNumber(totalAmount, 2)}{getCurrencyUnit(stock.market)}</span>
           </div>
         </div>
       )}
@@ -1108,19 +1050,35 @@ function PositionCard({
             {/* Left metrics */}
             <div className="flex gap-6 items-end">
               <div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">매수금액</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">평균매수가</p>
                 <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {formatCurrency(position.total_buy_amount, position.market)}
+                  {formatCurrency(position.average_buy_price, position.market)}
                 </p>
               </div>
               {isOpen && price?.current_price && (
                 <div>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">현재가</p>
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <p className={`text-sm font-semibold ${
+                    price.current_price > parseFloat(position.average_buy_price) ? 'text-red-500' :
+                    price.current_price < parseFloat(position.average_buy_price) ? 'text-blue-500' : 'text-gray-700 dark:text-gray-300'
+                  }`}>
                     {formatCurrency(price.current_price, position.market)}
                   </p>
                 </div>
               )}
+              <div>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">손익</p>
+                {(() => {
+                  const realized = parseFloat(position.realized_profit_loss) || 0;
+                  const unrealized = profitLoss || 0;
+                  const totalPL = isOpen ? realized + unrealized : realized;
+                  return (
+                    <p className={`text-sm font-semibold ${getProfitLossClass(totalPL)}`}>
+                      {formatCurrency(totalPL, position.market)}
+                    </p>
+                  );
+                })()}
+              </div>
               <div>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">보유기간</p>
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{formatHours(holdingHours)}</p>
@@ -1131,44 +1089,22 @@ function PositionCard({
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">{isOpen ? '수익률' : '실현 수익률'}</p>
-                {isOpen && hasTargets && price?.current_price ? (() => {
-                  // 타겟 기반 진행도 계산 (대시보드와 동일)
-                  const { progress, direction } = calculateTargetProgress(
-                    price.current_price,
-                    position.average_buy_price,
-                    position.take_profit_targets,
-                    position.stop_loss_targets
-                  );
-                  const isNearTarget = progress >= 70;
-                  return (
-                    <div className="flex items-center gap-2">
-                      <div className={`w-20 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden ${
-                        isNearTarget ? 'ring-1 ring-offset-1 ring-offset-white dark:ring-offset-gray-800 ' +
-                          (direction === 'profit' ? 'ring-red-400' : 'ring-blue-400') : ''
-                      }`}>
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            direction === 'profit'
-                              ? isNearTarget
-                                ? 'bg-gradient-to-r from-red-400 via-red-500 to-orange-400 animate-pulse'
-                                : 'bg-red-500'
-                              : direction === 'loss'
-                                ? isNearTarget
-                                  ? 'bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-400 animate-pulse'
-                                  : 'bg-blue-500'
-                                : 'bg-gray-400'
-                          }`}
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                      <span className={`text-base font-medium whitespace-nowrap ${getProfitLossClass(profitRate)}`}>
-                        {profitRate != null ? `${profitRate >= 0 ? '+' : ''}${formatPercent(profitRate)}` : '-'}
-                      </span>
-                    </div>
-                  );
-                })() : (
+                {isOpen && hasTargets && price?.current_price ? (
+                  <div className="flex items-center gap-2">
+                    <MiniTargetProgressBar
+                      currentPrice={price.current_price}
+                      averagePrice={position.average_buy_price}
+                      takeProfitTargets={position.take_profit_targets}
+                      stopLossTargets={position.stop_loss_targets}
+                      size="sm"
+                    />
+                    <span className={`text-base font-medium whitespace-nowrap ${getProfitLossClass(profitRate)}`}>
+                      {profitRate != null ? formatProfitRate(profitRate) : '-'}
+                    </span>
+                  </div>
+                ) : (
                   <span className={`text-base font-medium ${getProfitLossClass(profitRate)}`}>
-                    {profitRate != null ? `${profitRate >= 0 ? '+' : ''}${formatPercent(profitRate)}` : '-'}
+                    {profitRate != null ? formatProfitRate(profitRate) : '-'}
                   </span>
                 )}
               </div>
@@ -1200,7 +1136,10 @@ function PositionCard({
               {isOpen && (
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
                   <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">현재가</p>
-                  <p className="text-sm font-semibold">
+                  <p className={`text-sm font-semibold ${
+                    price?.current_price && price.current_price > parseFloat(position.average_buy_price) ? 'text-red-500' :
+                    price?.current_price && price.current_price < parseFloat(position.average_buy_price) ? 'text-blue-500' : ''
+                  }`}>
                     {price?.current_price
                       ? formatCurrency(price.current_price, position.market)
                       : priceLoading ? '...' : '-'}
@@ -1219,7 +1158,10 @@ function PositionCard({
                 <>
                   <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
                     <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">평가금액</p>
-                    <p className="text-sm font-semibold">
+                    <p className={`text-sm font-semibold ${
+                      price?.evaluation_amount && price.evaluation_amount > parseFloat(position.total_buy_amount) ? 'text-red-500' :
+                      price?.evaluation_amount && price.evaluation_amount < parseFloat(position.total_buy_amount) ? 'text-blue-500' : ''
+                    }`}>
                       {price?.evaluation_amount
                         ? formatCurrency(price.evaluation_amount, position.market)
                         : '-'}

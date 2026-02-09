@@ -2,12 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../common/Modal';
 import { StockChart } from './StockChart';
 import { priceService } from '../../services/priceService';
-
-const TIMEFRAMES = [
-  { value: '1d', label: '일봉' },
-  { value: '1w', label: '주봉' },
-  { value: '1M', label: '월봉' },
-];
+import { TIMEFRAMES, CHART_CANDLE_LIMIT } from '../../utils/constants';
 
 export function ChartModal({ isOpen, onClose, stock }) {
   const [timeframe, setTimeframe] = useState('1d');
@@ -27,7 +22,7 @@ export function ChartModal({ isOpen, onClose, stock }) {
 
     setLoading(true);
     try {
-      const result = await priceService.getCandles(stock.ticker, stock.market, timeframe, 100);
+      const result = await priceService.getCandles(stock.ticker, stock.market, timeframe, CHART_CANDLE_LIMIT);
       if (result.success && result.data) {
         setCandles(result.data.candles || []);
         setHasMore(result.data.has_more === true);
