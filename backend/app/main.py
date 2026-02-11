@@ -79,9 +79,68 @@ async def websocket_endpoint(
 
 
 # Startup event (시드 계정 생성 제거됨 - 첫 가입자가 자동으로 팀장이 됨)
+def _seed_newsdesk_data():
+    """뉴스데스크 시드 데이터 임포트 (DB에 데이터 없을 때만)"""
+    import os
+    seed_path = os.path.join(os.path.dirname(__file__), '..', 'seed_data', 'newsdesk_seed.json')
+    if not os.path.exists(seed_path):
+        return
+
+    from app.models.newsdesk import NewsDesk, RawNews
+    db = next(get_db())
+    try:
+        existing = db.query(NewsDesk).filter(NewsDesk.status == 'ready').count()
+        if existing > 0:
+            return
+
+        with open(seed_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        from datetime import datetime, date
+
+        for nd in data.get('newsdesks', []):
+            newsdesk = NewsDesk(
+                publish_date=date.fromisoformat(nd['publish_date']),
+                columns=nd.get('columns'),
+                news_cards=nd.get('news_cards'),
+                keywords=nd.get('keywords'),
+                sentiment=nd.get('sentiment'),
+                top_stocks=nd.get('top_stocks'),
+                status=nd.get('status', 'ready'),
+                raw_news_count=nd.get('raw_news_count', 0),
+                generation_count=nd.get('generation_count', 0),
+                last_generated_at=datetime.fromisoformat(nd['last_generated_at']) if nd.get('last_generated_at') else None,
+            )
+            db.add(newsdesk)
+
+        for rn in data.get('raw_news', []):
+            raw = RawNews(
+                source=rn['source'],
+                title=rn['title'],
+                description=rn.get('description'),
+                link=rn.get('link'),
+                pub_date=datetime.fromisoformat(rn['pub_date']) if rn.get('pub_date') else None,
+                collected_at=datetime.fromisoformat(rn['collected_at']) if rn.get('collected_at') else None,
+                keywords=rn.get('keywords'),
+                sentiment=rn.get('sentiment'),
+                newsdesk_date=date.fromisoformat(rn['newsdesk_date']) if rn.get('newsdesk_date') else None,
+            )
+            db.add(raw)
+
+        db.commit()
+        print(f"뉴스데스크 시드 완료: {len(data.get('newsdesks', []))}개 뉴스데스크, {len(data.get('raw_news', []))}개 원본뉴스")
+    except Exception as e:
+        db.rollback()
+        print(f"뉴스데스크 시드 실패: {e}")
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
 async def startup_event():
     init_scheduler()
+    # 뉴스데스크 시드 데이터 임포트
+    _seed_newsdesk_data()
     # 한국 종목 목록 미리 로드 (첫 검색 시 지연 방지)
     print("한국 종목 목록 로드 시작...")
     try:

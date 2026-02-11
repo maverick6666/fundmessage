@@ -22,8 +22,8 @@ services:
   # FastAPI 백엔드
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: fundmessage-backend
     env_file:
       - ./backend/.env

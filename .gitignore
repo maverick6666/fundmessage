@@ -54,3 +54,7 @@ nul
 # Local temp files
 .token
 newsdesk-mini-calendar-closed
+
+# Temp data dumps
+newsdesk_data_dump.sql
+/newsdesk_seed.json
