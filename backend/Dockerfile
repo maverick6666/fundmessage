@@ -18,5 +18,5 @@ COPY backend/ .
 # 포트 노출
 EXPOSE 8000
 
-# 실행
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 실행 (마이그레이션 후 서버 시작)
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
