@@ -43,7 +43,7 @@ export function Discussions() {
         status: statusFilter === 'all' ? null : statusFilter,
         limit: 50
       });
-      setDiscussions(data.discussions);
+      setDiscussions(data.discussions || []);
     } catch (error) {
       console.error('Failed to fetch discussions:', error);
     } finally {

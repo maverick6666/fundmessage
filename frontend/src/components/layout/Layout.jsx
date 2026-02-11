@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { SidePanel } from './SidePanel';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 import { useAuth } from '../../hooks/useAuth';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useSidePanelStore } from '../../stores/useSidePanelStore';
@@ -42,7 +43,9 @@ export function Layout({ children }) {
             minWidth: '320px',
           }}
         >
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
 
         {/* 노션 스타일 사이드 패널 */}

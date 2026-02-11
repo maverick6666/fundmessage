@@ -97,7 +97,7 @@ export function Discussion() {
   const fetchMessages = async () => {
     try {
       const data = await discussionService.getMessages(id, { limit: 200 });
-      setMessages(data.messages);
+      setMessages(data.messages || []);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
     } finally {

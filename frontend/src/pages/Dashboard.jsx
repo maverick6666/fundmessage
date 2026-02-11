@@ -135,7 +135,7 @@ export function Dashboard() {
         statsService.getExchangeRate().catch(() => null)
       ]);
       setPositions(positionData.positions || []);
-      setRequests(requestData.requests);
+      setRequests(requestData.requests || []);
       setDecisionNotes(decisionData.notes || []);
       setColumns(columnsData.columns || []);
       setTeamRanking(rankingData || { members: [], avg_week_attendance_rate: 0 });

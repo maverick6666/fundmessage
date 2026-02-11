@@ -107,7 +107,7 @@ export function Notifications() {
       const data = await notificationService.getNotifications({
         unreadOnly: filter === 'unread'
       });
-      let filtered = data.notifications;
+      let filtered = data.notifications || [];
       if (filter === 'read') {
         filtered = filtered.filter(n => n.is_read);
       }

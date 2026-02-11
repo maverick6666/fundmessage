@@ -104,13 +104,13 @@ export function Requests() {
       ]);
 
       // pending 필터일 때 프론트에서 pending + discussion 필터링
-      let finalRequests = filteredData.requests;
+      let finalRequests = filteredData.requests || [];
       if (statusFilter === 'pending') {
-        finalRequests = filteredData.requests.filter(r => r.status === 'pending' || r.status === 'discussion');
+        finalRequests = finalRequests.filter(r => r.status === 'pending' || r.status === 'discussion');
       }
 
       setRequests(finalRequests);
-      setAllRequests(allData.requests);
+      setAllRequests(allData.requests || []);
     } catch (error) {
       console.error('Failed to fetch requests:', error);
     } finally {
