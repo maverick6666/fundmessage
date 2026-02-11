@@ -40,19 +40,19 @@ class NewsDeskAI:
         raw_text = None
 
         # 1차: Responses API + verbosity (JSON 껍데기는 프롬프트로 유도)
-        if settings.openai_verbosity:
+        if settings.newsdesk_verbosity:
             try:
                 response = self.client.responses.create(
                     model=settings.openai_model,
                     instructions=system_prompt,
                     input=prompt,
-                    text={"verbosity": settings.openai_verbosity},
-                    max_output_tokens=32768,
-                    reasoning={"effort": "medium"},
+                    text={"verbosity": settings.newsdesk_verbosity},
+                    max_output_tokens=settings.newsdesk_max_tokens,
+                    reasoning={"effort": settings.newsdesk_reasoning_effort},
                 )
                 if response.output_text:
                     raw_text = response.output_text
-                    logger.info(f"Newsdesk: Responses API 성공 (verbosity={settings.openai_verbosity})")
+                    logger.info(f"Newsdesk: Responses API 성공 (verbosity={settings.newsdesk_verbosity})")
             except Exception as e:
                 logger.warning(f"Newsdesk: Responses API 실패, Chat Completions fallback: {e}")
 
@@ -65,8 +65,8 @@ class NewsDeskAI:
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                max_tokens=32768,
-                reasoning_effort="medium",
+                max_tokens=settings.newsdesk_max_tokens,
+                reasoning_effort=settings.newsdesk_reasoning_effort,
             )
             raw_text = response.choices[0].message.content
 

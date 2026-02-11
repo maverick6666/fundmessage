@@ -27,22 +27,27 @@ class AIService:
         else:
             self.client = None
 
-    def _call_ai(self, system_prompt: str, user_prompt: str, verbosity: str = None) -> str:
+    def _call_ai(self, system_prompt: str, user_prompt: str, verbosity: str = None, max_tokens: int = 0, reasoning_effort: str = "") -> str:
         """Responses API (verbosity 지원) + Chat Completions fallback"""
         import logging
         logger = logging.getLogger(__name__)
 
-        effective_verbosity = verbosity or settings.openai_verbosity
+        effective_verbosity = verbosity or ""
 
         # 1차: Responses API with verbosity
         if effective_verbosity:
             try:
-                response = self.client.responses.create(
-                    model=settings.openai_model,
-                    instructions=system_prompt,
-                    input=user_prompt,
-                    text={"verbosity": effective_verbosity},
-                )
+                kwargs = {
+                    "model": settings.openai_model,
+                    "instructions": system_prompt,
+                    "input": user_prompt,
+                    "text": {"verbosity": effective_verbosity},
+                }
+                if max_tokens > 0:
+                    kwargs["max_output_tokens"] = max_tokens
+                if reasoning_effort:
+                    kwargs["reasoning"] = {"effort": reasoning_effort}
+                response = self.client.responses.create(**kwargs)
                 if response.output_text:
                     logger.info(f"Responses API 성공 (verbosity={effective_verbosity})")
                     return response.output_text
@@ -57,6 +62,10 @@ class AIService:
                 {"role": "user", "content": user_prompt}
             ]
         }
+        if max_tokens > 0:
+            api_params["max_tokens"] = max_tokens
+        if reasoning_effort:
+            api_params["reasoning_effort"] = reasoning_effort
         if not any(x in settings.openai_model for x in ["gpt-5-mini", "gpt-5-nano"]):
             api_params["temperature"] = settings.openai_temperature
         response = self.client.chat.completions.create(**api_params)
@@ -376,7 +385,12 @@ class AIService:
 </OUTPUT_SPEC>"""
 
             # AI 호출 (의사결정서: verbosity=medium으로 과잉 길이 방지)
-            content = self._call_ai(system_prompt, prompt, verbosity="medium")
+            content = self._call_ai(
+                system_prompt, prompt,
+                verbosity=settings.decision_verbosity,
+                max_tokens=settings.decision_max_tokens,
+                reasoning_effort=settings.decision_reasoning_effort,
+            )
 
             # 제목 추출 (첫 줄에서 **제목**: 패턴 찾기)
             title = "AI 의사결정서"
@@ -735,7 +749,12 @@ class AIService:
 </DENSITY_REQUIREMENTS>"""
 
             # AI 호출 (Responses API + verbosity, fallback to Chat Completions)
-            content = self._call_ai(report_system_prompt, prompt)
+            content = self._call_ai(
+                report_system_prompt, prompt,
+                verbosity=settings.report_verbosity,
+                max_tokens=settings.report_max_tokens,
+                reasoning_effort=settings.report_reasoning_effort,
+            )
 
             # 남은 횟수 조회
             status = self.get_ai_status()

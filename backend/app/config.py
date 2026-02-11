@@ -23,13 +23,25 @@ class Settings(BaseSettings):
     kis_app_key: str = ""
     kis_app_secret: str = ""
 
-    # OpenAI API
+    # OpenAI API (공통)
     openai_api_key: str = ""
-    openai_model: str = "gpt-5-mini"  # 400K context, 정확한 프롬프트에 최적화
-    openai_temperature: float = 0.7  # 낮을수록 일관된 출력 (일부 모델은 미지원)
-    openai_max_tokens: int = 0  # 0이면 제한 없음 (모델이 자연스럽게 종료)
-    openai_max_tokens_report: int = 0  # 0이면 제한 없음
-    openai_verbosity: str = "high"  # Responses API verbosity: "low" | "medium" | "high"
+    openai_model: str = "gpt-5-mini"
+    openai_temperature: float = 0.7
+
+    # 뉴스데스크 AI 설정
+    newsdesk_verbosity: str = "high"
+    newsdesk_max_tokens: int = 32768
+    newsdesk_reasoning_effort: str = "medium"
+
+    # 의사결정서 AI 설정
+    decision_verbosity: str = "medium"
+    decision_max_tokens: int = 16384
+    decision_reasoning_effort: str = "medium"
+
+    # 운용보고서 AI 설정
+    report_verbosity: str = "high"
+    report_max_tokens: int = 16384
+    report_reasoning_effort: str = "medium"
 
     # Environment
     environment: str = "development"
