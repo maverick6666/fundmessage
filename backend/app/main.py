@@ -89,18 +89,20 @@ def _seed_newsdesk_data():
     from app.models.newsdesk import NewsDesk, RawNews
     db = next(get_db())
     try:
-        existing = db.query(NewsDesk).filter(NewsDesk.status == 'ready').count()
-        if existing > 0:
-            return
-
         with open(seed_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
         from datetime import datetime, date
 
+        added_nd = 0
+        added_rn = 0
         for nd in data.get('newsdesks', []):
+            pub_date = date.fromisoformat(nd['publish_date'])
+            existing = db.query(NewsDesk).filter(NewsDesk.publish_date == pub_date).first()
+            if existing:
+                continue
             newsdesk = NewsDesk(
-                publish_date=date.fromisoformat(nd['publish_date']),
+                publish_date=pub_date,
                 columns=nd.get('columns'),
                 news_cards=nd.get('news_cards'),
                 keywords=nd.get('keywords'),
@@ -112,23 +114,31 @@ def _seed_newsdesk_data():
                 last_generated_at=datetime.fromisoformat(nd['last_generated_at']) if nd.get('last_generated_at') else None,
             )
             db.add(newsdesk)
+            added_nd += 1
 
-        for rn in data.get('raw_news', []):
-            raw = RawNews(
-                source=rn['source'],
-                title=rn['title'],
-                description=rn.get('description'),
-                link=rn.get('link'),
-                pub_date=datetime.fromisoformat(rn['pub_date']) if rn.get('pub_date') else None,
-                collected_at=datetime.fromisoformat(rn['collected_at']) if rn.get('collected_at') else None,
-                keywords=rn.get('keywords'),
-                sentiment=rn.get('sentiment'),
-                newsdesk_date=date.fromisoformat(rn['newsdesk_date']) if rn.get('newsdesk_date') else None,
-            )
-            db.add(raw)
+            # 해당 날짜의 원본 뉴스도 추가
+            for rn in data.get('raw_news', []):
+                if rn.get('newsdesk_date') != nd['publish_date']:
+                    continue
+                raw = RawNews(
+                    source=rn['source'],
+                    title=rn['title'],
+                    description=rn.get('description'),
+                    link=rn.get('link'),
+                    pub_date=datetime.fromisoformat(rn['pub_date']) if rn.get('pub_date') else None,
+                    collected_at=datetime.fromisoformat(rn['collected_at']) if rn.get('collected_at') else None,
+                    keywords=rn.get('keywords'),
+                    sentiment=rn.get('sentiment'),
+                    newsdesk_date=pub_date,
+                )
+                db.add(raw)
+                added_rn += 1
 
-        db.commit()
-        print(f"뉴스데스크 시드 완료: {len(data.get('newsdesks', []))}개 뉴스데스크, {len(data.get('raw_news', []))}개 원본뉴스")
+        if added_nd > 0:
+            db.commit()
+            print(f"뉴스데스크 시드 완료: {added_nd}개 뉴스데스크, {added_rn}개 원본뉴스")
+        else:
+            print("뉴스데스크 시드: 추가할 데이터 없음 (모두 존재)")
     except Exception as e:
         db.rollback()
         print(f"뉴스데스크 시드 실패: {e}")

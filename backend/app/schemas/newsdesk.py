@@ -12,8 +12,8 @@ class KeywordBubble(BaseModel):
     category: Optional[str] = None  # 금융, 테크, 에너지, 소비재 등
     top_greed: List[str] = []  # 이 키워드의 탐욕 요인
     top_fear: List[str] = []   # 이 키워드의 공포 요인
-    # 구버전 호환 필드
-    sentiment: Optional[Dict[str, Any]] = None
+    # 구버전 호환 필드 (str 또는 dict)
+    sentiment: Optional[Any] = None
 
 
 # === 탐욕/공포 감성 ===
