@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://postgres:123580@localhost:5432/fundmessenger"
 
     # JWT
-    secret_key: str = "your-super-secret-key-change-this-in-production"
+    secret_key: str = ""  # 환경변수 SECRET_KEY 필수 설정
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     openai_temperature: float = 0.7  # 낮을수록 일관된 출력 (일부 모델은 미지원)
     openai_max_tokens: int = 0  # 0이면 제한 없음 (모델이 자연스럽게 종료)
     openai_max_tokens_report: int = 0  # 0이면 제한 없음
+    openai_verbosity: str = "high"  # Responses API verbosity: "low" | "medium" | "high"
 
     # Environment
     environment: str = "development"

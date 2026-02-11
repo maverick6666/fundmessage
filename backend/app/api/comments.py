@@ -1,5 +1,4 @@
 from datetime import datetime
-from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 
@@ -9,8 +8,7 @@ from app.schemas.comment import CommentCreate, CommentUpdate
 from app.models.comment import Comment
 from app.dependencies import get_current_user
 from app.models.user import User
-
-KST = ZoneInfo("Asia/Seoul")
+from app.utils.constants import KST
 
 VALID_DOCUMENT_TYPES = {"decision_note", "report", "column", "ai_column", "news"}
 

@@ -10,6 +10,8 @@ class KeywordBubble(BaseModel):
     count: int  # 언급 횟수
     greed_score: float  # 0.0 (극도의 공포) ~ 1.0 (극도의 탐욕)
     category: str  # 금융, 테크, 에너지, 소비재 등
+    top_greed: List[str] = []  # 이 키워드의 탐욕 요인
+    top_fear: List[str] = []   # 이 키워드의 공포 요인
 
 
 # === 탐욕/공포 감성 ===

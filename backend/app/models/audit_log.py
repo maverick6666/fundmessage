@@ -16,7 +16,7 @@ class AuditLog(Base):
     entity_id = Column(Integer, nullable=False, index=True)
 
     # 변경 정보
-    action = Column(String(50), nullable=False)  # 'create', 'update', 'delete', 'toggle', etc.
+    action = Column(Text, nullable=False)  # 'create', 'update', 'delete', 'toggle', 매매계획 변경사항 등
     field_name = Column(String(100))  # 변경된 필드명
     old_value = Column(Text)  # 이전 값
     new_value = Column(Text)  # 새 값

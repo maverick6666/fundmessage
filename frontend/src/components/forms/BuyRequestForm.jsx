@@ -3,14 +3,8 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { requestService } from '../../services/requestService';
 import { priceService } from '../../services/priceService';
-
-const MARKETS = [
-  { value: 'KOSPI', label: '코스피' },
-  { value: 'KOSDAQ', label: '코스닥' },
-  { value: 'NASDAQ', label: '나스닥' },
-  { value: 'NYSE', label: '뉴욕증권거래소' },
-  { value: 'CRYPTO', label: '크립토' },
-];
+import { formatNumber } from '../../utils/formatters';
+import { MARKETS } from '../../utils/constants';
 
 export function BuyRequestForm({ onSuccess, onCancel }) {
   const [loading, setLoading] = useState(false);
@@ -180,12 +174,6 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
     }
   };
 
-  // 금액 포맷팅
-  const formatNumber = (num) => {
-    if (num === null || num === undefined) return '-';
-    return num.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* 에러 메시지 */}
@@ -243,7 +231,7 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
         {currentPrice && (
           <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <span className="text-sm text-blue-700 dark:text-blue-300">
-              현재가: <strong>{formatNumber(currentPrice)}</strong>원
+              현재가: <strong>{formatNumber(currentPrice, 2)}</strong>원
             </span>
             <button
               type="button"
@@ -284,7 +272,7 @@ export function BuyRequestForm({ onSuccess, onCancel }) {
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600 dark:text-gray-400">예상 거래대금</span>
             <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-              {formatNumber(totalAmount)}원
+              {formatNumber(totalAmount, 2)}원
             </span>
           </div>
         </div>

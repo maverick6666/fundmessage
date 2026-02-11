@@ -8,9 +8,7 @@ from app.models.position import Position, PositionStatus
 from app.models.request import Request, RequestStatus, RequestType
 from app.models.user import User
 from app.models.attendance import Attendance
-
-# 한국 시간대 (UTC+9)
-KST = timezone(timedelta(hours=9))
+from app.utils.constants import KST
 
 
 def get_kst_today():

@@ -10,11 +10,12 @@ export const discussionService = {
     return response.data.data;
   },
 
-  async createDiscussion({ requestId, positionId, title }) {
+  async createDiscussion({ requestId, positionId, title, agenda }) {
     const response = await api.post('/discussions', {
       request_id: requestId || null,
       position_id: positionId || null,
-      title
+      title,
+      agenda
     });
     return response.data.data;
   },
@@ -44,8 +45,13 @@ export const discussionService = {
     return response.data.data;
   },
 
-  async reopenDiscussion(id) {
-    const response = await api.post(`/discussions/${id}/reopen`);
+  async reopenDiscussion(id, agenda) {
+    const response = await api.post(`/discussions/${id}/reopen`, { agenda });
+    return response.data.data;
+  },
+
+  async updateDiscussion(id, data) {
+    const response = await api.patch(`/discussions/${id}`, data);
     return response.data.data;
   },
 

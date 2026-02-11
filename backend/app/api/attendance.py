@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
@@ -11,9 +11,7 @@ from app.models.attendance import Attendance
 from app.models.team_column import TeamColumn
 from app.dependencies import get_current_user, get_manager, get_writer_user
 from app.models.user import User
-
-# 한국 시간대 (UTC+9)
-KST = timezone(timedelta(hours=9))
+from app.utils.constants import KST
 
 
 def get_kst_today():

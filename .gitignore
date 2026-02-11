@@ -47,9 +47,10 @@ playwright-report/
 # Windows artifacts
 nul
 
-# Project docs (local only)
-CLAUDE.md
-
 # Session files
 *-session-*.txt
 *-git.txt
+
+# Local temp files
+.token
+newsdesk-mini-calendar-closed

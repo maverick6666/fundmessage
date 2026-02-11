@@ -22,6 +22,7 @@ class Message(Base):
     content = Column(Text, nullable=False)
     message_type = Column(String(20), default=MessageType.TEXT.value)
     chart_data = Column(JSON, nullable=True)  # 차트 캔들 데이터 (message_type='chart' 일 때)
+    session_number = Column(Integer, default=1)  # 이 메시지가 속한 세션 번호
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 

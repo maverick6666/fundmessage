@@ -16,10 +16,11 @@ import { userService } from '../services/userService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import { useSidePanelStore } from '../stores/useSidePanelStore';
-import { calculateTargetProgress } from '../components/common/ProfitProgressBar';
+import { MiniTargetProgressBar } from '../components/common/ProfitProgressBar';
 import {
   formatCurrency,
   formatPercent,
+  formatProfitRate,
   formatRelativeTime,
   formatNumber,
   formatDate,
@@ -547,55 +548,20 @@ export function Dashboard() {
                         </span>
                       )}
                     </div>
-                    {position.profit_rate != null && (() => {
-                      // 포지션에서 직접 타겟 정보 추출
-                      const takeProfitTargets = position.take_profit_targets || [];
-                      const stopLossTargets = position.stop_loss_targets || [];
-                      const hasTargets = takeProfitTargets.length > 0 || stopLossTargets.length > 0;
-
-                      // 타겟 기반 진행도 계산
-                      const { progress, direction } = hasTargets
-                        ? calculateTargetProgress(
-                            position.current_price,
-                            position.average_buy_price,
-                            takeProfitTargets,
-                            stopLossTargets
-                          )
-                        : { progress: 0, direction: 'neutral' };
-
-                      // 70% 이상이면 그라데이션 효과
-                      const isNearTarget = progress >= 70;
-
-                      return (
-                        <div className="flex items-center gap-2 shrink-0">
-                          {/* 미니 수익률 바 - 매매계획 있을 때만 표시 */}
-                          {hasTargets && (
-                            <div className={`w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden ${
-                              isNearTarget ? 'ring-1 ring-offset-1 ring-offset-white dark:ring-offset-gray-800 ' +
-                                (direction === 'profit' ? 'ring-red-400' : 'ring-blue-400') : ''
-                            }`}>
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  direction === 'profit'
-                                    ? isNearTarget
-                                      ? 'bg-gradient-to-r from-red-400 via-red-500 to-orange-400 animate-pulse'
-                                      : 'bg-red-500'
-                                    : direction === 'loss'
-                                      ? isNearTarget
-                                        ? 'bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-400 animate-pulse'
-                                        : 'bg-blue-500'
-                                      : 'bg-gray-400'
-                                }`}
-                                style={{ width: `${progress}%` }}
-                              />
-                            </div>
-                          )}
-                          <span className={`text-sm font-semibold whitespace-nowrap ${getProfitLossClass(position.profit_rate)}`}>
-                            {position.profit_rate >= 0 ? '+' : ''}{formatPercent(position.profit_rate)}
-                          </span>
-                        </div>
-                      );
-                    })()}
+                    {position.profit_rate != null && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <MiniTargetProgressBar
+                          currentPrice={position.current_price}
+                          averagePrice={position.average_buy_price}
+                          takeProfitTargets={position.take_profit_targets}
+                          stopLossTargets={position.stop_loss_targets}
+                          size="xs"
+                        />
+                        <span className={`text-sm font-semibold whitespace-nowrap ${getProfitLossClass(position.profit_rate)}`}>
+                          {formatProfitRate(position.profit_rate)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 text-sm">
                     <div className="flex justify-between text-gray-500 dark:text-gray-400">
@@ -643,7 +609,14 @@ export function Dashboard() {
               {requests.map(request => (
                 <div
                   key={request.id}
-                  onClick={() => navigate(isManagerOrAdmin() ? '/requests' : '/my-requests')}
+                  onClick={() => {
+                    // 토론중인 요청은 토론방으로 이동
+                    if (request.status === 'discussion' && request.discussion_id) {
+                      navigate(`/discussions/${request.discussion_id}`);
+                    } else {
+                      navigate(isManagerOrAdmin() ? '/requests' : '/my-requests');
+                    }
+                  }}
                   className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -1034,7 +1007,7 @@ export function Dashboard() {
                         <td className={`py-2 text-right font-medium ${getProfitLossClass(entry.total_profit_loss)}`}>
                           {formatCurrency(entry.total_profit_loss)}
                         </td>
-                        <td className="py-2 text-right">{formatPercent(entry.win_rate)}</td>
+                        <td className="py-2 text-right">{entry.win_rate != null ? `${Number(entry.win_rate).toFixed(1)}%` : '-'}</td>
                         <td className="py-2 text-right">
                           {entry.closed_trades}
                           {entry.open_trades > 0 && (

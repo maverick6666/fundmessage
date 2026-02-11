@@ -25,6 +25,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: fundmessage-backend
+    env_file:
+      - ./backend/.env
     environment:
       DATABASE_URL: postgresql://${DB_USER:-funduser}:${DB_PASSWORD:-fundpass123}@db:5432/${DB_NAME:-fundmessenger}
       SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-in-production}

@@ -21,6 +21,10 @@ class Discussion(Base):
     title = Column(String(200), nullable=False)
     status = Column(String(20), nullable=False, default=DiscussionStatus.OPEN.value, index=True)
 
+    # 세션 관리
+    session_count = Column(Integer, default=1)  # 현재까지의 세션 수
+    current_agenda = Column(Text)  # 현재 세션의 의제
+
     # Session summary
     summary = Column(Text)
     summary_by_participant = Column(JSON)  # {"user_id": "summary", ...}

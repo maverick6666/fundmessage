@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
@@ -15,9 +15,7 @@ from app.models.request import Request
 from app.models.asset_snapshot import AssetSnapshot
 from app.dependencies import get_current_user, get_manager
 from app.models.user import User
-
-# 한국 시간대
-KST = timezone(timedelta(hours=9))
+from app.utils.constants import KST
 
 router = APIRouter()
 

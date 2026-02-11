@@ -9,27 +9,12 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.models.position import Position, PositionStatus
 from app.schemas.position import PositionCreate, PositionUpdate, PositionClose, PositionConfirmInfo
 from app.services.audit_service import AuditService
+from app.utils.converters import convert_targets
 
 
 class PositionService:
     def __init__(self, db: Session):
         self.db = db
-
-    def _convert_targets(self, targets) -> Optional[list]:
-        """Decimal을 float로 변환하여 JSON 직렬화 가능하게 함. 빈 항목(가격/수량 없음) 필터링."""
-        if not targets:
-            return None
-        result = []
-        for t in targets:
-            item = t.model_dump() if hasattr(t, 'model_dump') else t
-            # 빈 항목 필터링 (가격과 수량 둘 다 있어야 유효)
-            if not item.get('price') or not item.get('quantity'):
-                continue
-            result.append({
-                k: float(v) if isinstance(v, Decimal) else v
-                for k, v in item.items()
-            })
-        return result if result else None
 
     def get_position_by_id(self, position_id: int) -> Optional[Position]:
         return self.db.query(Position).filter(Position.id == position_id).first()
@@ -80,8 +65,8 @@ class PositionService:
             average_buy_price=position_data.average_buy_price,
             total_quantity=position_data.total_quantity,
             total_buy_amount=position_data.total_buy_amount,
-            take_profit_targets=self._convert_targets(position_data.take_profit_targets),
-            stop_loss_targets=self._convert_targets(position_data.stop_loss_targets),
+            take_profit_targets=convert_targets(position_data.take_profit_targets),
+            stop_loss_targets=convert_targets(position_data.stop_loss_targets),
             opened_at=datetime.utcnow(),
             opened_by=position_data.opened_by
         )
@@ -186,9 +171,9 @@ class PositionService:
         update_dict = update_data.model_dump(exclude_unset=True)
 
         if "take_profit_targets" in update_dict and update_dict["take_profit_targets"]:
-            update_dict["take_profit_targets"] = self._convert_targets(update_dict["take_profit_targets"])
+            update_dict["take_profit_targets"] = convert_targets(update_dict["take_profit_targets"])
         if "stop_loss_targets" in update_dict and update_dict["stop_loss_targets"]:
-            update_dict["stop_loss_targets"] = self._convert_targets(update_dict["stop_loss_targets"])
+            update_dict["stop_loss_targets"] = convert_targets(update_dict["stop_loss_targets"])
 
         for key, value in update_dict.items():
             setattr(position, key, value)
@@ -526,17 +511,19 @@ class PositionService:
 
         if buy_plan is not None:
             change_descriptions.extend(self._compare_plans(position.buy_plan, buy_plan, "매수계획"))
-            position.buy_plan = self._convert_targets(buy_plan) if buy_plan else None
+            position.buy_plan = convert_targets(buy_plan) if buy_plan else None
             flag_modified(position, 'buy_plan')
 
         if take_profit_targets is not None:
             change_descriptions.extend(self._compare_plans(position.take_profit_targets, take_profit_targets, "익절계획"))
-            position.take_profit_targets = self._convert_targets(take_profit_targets) if take_profit_targets else None
+            # 빈 배열이면 None으로 설정하여 DB에서 삭제
+            position.take_profit_targets = convert_targets(take_profit_targets) if take_profit_targets else None
             flag_modified(position, 'take_profit_targets')
 
         if stop_loss_targets is not None:
             change_descriptions.extend(self._compare_plans(position.stop_loss_targets, stop_loss_targets, "손절계획"))
-            position.stop_loss_targets = self._convert_targets(stop_loss_targets) if stop_loss_targets else None
+            # 빈 배열이면 None으로 설정하여 DB에서 삭제
+            position.stop_loss_targets = convert_targets(stop_loss_targets) if stop_loss_targets else None
             flag_modified(position, 'stop_loss_targets')
 
         self.db.commit()

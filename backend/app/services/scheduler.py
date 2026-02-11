@@ -1,6 +1,7 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from datetime import date
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import logging
 
 from app.database import SessionLocal
@@ -21,7 +22,7 @@ async def generate_newsdesk_job():
     db = SessionLocal()
     newsdesk = None
     try:
-        target_date = date.today()
+        target_date = datetime.now(ZoneInfo("Asia/Seoul")).date()
 
         # 이미 생성된 경우 스킵
         existing = db.query(NewsDesk).filter(
@@ -52,7 +53,7 @@ async def generate_newsdesk_job():
 
         # 1. 뉴스 크롤링
         crawler = NewsCrawler(db)
-        collected = crawler.collect_all(target_date)
+        collected = crawler.collect_for_morning_briefing(target_date)
         logger.info(f"Collected {collected} news articles")
 
         # 2. AI 분석
@@ -93,18 +94,20 @@ async def create_asset_snapshot_job():
 
 def init_scheduler():
     """스케줄러 초기화"""
-    # 뉴스데스크 자동 생성 (05:30 KST)
+    kst = ZoneInfo("Asia/Seoul")
+
+    # 뉴스데스크 자동 생성 (KST 05:30)
     scheduler.add_job(
         generate_newsdesk_job,
-        CronTrigger(hour=5, minute=30),
+        CronTrigger(hour=5, minute=30, timezone=kst),
         id="newsdesk_daily",
         replace_existing=True
     )
 
-    # 자산 스냅샷 자동 생성 (09:00 KST - 장 시작 시)
+    # 자산 스냅샷 자동 생성 (KST 09:00 - 장 시작 시)
     scheduler.add_job(
         create_asset_snapshot_job,
-        CronTrigger(hour=9, minute=0),
+        CronTrigger(hour=9, minute=0, timezone=kst),
         id="asset_snapshot_daily",
         replace_existing=True
     )

@@ -35,7 +35,7 @@ pykrx>=1.0.45
 rapidfuzz>=3.6.0
 
 # AI
-openai>=1.0.0
+openai>=2.0.0  # Responses API (verbosity, reasoning, max_output_tokens) 지원
 
 # Scheduler
 apscheduler>=3.10.0

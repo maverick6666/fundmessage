@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/useAuth';
 import {
   formatCurrency,
   formatPercent,
+  formatProfitRate,
   formatHours,
   formatNumber,
   getProfitLossClass
@@ -419,7 +420,7 @@ export function Stats() {
               <Card>
                 <p className="text-sm text-gray-500 dark:text-gray-400">평균 수익률</p>
                 <p className={`text-2xl font-bold ${getProfitLossClass(teamStats.closed_positions?.avg_profit_rate)}`}>
-                  {formatPercent(teamStats.closed_positions?.avg_profit_rate || 0)}
+                  {formatProfitRate(teamStats.closed_positions?.avg_profit_rate || 0)}
                 </p>
               </Card>
             </div>
@@ -446,7 +447,7 @@ export function Stats() {
               <div>
                 <span className="text-sm text-gray-500 dark:text-gray-400">평균 수익률</span>
                 <p className={`text-lg font-medium ${getProfitLossClass(teamStats.closed_positions?.avg_profit_rate)}`}>
-                  {formatPercent(teamStats.closed_positions?.avg_profit_rate || 0)}
+                  {formatProfitRate(teamStats.closed_positions?.avg_profit_rate || 0)}
                 </p>
               </div>
             </div>
@@ -534,7 +535,7 @@ export function Stats() {
                         </span>
                         <span className="text-white font-bold text-lg mt-1">
                           {rate !== 0 && rate !== null
-                            ? `${rate > 0 ? '+' : ''}${formatPercent(rate)}`
+                            ? formatProfitRate(rate)
                             : '-'
                           }
                         </span>
@@ -610,7 +611,7 @@ export function Stats() {
                           </td>
                           <td className={`py-2.5 text-right font-medium ${getProfitLossClass(ticker.unrealized_rate)}`}>
                             {ticker.unrealized_rate !== 0
-                              ? (ticker.unrealized_rate > 0 ? '+' : '') + formatPercent(ticker.unrealized_rate)
+                              ? formatProfitRate(ticker.unrealized_rate)
                               : '-'}
                           </td>
                         </>
@@ -626,7 +627,7 @@ export function Stats() {
                               : '-'}
                           </td>
                           <td className={`py-2.5 text-right font-medium ${getProfitLossClass(ticker.profit_rate)}`}>
-                            {ticker.profit_rate !== 0 ? formatPercent(ticker.profit_rate) : '-'}
+                            {ticker.profit_rate !== 0 ? formatProfitRate(ticker.profit_rate) : '-'}
                           </td>
                           <td className="py-2.5 text-right text-gray-500">
                             {ticker.avg_holding_hours > 0 ? formatHours(ticker.avg_holding_hours) : '-'}
@@ -664,7 +665,7 @@ export function Stats() {
                             {ticker.unrealized_pl === 0 && ticker.profit_loss === 0 && '-'}
                           </td>
                           <td className={`py-2.5 text-right font-medium ${getProfitLossClass(ticker.avg_profit_rate)}`}>
-                            {ticker.avg_profit_rate !== 0 ? formatPercent(ticker.avg_profit_rate) : '-'}
+                            {ticker.avg_profit_rate !== 0 ? formatProfitRate(ticker.avg_profit_rate) : '-'}
                           </td>
                         </>
                       )}
@@ -700,7 +701,7 @@ export function Stats() {
             <Card>
               <p className="text-sm text-gray-500 dark:text-gray-400">평균 수익률</p>
               <p className={`text-2xl font-bold ${getProfitLossClass(myStats.overall.avg_profit_rate)}`}>
-                {myStats.overall.avg_profit_rate >= 0 ? '+' : ''}{formatPercent(myStats.overall.avg_profit_rate)}
+                {formatProfitRate(myStats.overall.avg_profit_rate)}
               </p>
             </Card>
           </div>
@@ -735,14 +736,14 @@ export function Stats() {
                   <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <p className="text-sm text-gray-500 dark:text-gray-400">최고 거래</p>
                     <p className="font-medium dark:text-gray-200">{myStats.best_trade.ticker}</p>
-                    <p className="text-red-600 dark:text-red-400">{formatPercent(myStats.best_trade.profit_rate)}</p>
+                    <p className="text-red-600 dark:text-red-400">{formatProfitRate(myStats.best_trade.profit_rate)}</p>
                   </div>
                 )}
                 {myStats.worst_trade && (
                   <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
                     <p className="text-sm text-gray-500 dark:text-gray-400">최악 거래</p>
                     <p className="font-medium dark:text-gray-200">{myStats.worst_trade.ticker}</p>
-                    <p className="text-blue-600 dark:text-blue-400">{formatPercent(myStats.worst_trade.profit_rate)}</p>
+                    <p className="text-blue-600 dark:text-blue-400">{formatProfitRate(myStats.worst_trade.profit_rate)}</p>
                   </div>
                 )}
               </div>

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -16,25 +16,24 @@ from app.config import settings
 from app.dependencies import get_manager_or_admin
 from app.models.user import User, UserRole
 from app.models.attendance import Attendance
-
-# 한국 시간대 (UTC+9)
-KST = timezone(timedelta(hours=9))
+from app.utils.constants import KST
 
 router = APIRouter()
 
 
-# ===== 임시: 첫 번째 유저 활성화 (배포 후 삭제) =====
+# ===== 관리용 엔드포인트 (관리자 인증 필요) =====
 
 @router.post("/activate-first-user", response_model=APIResponse)
-async def activate_first_user(db: Session = Depends(get_db)):
-    """첫 번째 유저를 팀장으로 활성화 (임시 엔드포인트)"""
-    # 첫 번째 유저 찾기
+async def activate_first_user(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager_or_admin)
+):
+    """첫 번째 유저를 팀장으로 활성화 (관리자 전용)"""
     first_user = db.query(User).order_by(User.id).first()
 
     if not first_user:
         raise HTTPException(status_code=404, detail="유저가 없습니다")
 
-    # 활성화 및 팀장 설정
     first_user.is_active = True
     first_user.role = UserRole.MANAGER.value
     db.commit()
@@ -47,8 +46,11 @@ async def activate_first_user(db: Session = Depends(get_db)):
 
 
 @router.get("/check-users", response_model=APIResponse)
-async def check_users(db: Session = Depends(get_db)):
-    """모든 유저 상태 확인 (디버그용)"""
+async def check_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager_or_admin)
+):
+    """모든 유저 상태 확인 (관리자 전용)"""
     users = db.query(User).all()
     user_list = [
         {

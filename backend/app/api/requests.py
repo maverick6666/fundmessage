@@ -285,7 +285,8 @@ async def start_discussion(
 
     discussion_create = DiscussionCreate(
         request_id=request_id,
-        title=discuss_data.title
+        title=discuss_data.title,
+        agenda=discuss_data.agenda
     )
     discussion = discussion_service.create_discussion(discussion_create, current_user.id)
 

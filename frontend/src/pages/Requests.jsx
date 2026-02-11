@@ -33,11 +33,10 @@ export function Requests() {
   const [activeTab, setActiveTab] = useState(() => canManage ? 'team' : 'mine');
   const [statusFilter, setStatusFilter] = useState(() => canManage ? 'pending' : 'all');
 
-  // 상태별 건수 계산
+  // 상태별 건수 계산 (대기중 = pending + discussion 합산)
   const statusCounts = {
     all: allRequests.length,
-    pending: allRequests.filter(r => r.status === 'pending').length,
-    discussion: allRequests.filter(r => r.status === 'discussion').length,
+    pending: allRequests.filter(r => r.status === 'pending' || r.status === 'discussion').length,
     approved: allRequests.filter(r => r.status === 'approved').length,
     rejected: allRequests.filter(r => r.status === 'rejected').length,
   };
@@ -49,6 +48,7 @@ export function Requests() {
   const [approveLoading, setApproveLoading] = useState(null); // 승인 중인 요청 ID
   const [rejectReason, setRejectReason] = useState('');
   const [discussTitle, setDiscussTitle] = useState('');
+  const [discussAgenda, setDiscussAgenda] = useState('');
   const [deleteRequestData, setDeleteRequestData] = useState(null);
 
   // 열린 토론 경고 관련 상태
@@ -85,14 +85,16 @@ export function Requests() {
         // 내 요청 탭
         params.requester_id = user.id;
         allParams.requester_id = user.id;
-        if (statusFilter !== 'all') {
+        if (statusFilter !== 'all' && statusFilter !== 'pending') {
           params.status = statusFilter;
         }
+        // pending 필터는 프론트에서 처리 (pending + discussion)
       } else {
         // 팀 요청 탭 - 상태 필터 적용
-        if (statusFilter !== 'all') {
+        if (statusFilter !== 'all' && statusFilter !== 'pending') {
           params.status = statusFilter;
         }
+        // pending 필터는 프론트에서 처리 (pending + discussion)
       }
 
       // 필터링된 요청과 전체 요청 둘 다 가져오기
@@ -100,7 +102,14 @@ export function Requests() {
         requestService.getRequests(params),
         requestService.getRequests(allParams)
       ]);
-      setRequests(filteredData.requests);
+
+      // pending 필터일 때 프론트에서 pending + discussion 필터링
+      let finalRequests = filteredData.requests;
+      if (statusFilter === 'pending') {
+        finalRequests = filteredData.requests.filter(r => r.status === 'pending' || r.status === 'discussion');
+      }
+
+      setRequests(finalRequests);
       setAllRequests(allData.requests);
     } catch (error) {
       console.error('Failed to fetch requests:', error);
@@ -196,10 +205,15 @@ export function Requests() {
   };
 
   const handleStartDiscussion = async () => {
+    if (!discussAgenda.trim()) {
+      toast.error('의제를 입력해주세요.');
+      return;
+    }
     try {
-      const result = await requestService.startDiscussion(selectedRequest.id, discussTitle);
+      const result = await requestService.startDiscussion(selectedRequest.id, discussTitle, discussAgenda);
       setShowDiscussModal(false);
       setDiscussTitle('');
+      setDiscussAgenda('');
       navigate(`/discussions/${result.discussion.id}`);
     } catch (error) {
       toast.error(error.response?.data?.detail || '토론 시작에 실패했습니다.');
@@ -214,6 +228,7 @@ export function Requests() {
   const openDiscussModal = (request) => {
     setSelectedRequest(request);
     setDiscussTitle(`${request.ticker_name || request.target_ticker} ${getRequestTypeLabel(request.request_type)} 논의`);
+    setDiscussAgenda('');
     setShowDiscussModal(true);
   };
 
@@ -252,8 +267,8 @@ export function Requests() {
       {/* Status Filters with Count Badges */}
       <div className="flex gap-2 flex-wrap">
         {activeTab === 'team' ? (
-          // 팀 요청 현황: 전체, 대기중, 토론중, 승인됨, 거부됨
-          ['all', 'pending', 'discussion', 'approved', 'rejected'].map(status => (
+          // 팀 요청 현황: 전체, 대기중(토론중 포함), 승인됨, 거부됨
+          ['all', 'pending', 'approved', 'rejected'].map(status => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
@@ -264,7 +279,7 @@ export function Requests() {
               }`}
             >
               {status === 'all' ? '전체' : getStatusLabel(status)}
-              {/* 대기중은 빨간 배지, 나머지는 회색 숫자 */}
+              {/* 대기중은 빨간 배지 (pending + discussion 합산) */}
               {status === 'pending' && statusCounts.pending > 0 && (
                 <span className={`px-1.5 py-0.5 text-xs font-bold rounded-full ${
                   statusFilter === status
@@ -272,11 +287,6 @@ export function Requests() {
                     : 'bg-rose-500 text-white'
                 }`}>
                   {statusCounts.pending}
-                </span>
-              )}
-              {status === 'discussion' && statusCounts.discussion > 0 && (
-                <span className={`text-xs ${statusFilter === status ? 'text-white/70' : 'text-gray-400'}`}>
-                  {statusCounts.discussion}
                 </span>
               )}
             </button>
@@ -571,12 +581,23 @@ export function Requests() {
             onChange={(e) => setDiscussTitle(e.target.value)}
             required
           />
+          <Textarea
+            label="토론 의제"
+            placeholder="이 토론에서 논의할 내용을 입력하세요"
+            rows={3}
+            value={discussAgenda}
+            onChange={(e) => setDiscussAgenda(e.target.value)}
+            required
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            의제는 토론방 상단에 표시되어 팀원들이 주제에 집중할 수 있도록 합니다.
+          </p>
 
           <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
             <Button variant="secondary" onClick={() => setShowDiscussModal(false)}>
               취소
             </Button>
-            <Button onClick={handleStartDiscussion}>
+            <Button onClick={handleStartDiscussion} disabled={!discussAgenda.trim()}>
               토론 시작
             </Button>
           </div>

@@ -33,6 +33,11 @@ export function Discussion() {
   const [showChartModal, setShowChartModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [requestReopenLoading, setRequestReopenLoading] = useState(false);
+  const [showReopenModal, setShowReopenModal] = useState(false);
+  const [reopenAgenda, setReopenAgenda] = useState('');
+  const [showEditTitleModal, setShowEditTitleModal] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [deleteSessionLoading, setDeleteSessionLoading] = useState(null);
 
   const messagesEndRef = useRef(null);
 
@@ -131,11 +136,51 @@ export function Discussion() {
   };
 
   const handleReopen = async () => {
+    if (!reopenAgenda.trim()) {
+      toast.warning('의제를 입력해주세요.');
+      return;
+    }
     try {
-      await discussionService.reopenDiscussion(id);
+      await discussionService.reopenDiscussion(id, reopenAgenda);
+      setShowReopenModal(false);
+      setReopenAgenda('');
       fetchDiscussion();
+      fetchMessages();
+      toast.success('토론이 재개되었습니다.');
     } catch (error) {
       toast.error(error.response?.data?.detail || '토론 재개에 실패했습니다.');
+    }
+  };
+
+  const handleUpdateTitle = async () => {
+    if (!editTitle.trim()) {
+      toast.warning('제목을 입력해주세요.');
+      return;
+    }
+    try {
+      await discussionService.updateDiscussion(id, { title: editTitle });
+      setShowEditTitleModal(false);
+      fetchDiscussion();
+      toast.success('제목이 수정되었습니다.');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || '수정에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteSession = async (sessionNumber) => {
+    setDeleteSessionLoading(sessionNumber);
+    try {
+      await discussionService.deleteSession(id, sessionNumber);
+      toast.success(`세션 ${sessionNumber}이(가) 삭제되었습니다.`);
+      // 세션 목록 새로고침
+      const data = await discussionService.getSessions(id);
+      setSessions(data.sessions || []);
+      setSelectedSessions(new Set((data.sessions || []).map(s => s.session_number)));
+      fetchMessages();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다.');
+    } finally {
+      setDeleteSessionLoading(null);
     }
   };
 
@@ -230,9 +275,25 @@ export function Discussion() {
             </svg>
           </button>
           <div>
-            <h1 className="text-xl font-bold dark:text-gray-100">{discussion.title}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold dark:text-gray-100">{discussion.title}</h1>
+              {isManagerOrAdmin() && (
+                <button
+                  onClick={() => {
+                    setEditTitle(discussion.title);
+                    setShowEditTitleModal(true);
+                  }}
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  title="제목 수정"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              )}
+            </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {isClosed ? '종료됨' : '진행중'}
+              {isClosed ? '종료됨' : '진행중'} · 세션 {discussion.session_count || 1}
             </p>
           </div>
         </div>
@@ -247,7 +308,7 @@ export function Discussion() {
             내보내기
           </Button>
           {isClosed && isManagerOrAdmin() && (
-            <Button variant="primary" size="sm" onClick={handleReopen}>
+            <Button variant="primary" size="sm" onClick={() => setShowReopenModal(true)}>
               토론 재개
             </Button>
           )}
@@ -277,11 +338,22 @@ export function Discussion() {
               토론 종료
             </Button>
           )}
+          <Button variant="secondary" size="sm" onClick={() => navigate(-1)}>
+            나가기
+          </Button>
         </div>
       </div>
 
       {/* Messages */}
       <Card className="flex-1 flex flex-col overflow-hidden">
+        {/* Current Agenda */}
+        {discussion.current_agenda && !isClosed && (
+          <div className="px-4 py-3 bg-primary-50 dark:bg-primary-900/20 border-b border-primary-100 dark:border-primary-800">
+            <p className="text-sm font-medium text-primary-700 dark:text-primary-300">
+              📌 의제: {discussion.current_agenda}
+            </p>
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((message) => (
             <div
@@ -377,41 +449,73 @@ export function Discussion() {
       <Modal
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
-        title="토론 내보내기"
+        title="세션 관리"
+        size="lg"
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">내보낼 세션을 선택하세요. 각 세션은 개별 텍스트 파일로 다운로드됩니다.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">내보낼 세션을 선택하거나 불필요한 세션을 삭제하세요.</p>
 
           {sessions.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">세션 정보가 없습니다</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
               {sessions.map(session => (
-                <label
+                <div
                   key={session.session_number}
-                  className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                  className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
                 >
-                  <input
-                    type="checkbox"
-                    checked={selectedSessions.has(session.session_number)}
-                    onChange={() => toggleSession(session.session_number)}
-                    className="w-4 h-4 text-primary-600 rounded"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      세션 {session.session_number}
-                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${session.status === 'open' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
-                        {session.status === 'open' ? '진행중' : '종료'}
-                      </span>
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {session.started_at ? new Date(session.started_at).toLocaleString('ko-KR') : '?'}
-                      {' ~ '}
-                      {session.closed_at ? new Date(session.closed_at).toLocaleString('ko-KR') : '진행중'}
-                      {' · '}메시지 {session.message_count}개
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedSessions.has(session.session_number)}
+                      onChange={() => toggleSession(session.session_number)}
+                      className="w-4 h-4 text-primary-600 rounded mt-1"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          세션 {session.session_number}
+                        </p>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          메시지 {session.message_count}개
+                        </span>
+                      </div>
+                      {session.agenda && (
+                        <p className="text-sm text-primary-600 dark:text-primary-400 mt-1">
+                          📌 {session.agenda}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {session.started_at ? new Date(session.started_at).toLocaleString('ko-KR') : '?'}
+                        {session.last_message_at && ` ~ ${new Date(session.last_message_at).toLocaleString('ko-KR')}`}
+                      </p>
+                      {session.last_message && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
+                          💬 {session.last_message}
+                        </p>
+                      )}
+                    </div>
+                    {isManagerOrAdmin() && sessions.length > 1 && (
+                      <button
+                        onClick={() => handleDeleteSession(session.session_number)}
+                        disabled={deleteSessionLoading === session.session_number}
+                        className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50"
+                        title="세션 삭제"
+                      >
+                        {deleteSessionLoading === session.session_number ? (
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
+                    )}
                   </div>
-                </label>
+                </div>
               ))}
             </div>
           )}
@@ -430,9 +534,9 @@ export function Discussion() {
               {selectedSessions.size === sessions.length ? '전체 해제' : '전체 선택'}
             </button>
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setShowExportModal(false)}>취소</Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowExportModal(false)}>닫기</Button>
               <Button size="sm" onClick={handleExportTxt} loading={exportLoading} disabled={selectedSessions.size === 0}>
-                다운로드 ({selectedSessions.size}개)
+                내보내기 ({selectedSessions.size}개)
               </Button>
             </div>
           </div>
@@ -456,6 +560,59 @@ export function Discussion() {
         confirmText="삭제"
         confirmVariant="danger"
       />
+
+      {/* 토론 재개 모달 */}
+      <Modal
+        isOpen={showReopenModal}
+        onClose={() => setShowReopenModal(false)}
+        title="토론 재개"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            새 세션을 시작합니다. 이 세션에서 논의할 의제를 입력해주세요.
+          </p>
+          <Input
+            label="의제 (필수)"
+            placeholder="이번 세션에서 논의할 내용..."
+            value={reopenAgenda}
+            onChange={(e) => setReopenAgenda(e.target.value)}
+            required
+          />
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
+            <Button variant="secondary" onClick={() => setShowReopenModal(false)}>
+              취소
+            </Button>
+            <Button onClick={handleReopen} disabled={!reopenAgenda.trim()}>
+              재개
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 제목 수정 모달 */}
+      <Modal
+        isOpen={showEditTitleModal}
+        onClose={() => setShowEditTitleModal(false)}
+        title="토론 제목 수정"
+      >
+        <div className="space-y-4">
+          <Input
+            label="제목"
+            placeholder="토론 제목..."
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            required
+          />
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
+            <Button variant="secondary" onClick={() => setShowEditTitleModal(false)}>
+              취소
+            </Button>
+            <Button onClick={handleUpdateTitle} disabled={!editTitle.trim()}>
+              저장
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

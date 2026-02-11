@@ -1,12 +1,10 @@
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
 from app.database import Base
-
-KST = ZoneInfo("Asia/Seoul")
+from app.utils.constants import KST
 
 
 class Comment(Base):

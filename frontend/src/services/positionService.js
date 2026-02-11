@@ -77,14 +77,15 @@ export const positionService = {
   // 매매 계획 수정
   async updatePlans(id, { buyPlan, takeProfitTargets, stopLossTargets }) {
     // 빈 블럭 필터링 (price와 quantity가 모두 비어있는 항목 제외)
+    // 빈 배열 []을 반환하여 백엔드에서 계획을 삭제할 수 있도록 함
     const filterEmptyItems = (items) => {
-      if (!items) return null;
+      if (!items) return [];
       const filtered = items.filter(item => {
         const hasPrice = item.price !== '' && item.price !== null && item.price !== undefined;
         const hasQuantity = item.quantity !== '' && item.quantity !== null && item.quantity !== undefined;
         return hasPrice || hasQuantity; // 둘 중 하나라도 있으면 유지
       });
-      return filtered.length > 0 ? filtered : null;
+      return filtered; // 빈 배열도 반환 (삭제를 위해)
     };
 
     const response = await api.patch(`/positions/${id}/plans`, {

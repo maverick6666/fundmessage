@@ -38,8 +38,8 @@ export const requestService = {
     return response.data.data.request;
   },
 
-  async startDiscussion(id, title) {
-    const response = await api.post(`/requests/${id}/discuss`, { title });
+  async startDiscussion(id, title, agenda) {
+    const response = await api.post(`/requests/${id}/discuss`, { title, agenda });
     return response.data.data;
   },
 

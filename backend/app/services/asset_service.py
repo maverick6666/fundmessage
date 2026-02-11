@@ -2,15 +2,13 @@
 자산 스냅샷 서비스 - 일별 자산 히스토리 자동 생성
 """
 from datetime import datetime
-from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 from decimal import Decimal
 
 from app.models.asset_snapshot import AssetSnapshot
 from app.models.team_settings import TeamSettings
 from app.models.position import Position
-
-KST = ZoneInfo("Asia/Seoul")
+from app.utils.constants import KST
 
 
 def create_daily_snapshot(db: Session) -> AssetSnapshot:

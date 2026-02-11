@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.discussion import (
-    DiscussionResponse, DiscussionClose, DiscussionCreate,
+    DiscussionResponse, DiscussionClose, DiscussionCreate, DiscussionReopen, DiscussionUpdate,
     MessageCreate, MessageResponse, DiscussionMessagesResponse
 )
 from app.schemas.user import UserBrief
@@ -26,6 +26,8 @@ def discussion_to_response(discussion, message_count: int = 0) -> DiscussionResp
         title=discussion.title,
         status=discussion.status,
         summary=discussion.summary,
+        session_count=discussion.session_count or 1,
+        current_agenda=discussion.current_agenda,
         opened_by=UserBrief.model_validate(discussion.opener),
         closed_by=UserBrief.model_validate(discussion.closer) if discussion.closer else None,
         opened_at=discussion.opened_at,
@@ -41,6 +43,8 @@ def message_to_response(message) -> MessageResponse:
         user=UserBrief.model_validate(message.user),
         content=message.content,
         message_type=message.message_type,
+        chart_data=message.chart_data,
+        session_number=message.session_number or 1,
         created_at=message.created_at
     )
 
@@ -243,18 +247,38 @@ async def close_discussion(
 @router.post("/{discussion_id}/reopen", response_model=APIResponse)
 async def reopen_discussion(
     discussion_id: int,
+    reopen_data: DiscussionReopen,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_manager_or_admin)
 ):
-    """Reopen a closed discussion (manager/admin only)"""
+    """Reopen a closed discussion with new agenda (manager/admin only)"""
     discussion_service = DiscussionService(db)
-    discussion = discussion_service.reopen_discussion(discussion_id, current_user.id)
+    discussion = discussion_service.reopen_discussion(discussion_id, current_user.id, reopen_data)
     message_count = discussion_service.get_message_count(discussion_id)
 
     return APIResponse(
         success=True,
         data=discussion_to_response(discussion, message_count),
         message="Discussion reopened successfully"
+    )
+
+
+@router.patch("/{discussion_id}", response_model=APIResponse)
+async def update_discussion(
+    discussion_id: int,
+    update_data: DiscussionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_manager_or_admin)
+):
+    """Update discussion title or current agenda (manager/admin only)"""
+    discussion_service = DiscussionService(db)
+    discussion = discussion_service.update_discussion(discussion_id, update_data, current_user.id)
+    message_count = discussion_service.get_message_count(discussion_id)
+
+    return APIResponse(
+        success=True,
+        data=discussion_to_response(discussion, message_count),
+        message="Discussion updated successfully"
     )
 
 
@@ -317,9 +341,9 @@ async def get_discussion_sessions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get discussion session list (open/close periods)"""
+    """Get discussion session list with agenda and last message info"""
     discussion_service = DiscussionService(db)
-    sessions = discussion_service.get_discussion_sessions(discussion_id)
+    sessions = discussion_service.get_sessions_with_info(discussion_id)
 
     return APIResponse(
         success=True,
@@ -390,49 +414,13 @@ async def delete_discussion_session(
 ):
     """토론 내 특정 세션 삭제 (팀장/관리자만)
 
-    세션은 "Discussion started/reopened"부터 "Discussion closed"까지의 기간입니다.
-    해당 세션의 모든 메시지가 삭제됩니다.
+    해당 세션 번호의 모든 메시지가 삭제됩니다.
     """
-    from app.models.message import Message, MessageType
-    from fastapi import HTTPException
-
     discussion_service = DiscussionService(db)
-    sessions = discussion_service.get_discussion_sessions(discussion_id)
-
-    if session_number < 1 or session_number > len(sessions):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"잘못된 세션 번호입니다. 유효 범위: 1-{len(sessions)}"
-        )
-
-    session = sessions[session_number - 1]  # 0-indexed
-    start_time = session.get('started_at')
-    end_time = session.get('ended_at')
-
-    if not start_time:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="세션 시작 시간을 찾을 수 없습니다"
-        )
-
-    # 해당 세션의 메시지 삭제
-    query = db.query(Message).filter(Message.discussion_id == discussion_id)
-
-    # 시작 시간 이후
-    from datetime import datetime
-    start_dt = datetime.fromisoformat(start_time)
-    query = query.filter(Message.created_at >= start_dt)
-
-    # 종료 시간 이전 (있는 경우)
-    if end_time:
-        end_dt = datetime.fromisoformat(end_time)
-        query = query.filter(Message.created_at <= end_dt)
-
-    deleted_count = query.delete(synchronize_session=False)
-    db.commit()
+    result = discussion_service.delete_session(discussion_id, session_number, current_user.id)
 
     return APIResponse(
         success=True,
-        data={"deleted_messages": deleted_count},
-        message=f"세션 {session_number}의 메시지 {deleted_count}개가 삭제되었습니다"
+        data={"deleted_messages": result["deleted_count"]},
+        message=f"세션 {session_number}의 메시지 {result['deleted_count']}개가 삭제되었습니다"
     )

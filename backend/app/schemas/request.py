@@ -48,6 +48,7 @@ class RequestReject(BaseModel):
 
 class RequestDiscuss(BaseModel):
     title: str = Field(..., max_length=200)
+    agenda: str = Field(..., min_length=1, max_length=500)  # 토론 의제 (필수)
 
 
 class RequestResponse(BaseModel):

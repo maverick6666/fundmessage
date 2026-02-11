@@ -97,7 +97,7 @@ export function calculateTargetProgress(currentPrice, averagePrice, takeProfitTa
  * @param {Array} takeProfitTargets - 익절 타겟 [{price, quantity, completed}]
  * @param {Array} stopLossTargets - 손절 타겟 [{price, quantity, completed}]
  * @param {string} market - 시장 (KRX, NASDAQ 등)
- * @param {string} size - 바 크기 ('sm' | 'md' | 'lg')
+ * @param {string} size - 바 크기 ('xs' | 'sm' | 'md' | 'lg')
  */
 export function TargetProgressBar({
   currentPrice,
@@ -194,18 +194,45 @@ export function TargetProgressBar({
   // 수익률 계산
   const profitRate = ((currentPrice - averagePrice) / averagePrice) * 100;
 
+  // 70% 이상이면 그라데이션 + 펄스 애니메이션
+  const isNearTarget = progress >= 70;
+
   // 크기별 스타일
   const sizeClasses = {
+    xs: 'h-1.5',
     sm: 'h-1.5',
     md: 'h-2',
     lg: 'h-2.5',
   };
 
   const textSizeClasses = {
+    xs: 'text-xs',
     sm: 'text-xs',
     md: 'text-sm',
     lg: 'text-base font-medium',
   };
+
+  // 바 fill 색상 (70% 이상이면 그라데이션 + pulse)
+  const getBarFillClass = (dir, near) => {
+    if (dir === 'profit') {
+      return near
+        ? 'bg-gradient-to-r from-red-400 via-red-500 to-orange-400 animate-pulse'
+        : 'bg-red-500 dark:bg-red-400';
+    }
+    if (dir === 'loss') {
+      return near
+        ? 'bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-400 animate-pulse'
+        : 'bg-blue-500 dark:bg-blue-400';
+    }
+    return 'bg-gray-400';
+  };
+
+  // 70% 이상이면 ring 효과 추가
+  const ringClass = isNearTarget
+    ? `ring-1 ring-offset-1 ring-offset-white dark:ring-offset-gray-800 ${
+        direction === 'profit' ? 'ring-red-400' : 'ring-blue-400'
+      }`
+    : '';
 
   return (
     <div className="space-y-1">
@@ -221,15 +248,9 @@ export function TargetProgressBar({
           </span>
         )}
       </div>
-      <div className={`w-full ${sizeClasses[size]} bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden`}>
+      <div className={`w-full ${sizeClasses[size]} bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden ${ringClass}`}>
         <div
-          className={`h-full rounded-full transition-all duration-500 ${
-            direction === 'profit'
-              ? 'bg-red-500 dark:bg-red-400'
-              : direction === 'loss'
-                ? 'bg-blue-500 dark:bg-blue-400'
-                : 'bg-gray-400'
-          }`}
+          className={`h-full rounded-full transition-all duration-500 ${getBarFillClass(direction, isNearTarget)}`}
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -241,6 +262,85 @@ export function TargetProgressBar({
           </span>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * 미니 타겟 프로그레스 바 (인라인용)
+ *
+ * 포지션 목록/대시보드 등에서 한 줄로 프로그레스 바만 표시
+ * calculateTargetProgress를 내부에서 호출하여 외부에서 계산 불필요
+ * 70% 이상 진행 시 그라데이션 + pulse 애니메이션 자동 적용
+ *
+ * @param {number} currentPrice - 현재가
+ * @param {number} averagePrice - 평균 매입가
+ * @param {Array} takeProfitTargets - 익절 타겟 [{price, quantity, completed}]
+ * @param {Array} stopLossTargets - 손절 타겟 [{price, quantity, completed}]
+ * @param {string} size - 바 크기 ('xs' | 'sm') - xs: w-16 h-1.5, sm: w-20 h-2
+ */
+export function MiniTargetProgressBar({
+  currentPrice,
+  averagePrice,
+  takeProfitTargets = [],
+  stopLossTargets = [],
+  size = 'xs'
+}) {
+  const validTpTargets = (takeProfitTargets || []).filter(t => t.price && !t.completed);
+  const validSlTargets = (stopLossTargets || []).filter(t => t.price && !t.completed);
+
+  // 타겟이 없거나 가격 정보가 없으면 표시 안 함
+  if (validTpTargets.length === 0 && validSlTargets.length === 0) {
+    return null;
+  }
+
+  if (!currentPrice || !averagePrice) {
+    return null;
+  }
+
+  const { progress, direction } = calculateTargetProgress(
+    currentPrice,
+    averagePrice,
+    takeProfitTargets,
+    stopLossTargets
+  );
+
+  const isNearTarget = progress >= 70;
+
+  // 크기별 스타일
+  const sizeClasses = {
+    xs: 'w-16 h-1.5',
+    sm: 'w-20 h-2',
+  };
+
+  // 바 fill 색상 (70% 이상이면 그라데이션 + pulse)
+  const getBarFillClass = (dir, near) => {
+    if (dir === 'profit') {
+      return near
+        ? 'bg-gradient-to-r from-red-400 via-red-500 to-orange-400 animate-pulse'
+        : 'bg-red-500';
+    }
+    if (dir === 'loss') {
+      return near
+        ? 'bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-400 animate-pulse'
+        : 'bg-blue-500';
+    }
+    return 'bg-gray-400';
+  };
+
+  // 70% 이상이면 ring 효과 추가
+  const ringClass = isNearTarget
+    ? `ring-1 ring-offset-1 ring-offset-white dark:ring-offset-gray-800 ${
+        direction === 'profit' ? 'ring-red-400' : 'ring-blue-400'
+      }`
+    : '';
+
+  return (
+    <div className={`${sizeClasses[size]} bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden ${ringClass}`}>
+      <div
+        className={`h-full rounded-full transition-all ${getBarFillClass(direction, isNearTarget)}`}
+        style={{ width: `${progress}%` }}
+      />
     </div>
   );
 }

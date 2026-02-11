@@ -1,17 +1,14 @@
 # backend/app/api/newsdesk.py
 from datetime import date, datetime, timedelta
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user, get_manager_or_admin
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.newsdesk import NewsDesk
-from app.schemas.newsdesk import NewsDeskResponse, NewsDeskGenerateRequest, BenchmarkResponse
+from app.schemas.newsdesk import NewsDeskResponse, BenchmarkResponse
 from app.schemas.common import APIResponse
-from app.services.newsdesk_ai import NewsDeskAI
-from app.services.news_crawler import NewsCrawler
 
 router = APIRouter()
 
@@ -165,105 +162,7 @@ async def get_newsdesk_by_date(
     )
 
 
-@router.post("/generate", response_model=APIResponse)
-async def generate_newsdesk(
-    request: Optional[NewsDeskGenerateRequest] = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_manager_or_admin)
-):
-    """뉴스데스크 생성 (팀장/관리자만, 하루 1회 제한)
 
-    1. 뉴스 크롤링 (네이버, yfinance)
-    2. AI로 콘텐츠 생성
-    3. DB에 저장
-
-    제한: 한국시간 기준 하루에 1회만 생성 가능 (재생성 불가)
-    """
-    # 한국시간 기준 오늘 날짜
-    today = get_korean_today()
-    target_date = request.target_date if request and request.target_date else today
-
-    # 기존 뉴스데스크 확인 (Row-level lock으로 동시 요청 방지)
-    existing = db.query(NewsDesk).filter(
-        NewsDesk.publish_date == target_date
-    ).with_for_update().first()
-
-    if existing and existing.status == "generating":
-        db.commit()  # lock 해제
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="뉴스데스크가 생성 중입니다. 잠시 후 다시 시도해주세요."
-        )
-
-    # 하루 1회 제한 체크 (이미 성공적으로 생성된 경우)
-    if existing and existing.status == "ready" and existing.generation_count >= 1:
-        db.commit()  # lock 해제
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"오늘({target_date.strftime('%m월 %d일')}) 뉴스데스크는 이미 생성되었습니다. 하루에 1회만 생성할 수 있습니다."
-        )
-
-    # 상태 업데이트 또는 생성 (lock 보유 중이므로 원자적 처리)
-    if existing:
-        existing.status = "generating"
-        existing.error_message = None
-        db.commit()
-        newsdesk = existing
-    else:
-        newsdesk = NewsDesk(
-            publish_date=target_date,
-            status="generating",
-            raw_news_count=0
-        )
-        db.add(newsdesk)
-        db.commit()
-        db.refresh(newsdesk)
-
-    try:
-        # 1. 뉴스 크롤링 (어제 + 오늘 새벽)
-        crawler = NewsCrawler(db)
-        collected_count = crawler.collect_for_morning_briefing(target_date)
-
-        # 2. 수집된 뉴스 조회
-        raw_news = crawler.get_raw_news(target_date)
-
-        if not raw_news:
-            newsdesk.status = "failed"
-            newsdesk.error_message = "수집된 뉴스가 없습니다"
-            db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="수집된 뉴스가 없습니다. 나중에 다시 시도해주세요."
-            )
-
-        # 3. AI로 콘텐츠 생성
-        ai_service = NewsDeskAI(db)
-        content = ai_service.generate_newsdesk(target_date, raw_news)
-
-        # 4. DB에 저장
-        result = ai_service.save_newsdesk(target_date, content, len(raw_news))
-
-        return APIResponse(
-            success=True,
-            data=newsdesk_to_response(result),
-            message=f"뉴스데스크가 생성되었습니다 (뉴스 {len(raw_news)}건 분석)"
-        )
-
-    except HTTPException:
-        raise
-    except ValueError as e:
-        newsdesk.status = "failed"
-        newsdesk.error_message = str(e)
-        db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        newsdesk.status = "failed"
-        newsdesk.error_message = str(e)
-        db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"뉴스데스크 생성 중 오류가 발생했습니다: {str(e)}"
-        )
+# 수동 생성 엔드포인트 제거됨 (2026-02-10)
+# 뉴스데스크는 스케줄러(KST 05:30)로만 자동 생성
+# 스케줄러: backend/app/services/scheduler.py → generate_newsdesk_job()

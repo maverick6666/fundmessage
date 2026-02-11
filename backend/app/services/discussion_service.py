@@ -7,7 +7,7 @@ from app.models.discussion import Discussion, DiscussionStatus
 from app.models.message import Message, MessageType
 from app.models.request import Request, RequestStatus
 from app.models.position import Position
-from app.schemas.discussion import DiscussionCreate, DiscussionClose, MessageCreate
+from app.schemas.discussion import DiscussionCreate, DiscussionClose, DiscussionReopen, DiscussionUpdate, MessageCreate
 
 
 class DiscussionService:
@@ -62,6 +62,8 @@ class DiscussionService:
             position_id=discussion_data.position_id,
             title=discussion_data.title,
             status=DiscussionStatus.OPEN.value,
+            session_count=1,
+            current_agenda=discussion_data.agenda,
             opened_by=opened_by,
             opened_at=datetime.utcnow()
         )
@@ -69,12 +71,13 @@ class DiscussionService:
         self.db.add(discussion)
         self.db.flush()  # discussion.id를 얻기 위해 flush
 
-        # Add system message
+        # Add system message with session info
         system_message = Message(
             discussion_id=discussion.id,
             user_id=opened_by,
-            content="Discussion started",
-            message_type=MessageType.SYSTEM.value
+            content=f"Session 1 started\n의제: {discussion_data.agenda}",
+            message_type=MessageType.SYSTEM.value,
+            session_number=1
         )
         self.db.add(system_message)
 
@@ -102,12 +105,13 @@ class DiscussionService:
         discussion.closed_at = datetime.utcnow()
         discussion.summary = close_data.summary
 
-        # Add system message
+        # Add system message with session info
         system_message = Message(
             discussion_id=discussion.id,
             user_id=closed_by,
-            content="Discussion closed",
-            message_type=MessageType.SYSTEM.value
+            content=f"Session {discussion.session_count} closed",
+            message_type=MessageType.SYSTEM.value,
+            session_number=discussion.session_count
         )
         self.db.add(system_message)
 
@@ -116,7 +120,7 @@ class DiscussionService:
 
         return discussion
 
-    def reopen_discussion(self, discussion_id: int, reopened_by: int) -> Discussion:
+    def reopen_discussion(self, discussion_id: int, reopened_by: int, reopen_data: DiscussionReopen = None) -> Discussion:
         discussion = self.get_discussion_by_id(discussion_id)
         if not discussion:
             raise HTTPException(
@@ -130,20 +134,27 @@ class DiscussionService:
                 detail="Discussion is already open"
             )
 
+        # 새 세션 시작
+        new_session_number = (discussion.session_count or 1) + 1
+        agenda = reopen_data.agenda if reopen_data else "의제 없음"
+
         discussion.status = DiscussionStatus.OPEN.value
         discussion.closed_by = None
         discussion.closed_at = None
+        discussion.session_count = new_session_number
+        discussion.current_agenda = agenda
 
         # Request status를 다시 discussion으로
         if discussion.request:
             discussion.request.status = RequestStatus.DISCUSSION.value
 
-        # Add system message
+        # Add system message with new session info
         system_message = Message(
             discussion_id=discussion.id,
             user_id=reopened_by,
-            content="Discussion reopened",
-            message_type=MessageType.SYSTEM.value
+            content=f"Session {new_session_number} started\n의제: {agenda}",
+            message_type=MessageType.SYSTEM.value,
+            session_number=new_session_number
         )
         self.db.add(system_message)
 
@@ -189,7 +200,8 @@ class DiscussionService:
             user_id=user_id,
             content=message_data.content,
             message_type=msg_type,
-            chart_data=message_data.chart_data if hasattr(message_data, 'chart_data') else None
+            chart_data=message_data.chart_data if hasattr(message_data, 'chart_data') else None,
+            session_number=discussion.session_count or 1
         )
 
         self.db.add(message)
@@ -409,3 +421,105 @@ class DiscussionService:
             Message.discussion_id == discussion_id,
             Message.message_type == MessageType.TEXT.value
         ).order_by(Message.created_at.desc()).first()
+
+    def update_discussion(self, discussion_id: int, update_data: DiscussionUpdate, user_id: int) -> Discussion:
+        """토론 제목/의제 수정"""
+        discussion = self.get_discussion_by_id(discussion_id)
+        if not discussion:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Discussion not found"
+            )
+
+        if update_data.title is not None:
+            discussion.title = update_data.title
+
+        if update_data.current_agenda is not None:
+            discussion.current_agenda = update_data.current_agenda
+
+        self.db.commit()
+        self.db.refresh(discussion)
+        return discussion
+
+    def delete_session(self, discussion_id: int, session_number: int, user_id: int) -> dict:
+        """특정 세션의 모든 메시지 삭제"""
+        discussion = self.get_discussion_by_id(discussion_id)
+        if not discussion:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Discussion not found"
+            )
+
+        # 해당 세션의 메시지 수 확인
+        messages_to_delete = self.db.query(Message).filter(
+            Message.discussion_id == discussion_id,
+            Message.session_number == session_number
+        ).all()
+
+        deleted_count = len(messages_to_delete)
+
+        # 메시지 삭제
+        for msg in messages_to_delete:
+            self.db.delete(msg)
+
+        self.db.commit()
+
+        return {"deleted_count": deleted_count, "session_number": session_number}
+
+    def get_sessions_with_info(self, discussion_id: int) -> List[dict]:
+        """세션별 정보 조회 (의제, 메시지 수, 최근 메시지 포함)"""
+        from sqlalchemy import func
+
+        discussion = self.get_discussion_by_id(discussion_id)
+        if not discussion:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Discussion not found"
+            )
+
+        # 세션별 메시지 집계
+        session_stats = self.db.query(
+            Message.session_number,
+            func.count(Message.id).label('message_count'),
+            func.min(Message.created_at).label('started_at'),
+            func.max(Message.created_at).label('last_message_at')
+        ).filter(
+            Message.discussion_id == discussion_id
+        ).group_by(Message.session_number).all()
+
+        sessions = []
+        for stat in session_stats:
+            session_num = stat.session_number or 1
+
+            # 해당 세션의 시스템 메시지에서 의제 추출
+            system_msg = self.db.query(Message).filter(
+                Message.discussion_id == discussion_id,
+                Message.session_number == session_num,
+                Message.message_type == MessageType.SYSTEM.value,
+                Message.content.like('Session%started%')
+            ).first()
+
+            agenda = None
+            if system_msg and '의제:' in system_msg.content:
+                agenda = system_msg.content.split('의제:')[1].strip()
+
+            # 해당 세션의 마지막 텍스트 메시지
+            last_text_msg = self.db.query(Message).filter(
+                Message.discussion_id == discussion_id,
+                Message.session_number == session_num,
+                Message.message_type == MessageType.TEXT.value
+            ).order_by(Message.created_at.desc()).first()
+
+            sessions.append({
+                "session_number": session_num,
+                "agenda": agenda,
+                "message_count": stat.message_count,
+                "started_at": stat.started_at.isoformat() if stat.started_at else None,
+                "last_message": last_text_msg.content[:50] + "..." if last_text_msg and len(last_text_msg.content) > 50 else (last_text_msg.content if last_text_msg else None),
+                "last_message_at": stat.last_message_at.isoformat() if stat.last_message_at else None
+            })
+
+        # 세션 번호 순 정렬
+        sessions.sort(key=lambda x: x["session_number"])
+
+        return sessions

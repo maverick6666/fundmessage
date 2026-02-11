@@ -818,26 +818,26 @@
    POSITION ALERT STYLES
    ============================================ */
 
-/* 위험 포지션 경고 테두리 */
+/* 위험 포지션 경고 테두리 (손절 근접 = 파랑) */
 @keyframes danger-pulse {
   0%, 100% {
-    border-color: rgba(239, 68, 68, 0.6);
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    border-color: rgba(59, 130, 246, 0.6);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
   }
   50% {
-    border-color: rgba(239, 68, 68, 1);
-    box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.3);
+    border-color: rgba(59, 130, 246, 1);
+    box-shadow: 0 0 8px 2px rgba(59, 130, 246, 0.3);
   }
 }
 
 .position-danger {
-  border-left: 4px solid #ef4444 !important;
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.08) 0%, transparent 100%);
+  border-left: 4px solid #3b82f6 !important;
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, transparent 100%);
 }
 
 .position-profit {
-  border-left: 4px solid #10b981 !important;
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, transparent 100%);
+  border-left: 4px solid #ef4444 !important;
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.08) 0%, transparent 100%);
 }
 
 /* 미확인 포지션 경고 배지 */
@@ -855,6 +855,29 @@
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: white;
   font-weight: 600;
+}
+
+/* ============================================
+   NEWSDESK SUNRISE ANIMATION
+   ============================================ */
+
+@keyframes newsdesk-sunrise {
+  0% { transform: translateY(8px); opacity: 0.4; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes newsdesk-rays-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.08); }
+}
+
+.newsdesk-sunrise-icon {
+  animation: newsdesk-sunrise 1.2s ease-out both;
+}
+
+.newsdesk-sun-rays {
+  animation: newsdesk-rays-pulse 3s ease-in-out infinite;
+  transform-origin: center 48px;
 }
 
 /* ============================================

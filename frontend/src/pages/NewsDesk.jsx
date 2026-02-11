@@ -3,37 +3,125 @@ import { createChart } from 'lightweight-charts';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { newsdeskService } from '../services/newsdeskService';
-import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSidePanelStore } from '../stores/useSidePanelStore';
 import { Button } from '../components/common/Button';
-import { formatDate } from '../utils/formatters';
+import { formatDate, getEffectiveNewsDeskDate, getKSTToday, getKSTHour } from '../utils/formatters';
 
-// 날짜 선택기 컴포넌트
-function DatePicker({ selectedDate, onDateChange, history }) {
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef(null);
+// 미니 캘린더 날짜 선택기 컴포넌트
+function MiniCalendarPicker({ selectedDate, onDateChange, history }) {
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [viewDate, setViewDate] = useState(() => {
+    const d = new Date(selectedDate);
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+  const calendarRef = useRef(null);
 
-  // 외부 클릭 시 드롭다운 닫기
+  const todayKST = getKSTToday();
+
+  // history에서 뉴스데스크 존재하는 날짜 Set 생성
+  const existingDates = useMemo(() => {
+    if (!Array.isArray(history)) return new Set();
+    return new Set(history.map(h => h.publish_date));
+  }, [history]);
+
+  // 외부 클릭 시 캘린더 닫기
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setShowDropdown(false);
+      if (calendarRef.current && !calendarRef.current.contains(e.target)) {
+        setShowCalendar(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 날짜 이동
+  // 날짜 이동 (화살표 버튼)
   const moveDate = (direction) => {
     const current = new Date(selectedDate);
     current.setDate(current.getDate() + direction);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (current <= today) {
-      onDateChange(current.toISOString().split('T')[0]);
+    const dateStr = current.toISOString().split('T')[0];
+    if (dateStr <= todayKST) {
+      onDateChange(dateStr);
+      setViewDate({ year: current.getFullYear(), month: current.getMonth() });
+    }
+  };
+
+  // 월 이동
+  const moveMonth = (direction) => {
+    setViewDate(prev => {
+      let newMonth = prev.month + direction;
+      let newYear = prev.year;
+      if (newMonth < 0) {
+        newMonth = 11;
+        newYear--;
+      } else if (newMonth > 11) {
+        newMonth = 0;
+        newYear++;
+      }
+      return { year: newYear, month: newMonth };
+    });
+  };
+
+  // 해당 월의 날짜 배열 생성
+  const getDaysInMonth = () => {
+    const { year, month } = viewDate;
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay();
+
+    const days = [];
+    // 이전 달 빈 칸
+    for (let i = 0; i < startDayOfWeek; i++) {
+      days.push(null);
+    }
+    // 현재 달 날짜들
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(i);
+    }
+    return days;
+  };
+
+  // 날짜 문자열 생성
+  const getDateStr = (day) => {
+    if (!day) return null;
+    const { year, month } = viewDate;
+    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
+  // 날짜 상태 확인
+  const getDayStatus = (day) => {
+    if (!day) return { disabled: true };
+    const dateStr = getDateStr(day);
+    const isToday = dateStr === todayKST;
+    const isFuture = dateStr > todayKST;
+    const isSelected = dateStr === selectedDate;
+    const hasNewsDesk = existingDates.has(dateStr);
+
+    // 7일 이전 체크
+    const sevenDaysAgo = new Date(todayKST);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+    const isOlderThan7Days = dateStr < sevenDaysAgoStr;
+
+    return {
+      isToday,
+      isFuture,
+      isSelected,
+      hasNewsDesk,
+      isOlderThan7Days,
+      disabled: isFuture
+    };
+  };
+
+  // 날짜 클릭 핸들러
+  const handleDayClick = (day) => {
+    const dateStr = getDateStr(day);
+    const status = getDayStatus(day);
+    if (!status.disabled) {
+      onDateChange(dateStr);
+      setShowCalendar(false);
     }
   };
 
@@ -42,15 +130,20 @@ function DatePicker({ selectedDate, onDateChange, history }) {
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   };
 
-  const isToday = (dateStr) => {
-    const today = new Date().toISOString().split('T')[0];
-    return dateStr === today;
-  };
+  const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
+  const days = getDaysInMonth();
+
+  // 현재 월이 오늘이 포함된 월인지
+  const today = new Date(todayKST);
+  const isCurrentMonthView = viewDate.year === today.getFullYear() && viewDate.month === today.getMonth();
+
+  // 다음 월 버튼 비활성화 (미래 월 방지)
+  const canGoNext = !isCurrentMonthView || viewDate.month < today.getMonth() || viewDate.year < today.getFullYear();
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative" ref={calendarRef}>
       <div className="flex items-center gap-1">
-        {/* 이전 버튼 */}
+        {/* 이전 날짜 버튼 */}
         <button
           onClick={() => moveDate(-1)}
           className="w-8 h-8 flex items-center justify-center border-2 border-black dark:border-gray-500 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -60,21 +153,28 @@ function DatePicker({ selectedDate, onDateChange, history }) {
           </svg>
         </button>
 
-        {/* 날짜 표시 & 드롭다운 트리거 */}
+        {/* 날짜 표시 & 캘린더 트리거 */}
         <button
-          onClick={() => setShowDropdown(!showDropdown)}
+          onClick={() => {
+            setShowCalendar(!showCalendar);
+            // 캘린더 열 때 선택된 날짜의 월로 이동
+            if (!showCalendar) {
+              const d = new Date(selectedDate);
+              setViewDate({ year: d.getFullYear(), month: d.getMonth() });
+            }
+          }}
           className="flex items-center gap-2 px-4 h-8 border-2 border-black dark:border-gray-500 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-mono font-bold text-sm"
         >
           {formatDisplayDate(selectedDate)}
-          <svg className={`w-3 h-3 transition-transform ${showDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`w-3 h-3 transition-transform ${showCalendar ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
 
-        {/* 다음 버튼 */}
+        {/* 다음 날짜 버튼 */}
         <button
           onClick={() => moveDate(1)}
-          disabled={isToday(selectedDate)}
+          disabled={selectedDate >= todayKST}
           className="w-8 h-8 flex items-center justify-center border-2 border-black dark:border-gray-500 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,34 +183,110 @@ function DatePicker({ selectedDate, onDateChange, history }) {
         </button>
       </div>
 
-      {/* 드롭다운 */}
-      {showDropdown && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-gray-800 border-2 border-black dark:border-gray-500 shadow-lg min-w-[180px]">
-          <div className="py-1">
-            {history.map((item) => (
-              <button
-                key={item.date}
-                onClick={() => {
-                  onDateChange(item.date);
-                  setShowDropdown(false);
-                }}
-                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between ${
-                  item.date === selectedDate ? 'bg-primary-50 dark:bg-primary-900/30 font-bold' : ''
+      {/* 미니 캘린더 드롭다운 */}
+      {showCalendar && (
+        <div className="absolute top-full right-0 mt-2 z-50 bg-white dark:bg-gray-800 border-2 border-black dark:border-gray-600 shadow-xl w-72 animate-in fade-in slide-in-from-top-2 duration-200">
+          {/* 월 네비게이션 헤더 */}
+          <div className="flex items-center justify-between px-3 py-2 border-b-2 border-black dark:border-gray-600 bg-gray-50 dark:bg-gray-900">
+            <button
+              onClick={() => moveMonth(-1)}
+              className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="font-bold text-sm tracking-wide">
+              {viewDate.year}년 {viewDate.month + 1}월
+            </span>
+            <button
+              onClick={() => moveMonth(1)}
+              disabled={isCurrentMonthView}
+              className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* 요일 헤더 */}
+          <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
+            {weekDays.map((day, i) => (
+              <div
+                key={day}
+                className={`text-center text-xs font-medium py-2 ${
+                  i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'
                 }`}
               >
-                <span className="font-mono">{formatDisplayDate(item.date)}</span>
-                {item.date === selectedDate && (
-                  <svg className="w-4 h-4 text-primary-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                )}
-              </button>
-            ))}
-            {history.length === 0 && (
-              <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
-                이전 기록 없음
+                {day}
               </div>
-            )}
+            ))}
+          </div>
+
+          {/* 날짜 그리드 */}
+          <div className="grid grid-cols-7 p-2 gap-0.5">
+            {days.map((day, i) => {
+              const status = getDayStatus(day);
+              const dayOfWeek = i % 7;
+
+              return (
+                <button
+                  key={i}
+                  onClick={() => day && handleDayClick(day)}
+                  disabled={!day || status.disabled}
+                  className={`
+                    aspect-square flex flex-col items-center justify-center text-sm relative
+                    transition-all duration-150 rounded
+                    ${!day ? 'cursor-default' : ''}
+                    ${status.disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
+                    ${status.isSelected
+                      ? 'bg-black dark:bg-white text-white dark:text-black font-bold'
+                      : status.isToday
+                        ? 'ring-2 ring-primary-500 ring-inset font-bold'
+                        : status.isFuture
+                          ? 'text-gray-300 dark:text-gray-600'
+                          : status.isOlderThan7Days
+                            ? 'text-gray-400 dark:text-gray-500 opacity-60'
+                            : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }
+                    ${day && dayOfWeek === 0 && !status.isSelected ? 'text-red-500' : ''}
+                    ${day && dayOfWeek === 6 && !status.isSelected ? 'text-blue-500' : ''}
+                  `}
+                  title={status.isOlderThan7Days ? '7일 이전 (생성 불가)' : status.hasNewsDesk ? '뉴스데스크 있음' : ''}
+                >
+                  {day && (
+                    <>
+                      <span>{day}</span>
+                      {/* 뉴스데스크 존재 표시 (초록색 점) */}
+                      {status.hasNewsDesk && (
+                        <div className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${status.isSelected ? 'bg-white dark:bg-black' : 'bg-emerald-500'}`} />
+                      )}
+                      {/* 7일 이전 표시 (회색 점선) */}
+                      {status.isOlderThan7Days && !status.hasNewsDesk && (
+                        <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full border border-gray-400 dark:border-gray-500" />
+                      )}
+                    </>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 범례 */}
+          <div className="flex items-center justify-center gap-4 px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>존재</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full border border-gray-400" />
+              <span>생성 불가</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 ring-2 ring-primary-500 ring-inset rounded" />
+              <span>오늘</span>
+            </div>
           </div>
         </div>
       )}
@@ -735,7 +911,7 @@ function TopStockCard({ stock, rank, onClick }) {
 }
 
 // 폴백 UI 컴포넌트
-function FallbackUI({ status, errorMessage, onGenerate, onViewPrevious, generating, isManager }) {
+function FallbackUI({ status, errorMessage, onViewPrevious, selectedDate, isBeforeSix }) {
   // 상태별 UI
   if (status === 'pending') {
     return (
@@ -748,18 +924,10 @@ function FallbackUI({ status, errorMessage, onGenerate, onViewPrevious, generati
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
           뉴스데스크 준비 중...
         </h2>
-        <p className="text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
+        <p className="text-gray-500 dark:text-gray-400 text-center max-w-md">
           AI가 오늘의 뉴스를 분석하여 인사이트를 생성합니다.<br />
-          매일 오전 5:30, 오후 5:30에 자동으로 업데이트됩니다.
+          매일 오전 6시에 자동으로 업데이트됩니다.
         </p>
-        {isManager && (
-          <Button onClick={onGenerate} loading={generating} className="gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            지금 생성하기
-          </Button>
-        )}
       </div>
     );
   }
@@ -805,22 +973,61 @@ function FallbackUI({ status, errorMessage, onGenerate, onViewPrevious, generati
             {errorMessage}
           </p>
         )}
-        <div className="flex gap-3">
-          {isManager && (
-            <Button onClick={onGenerate} loading={generating} className="gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              다시 시도
-            </Button>
-          )}
-          <Button variant="secondary" onClick={onViewPrevious} className="gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            이전 뉴스데스크 보기
-          </Button>
+        <p className="text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md text-sm">
+          다음 자동 생성 시 재시도됩니다.
+        </p>
+        <Button variant="secondary" onClick={onViewPrevious} className="gap-2">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          이전 뉴스데스크 보기
+        </Button>
+      </div>
+    );
+  }
+
+  // 6시 이전 오늘 날짜: 새벽 안내
+  if (status === 'empty' && selectedDate === getKSTToday() && isBeforeSix) {
+    return (
+      <div className="relative flex flex-col items-center justify-center min-h-[400px] rounded-lg border border-amber-200/60 dark:border-amber-700/30 overflow-hidden">
+        {/* 새벽 그라데이션 배경 */}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-amber-950/80 to-amber-800/60 dark:from-slate-950 dark:via-amber-950/60 dark:to-amber-900/40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-orange-400/20 via-transparent to-transparent" />
+
+        {/* 수평선 */}
+        <div className="absolute bottom-[38%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+
+        {/* 일출 SVG */}
+        <div className="relative z-10 mb-5 newsdesk-sunrise-icon">
+          <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+            {/* 광선 */}
+            <g className="newsdesk-sun-rays" opacity="0.6">
+              <line x1="40" y1="12" x2="40" y2="20" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" />
+              <line x1="56" y1="17" x2="52" y2="24" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" />
+              <line x1="24" y1="17" x2="28" y2="24" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" />
+              <line x1="64" y1="28" x2="58" y2="32" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" />
+              <line x1="16" y1="28" x2="22" y2="32" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" />
+            </g>
+            {/* 반원 태양 */}
+            <path d="M24 48 A16 16 0 0 1 56 48" fill="url(#sunGrad)" />
+            {/* 수평선 */}
+            <line x1="10" y1="48" x2="70" y2="48" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+            <defs>
+              <linearGradient id="sunGrad" x1="40" y1="48" x2="40" y2="28" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#f59e0b" />
+                <stop offset="100%" stopColor="#fbbf24" />
+              </linearGradient>
+            </defs>
+          </svg>
         </div>
+
+        {/* 텍스트 */}
+        <h2 className="relative z-10 text-xl font-bold text-amber-50 mb-2 tracking-tight">
+          오늘의 뉴스데스크는 오전 6시에 공개됩니다
+        </h2>
+        <p className="relative z-10 text-amber-200/70 text-sm text-center max-w-sm leading-relaxed">
+          AI가 어제 시장과 오늘 새벽 뉴스를 분석하고 있습니다
+        </p>
       </div>
     );
   }
@@ -837,24 +1044,14 @@ function FallbackUI({ status, errorMessage, onGenerate, onViewPrevious, generati
         선택한 날짜의 뉴스데스크가 없습니다
       </h2>
       <p className="text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
-        다른 날짜를 선택하거나 새로 생성해주세요.
+        다른 날짜를 선택해주세요.
       </p>
-      <div className="flex gap-3">
-        {isManager && (
-          <Button onClick={onGenerate} loading={generating} className="gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            지금 생성하기
-          </Button>
-        )}
-        <Button variant="secondary" onClick={onViewPrevious} className="gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-          </svg>
-          이전 기록 보기
-        </Button>
-      </div>
+      <Button variant="secondary" onClick={onViewPrevious} className="gap-2">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+        </svg>
+        이전 기록 보기
+      </Button>
     </div>
   );
 }
@@ -993,26 +1190,23 @@ function NewsDetailPanel({ content, onClose }) {
 
 // 메인 뉴스데스크 컴포넌트
 export function NewsDesk() {
-  const { isManagerOrAdmin } = useAuth();
-  const toast = useToast();
   const { isCurrentThemeDark } = useTheme();
   const { openPanel, closePanel } = useSidePanelStore();
 
   const [newsDesk, setNewsDesk] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
   const [selectedKeyword, setSelectedKeyword] = useState(null);
   const [selectedBenchmarks, setSelectedBenchmarks] = useState(['kospi', 'fund']);
   const [benchmarkPeriod, setBenchmarkPeriod] = useState('1M');
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => getEffectiveNewsDeskDate());
   const [history, setHistory] = useState([]);
 
   // 히스토리 로드
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const data = await newsdeskService.getNewsDeskHistory(7);
-        setHistory(data || []);
+        const data = await newsdeskService.getNewsDeskHistory(30);
+        setHistory(data?.items || []);
       } catch (error) {
         console.error('Failed to fetch history:', error);
       }
@@ -1049,28 +1243,10 @@ export function NewsDesk() {
   // 이전 뉴스데스크 보기
   const handleViewPrevious = () => {
     if (history.length > 0) {
-      const prev = history.find(h => h.date !== selectedDate);
+      const prev = history.find(h => h.publish_date !== selectedDate);
       if (prev) {
-        setSelectedDate(prev.date);
+        setSelectedDate(prev.publish_date);
       }
-    }
-  };
-
-  // 뉴스데스크 생성
-  const handleGenerate = async () => {
-    try {
-      setGenerating(true);
-      toast.info('뉴스데스크를 생성하고 있습니다. 잠시만 기다려주세요...');
-      await newsdeskService.generateNewsDesk({ date: selectedDate, force: false });
-      toast.success('뉴스데스크가 생성되었습니다!');
-      fetchNewsDesk(selectedDate);
-      // 히스토리도 갱신
-      const updatedHistory = await newsdeskService.getNewsDeskHistory(7);
-      setHistory(updatedHistory || []);
-    } catch (error) {
-      toast.error(error.response?.data?.detail || '뉴스데스크 생성에 실패했습니다.');
-    } finally {
-      setGenerating(false);
     }
   };
 
@@ -1130,7 +1306,7 @@ export function NewsDesk() {
             뉴스데스크
           </h1>
           <div className="flex items-center gap-3">
-            <DatePicker
+            <MiniCalendarPicker
               selectedDate={selectedDate}
               onDateChange={handleDateChange}
               history={history}
@@ -1141,10 +1317,9 @@ export function NewsDesk() {
         <FallbackUI
           status={newsDesk?.status || 'empty'}
           errorMessage={newsDesk?.error_message}
-          onGenerate={handleGenerate}
           onViewPrevious={handleViewPrevious}
-          generating={generating}
-          isManager={isManagerOrAdmin()}
+          selectedDate={selectedDate}
+          isBeforeSix={getKSTHour() < 6}
         />
       </div>
     );
@@ -1164,8 +1339,8 @@ export function NewsDesk() {
       greed_ratio: k.greed_score || 0.5,
       fear_ratio: 1 - (k.greed_score || 0.5),
       overall_score: Math.round((k.greed_score || 0.5) * 100),
-      top_greed: [],
-      top_fear: []
+      top_greed: k.top_greed || [],
+      top_fear: k.top_fear || []
     };
   });
 
@@ -1187,24 +1362,11 @@ export function NewsDesk() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <DatePicker
+          <MiniCalendarPicker
             selectedDate={selectedDate}
             onDateChange={handleDateChange}
             history={history}
           />
-          {isManagerOrAdmin() && (
-            <Button
-              variant="secondary"
-              onClick={handleGenerate}
-              loading={generating}
-              className="gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              새로고침
-            </Button>
-          )}
         </div>
       </div>
 

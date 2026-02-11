@@ -79,9 +79,23 @@ export function formatCurrency(value, market = 'KRX') {
   }).format(value);
 }
 
+// 비율(0-1) → 백분율 표시. 예: 0.025 → "2.50%"
 export function formatPercent(value, decimals = 2) {
   if (value == null) return '-';
   return `${(value * 100).toFixed(decimals)}%`;
+}
+
+// 이미 백분율인 값 표시. 예: -2.5 → "-2.50%"
+export function formatProfitRate(value, decimals = 2) {
+  if (value == null) return '-';
+  return `${value >= 0 ? '+' : ''}${Number(value).toFixed(decimals)}%`;
+}
+
+// getCurrencyUnit - 시장별 통화 단위 반환
+export function getCurrencyUnit(market) {
+  if (market === 'NASDAQ' || market === 'NYSE') return ' USD';
+  if (market === 'CRYPTO') return ' USDT';
+  return ' 원';
 }
 
 // 백엔드에서 UTC 시간을 반환하므로 'Z' 접미사 추가하여 UTC로 파싱
@@ -206,4 +220,36 @@ export function formatPriceQuantity(price, quantity, market = 'KRX', ratio = nul
   }
 
   return formattedPrice;
+}
+
+// KST 기준 오늘 날짜 (YYYY-MM-DD)
+export function getKSTToday() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul'
+  }).format(new Date());
+}
+
+// KST 기준 현재 시간 (0-23)
+export function getKSTHour() {
+  return parseInt(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    hour12: false
+  }).format(new Date()));
+}
+
+// 뉴스데스크용 유효 날짜 계산 (KST 기준, 오전 6시 분기)
+// - 오전 6시 이전: 전날 뉴스데스크 표시
+// - 오전 6시 이후: 당일 뉴스데스크 표시
+export function getEffectiveNewsDeskDate() {
+  const today = getKSTToday();
+  if (getKSTHour() < 6) {
+    const d = new Date(today + 'T00:00:00');
+    d.setDate(d.getDate() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  return today;
 }
