@@ -3,6 +3,8 @@ import { createChart } from 'lightweight-charts';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { newsdeskService } from '../services/newsdeskService';
+import { commentService } from '../services/commentService';
+import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { useSidePanelStore } from '../stores/useSidePanelStore';
 import { Button } from '../components/common/Button';
@@ -1057,7 +1059,71 @@ function FallbackUI({ status, errorMessage, onViewPrevious, selectedDate, isBefo
 }
 
 // 사이드 패널용 문서 뷰어 (마크다운 렌더링)
-function NewsDetailPanel({ content, onClose }) {
+function NewsDetailPanel({ content, documentId, onClose }) {
+  const { user } = useAuth();
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editContent, setEditContent] = useState('');
+
+  useEffect(() => {
+    if (documentId) fetchComments();
+  }, [documentId]);
+
+  const fetchComments = async () => {
+    if (!documentId) return;
+    setCommentsLoading(true);
+    try {
+      const data = await commentService.getComments({
+        document_type: 'news',
+        document_id: documentId,
+      });
+      setComments(data || []);
+    } catch (error) {
+      console.error('Failed to fetch comments:', error);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const handleSubmitComment = async (e) => {
+    e.preventDefault();
+    if (!newComment.trim() || !documentId) return;
+    try {
+      await commentService.createComment({
+        document_type: 'news',
+        document_id: documentId,
+        content: newComment.trim(),
+      });
+      setNewComment('');
+      fetchComments();
+    } catch (error) {
+      console.error('Failed to create comment:', error);
+    }
+  };
+
+  const handleEditComment = async (commentId) => {
+    if (!editContent.trim()) return;
+    try {
+      await commentService.updateComment(commentId, editContent.trim());
+      setEditingId(null);
+      setEditContent('');
+      fetchComments();
+    } catch (error) {
+      console.error('Failed to update comment:', error);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    try {
+      await commentService.deleteComment(commentId);
+      fetchComments();
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+    }
+  };
+
   if (!content) return null;
 
   const bodyContent = content.content || content.detail || content.summary || '';
@@ -1183,6 +1249,103 @@ function NewsDetailPanel({ content, onClose }) {
             </svg>
           </a>
         )}
+
+        {/* 댓글 섹션 */}
+        {documentId && (
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              의견 {comments.length > 0 ? `(${comments.length})` : ''}
+            </h4>
+
+            {/* 댓글 입력 */}
+            <form onSubmit={handleSubmitComment} className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="의견을 남겨보세요..."
+                className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+              <button
+                type="submit"
+                disabled={!newComment.trim()}
+                className="px-3 py-2 text-sm font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                등록
+              </button>
+            </form>
+
+            {/* 댓글 목록 */}
+            {commentsLoading ? (
+              <div className="text-center py-4 text-sm text-gray-400">로딩중...</div>
+            ) : comments.length === 0 ? (
+              <div className="text-center py-6 text-sm text-gray-400 dark:text-gray-500">
+                아직 의견이 없습니다
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {comments.map((comment) => {
+                  const isAuthor = comment.user_id === user?.id;
+                  return (
+                    <div key={comment.id} className="group">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-white">
+                          {comment.user?.full_name?.charAt(0) || '?'}
+                        </div>
+                        <span className="text-sm font-medium dark:text-gray-200">
+                          {comment.user?.full_name || '알 수 없음'}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {new Date(comment.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {comment.updated_at && comment.updated_at !== comment.created_at && (
+                            <span className="ml-1 opacity-70">(수정됨)</span>
+                          )}
+                        </span>
+                        {isAuthor && editingId !== comment.id && (
+                          <div className="ml-auto opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                            <button
+                              onClick={() => { setEditingId(comment.id); setEditContent(comment.content); }}
+                              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              수정
+                            </button>
+                            <button
+                              onClick={() => handleDeleteComment(comment.id)}
+                              className="text-xs text-red-400 hover:text-red-600"
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {editingId === comment.id ? (
+                        <div className="ml-8 flex gap-2">
+                          <input
+                            type="text"
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            className="flex-1 px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none"
+                            autoFocus
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleEditComment(comment.id); if (e.key === 'Escape') setEditingId(null); }}
+                          />
+                          <button onClick={() => handleEditComment(comment.id)} className="text-xs text-primary-500 hover:text-primary-600 font-medium">저장</button>
+                          <button onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">취소</button>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-700 dark:text-gray-300 ml-8 leading-relaxed">
+                          {comment.content}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1265,13 +1428,15 @@ export function NewsDesk() {
   };
 
   // 뉴스/칼럼 클릭 → 사이드패널
-  const handleCardClick = (card, type) => {
+  const handleCardClick = (card, type, cardIndex = 0) => {
+    const documentId = newsDesk?.id ? newsDesk.id * 100 + cardIndex : null;
     openPanel({
       type: 'custom',
       data: {
         render: () => (
           <NewsDetailPanel
             content={{ ...card, type }}
+            documentId={documentId}
             onClose={closePanel}
           />
         )
@@ -1406,7 +1571,7 @@ export function NewsDesk() {
                     key={`col-${idx}`}
                     card={col}
                     type="column"
-                    onClick={() => handleCardClick(col, 'column')}
+                    onClick={() => handleCardClick(col, 'column', idx)}
                   />
                 ))}
               </div>
@@ -1433,7 +1598,7 @@ export function NewsDesk() {
                     key={`news-${idx}`}
                     card={card}
                     type="news"
-                    onClick={() => handleCardClick(card, 'news')}
+                    onClick={() => handleCardClick(card, 'news', 20 + idx)}
                   />
                 ))}
               </div>
@@ -1514,7 +1679,7 @@ export function NewsDesk() {
                 key={idx}
                 stock={stock}
                 rank={idx + 1}
-                onClick={() => handleCardClick({ ...stock, title: stock.name }, 'stock')}
+                onClick={() => handleCardClick({ ...stock, title: stock.name }, 'stock', 50 + idx)}
               />
             ))}
           </div>

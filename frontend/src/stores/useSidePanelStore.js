@@ -12,7 +12,7 @@ export const useSidePanelStore = create((set, get) => ({
   // 패널 열림 상태
   isOpen: false,
 
-  // 패널 타입: 'document' | 'column-editor' | 'note-editor' | null
+  // 패널 타입: 'document' | 'column-editor' | 'note-editor' | 'discussion' | 'custom' | null
   panelType: null,
 
   // 패널 데이터
@@ -69,6 +69,15 @@ export const useSidePanelStore = create((set, get) => ({
     openPanel({
       type: 'note-editor',
       data: { note, onSaved },
+    });
+  },
+
+  // 토론 사이드뷰어 열기 헬퍼
+  openDiscussion: (discussionId) => {
+    const { openPanel } = get();
+    openPanel({
+      type: 'discussion',
+      data: { discussionId },
     });
   },
 }));

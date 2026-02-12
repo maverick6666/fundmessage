@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { discussionService } from '../services/discussionService';
+import { useSidePanelStore } from '../stores/useSidePanelStore';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import { formatRelativeTime } from '../utils/formatters';
@@ -10,6 +11,7 @@ import { formatRelativeTime } from '../utils/formatters';
 export function Discussions() {
   const navigate = useNavigate();
   const { adminMode } = useAuth();
+  const { openDiscussion } = useSidePanelStore();
   const toast = useToast();
   const [discussions, setDiscussions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +88,8 @@ export function Discussions() {
             <Card
               key={discussion.id}
               className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-              onClick={() => navigate(`/discussions/${discussion.id}`)}
+              onClick={() => openDiscussion(discussion.id)}
+              onDoubleClick={() => navigate(`/discussions/${discussion.id}`)}
             >
               <div className="flex items-start gap-4">
                 {/* 상태 아이콘 */}

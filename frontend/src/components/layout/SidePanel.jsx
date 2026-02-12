@@ -5,6 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { DocumentPanel } from '../documents/DocumentPanel';
 import { ColumnEditorPanel } from '../editor/ColumnEditorPanel';
 import { NoteEditorPanel } from '../editor/NoteEditorPanel';
+import { DiscussionSidePanel } from '../discussions/DiscussionSidePanel';
 
 /**
  * 노션 스타일 사이드 패널
@@ -125,8 +126,8 @@ export function SidePanel() {
           </div>
         )}
 
-        {/* 에디터 패널과 custom 패널은 자체 헤더를 가짐 */}
-        {panelType !== 'column-editor' && panelType !== 'note-editor' && panelType !== 'custom' && (
+        {/* 에디터/토론/custom 패널은 자체 헤더를 가짐 */}
+        {panelType !== 'column-editor' && panelType !== 'note-editor' && panelType !== 'custom' && panelType !== 'discussion' && (
           <header
             className={`
               flex items-center justify-between px-5 py-4
@@ -175,7 +176,7 @@ export function SidePanel() {
         )}
 
         {/* 패널 컨텐츠 */}
-        <div className={`flex-1 min-h-0 ${(panelType === 'column-editor' || panelType === 'note-editor') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        <div className={`flex-1 min-h-0 ${(panelType === 'column-editor' || panelType === 'note-editor' || panelType === 'discussion') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           {panelType === 'document' && panelData?.document && (
             <DocumentPanel
               document={panelData.document}
@@ -193,6 +194,12 @@ export function SidePanel() {
             <NoteEditorPanel
               note={panelData.note}
               onSaved={panelData?.onSaved}
+            />
+          )}
+          {panelType === 'discussion' && panelData?.discussionId && (
+            <DiscussionSidePanel
+              discussionId={panelData.discussionId}
+              onClose={closePanel}
             />
           )}
           {panelType === 'custom' && panelData?.render && (
