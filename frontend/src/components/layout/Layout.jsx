@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { SidePanel } from './SidePanel';
@@ -10,6 +11,7 @@ import { useLayoutStore } from '../../stores/useLayoutStore';
 
 export function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
   const { isAuthenticated } = useAuth();
   const { connect, isConnected } = useWebSocket();
   const { isOpen: sidePanelOpen } = useSidePanelStore();
@@ -43,7 +45,7 @@ export function Layout({ children }) {
             minWidth: '320px',
           }}
         >
-          <ErrorBoundary>
+          <ErrorBoundary key={location.pathname}>
             {children}
           </ErrorBoundary>
         </main>

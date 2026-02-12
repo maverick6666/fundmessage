@@ -341,7 +341,7 @@ function BenchmarkChart({ selected, period, onPeriodChange }) {
 
   // 차트 초기화
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    if (!chartContainerRef.current || chartContainerRef.current.clientWidth === 0) return;
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -407,7 +407,8 @@ function BenchmarkChart({ selected, period, onPeriodChange }) {
       if (activeCount <= 1) {
         return points.map(p => ({ time: p.time, value: p.value }));
       }
-      const firstValue = points[0].value;
+      const firstValue = points[0]?.value;
+      if (!firstValue) return points.map(p => ({ time: p.time, value: p.value }));
       return points.map(p => ({
         time: p.time,
         value: ((p.value - firstValue) / firstValue) * 100
@@ -1490,12 +1491,12 @@ export function NewsDesk() {
     );
   }
 
-  // 메인 렌더링
-  const columns = newsDesk.columns || [];
-  const newsCards = newsDesk.news_cards || [];
-  const keywords = newsDesk.keywords || [];
-  const sentiment = newsDesk.sentiment || {};
-  const topStocks = newsDesk.top_stocks || [];
+  // 메인 렌더링 (방어적 데이터 처리)
+  const columns = Array.isArray(newsDesk.columns) ? newsDesk.columns : [];
+  const newsCards = Array.isArray(newsDesk.news_cards) ? newsDesk.news_cards : [];
+  const keywords = Array.isArray(newsDesk.keywords) ? newsDesk.keywords : [];
+  const sentiment = (newsDesk.sentiment && typeof newsDesk.sentiment === 'object' && !Array.isArray(newsDesk.sentiment)) ? newsDesk.sentiment : {};
+  const topStocks = Array.isArray(newsDesk.top_stocks) ? newsDesk.top_stocks : [];
 
   // 키워드별 감성 맵 (키워드 클릭 시 게이지 업데이트용)
   const keywordSentimentMap = {};
