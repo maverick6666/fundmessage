@@ -24,6 +24,7 @@ import {
   Area,
   AreaChart
 } from 'recharts';
+import { useTheme } from '../context/ThemeContext';
 
 // 기간 필터 옵션
 const PERIOD_OPTIONS = [
@@ -37,6 +38,13 @@ const PERIOD_OPTIONS = [
 const TAB_OPTIONS = [
   { key: 'team', label: '팀 전체' },
   { key: 'my', label: '내 성과' }
+];
+
+// 차트 타입 옵션
+const CHART_TYPE_OPTIONS = [
+  { key: 'total', label: '총 자산' },
+  { key: 'realized', label: '실현손익' },
+  { key: 'unrealized', label: '미실현손익' }
 ];
 
 // 종목 필터 옵션
@@ -60,6 +68,7 @@ function getHeatmapColor(rate) {
 
 export function Stats() {
   const { user } = useAuth();
+  const { isCurrentThemeDark } = useTheme();
   const [activeTab, setActiveTab] = useState('team');
   const [myStats, setMyStats] = useState(null);
   const [teamStats, setTeamStats] = useState(null);
@@ -71,6 +80,9 @@ export function Stats() {
   const [periodFilter, setPeriodFilter] = useState('all'); // 1w, 1m, 3m, all
   const [chartData, setChartData] = useState([]);
   const [chartLoading, setChartLoading] = useState(false);
+  const [chartType, setChartType] = useState('total'); // total, realized, unrealized
+  const [snapshotDetail, setSnapshotDetail] = useState(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -128,6 +140,31 @@ export function Stats() {
 
   // 차트 데이터가 없을 때 표시할 메시지
   const hasChartData = chartData && chartData.length > 0;
+
+  // 차트 타입별 설정
+  const chartConfig = useMemo(() => {
+    const configs = {
+      total: { dataKey: 'value', label: '총 자산', formatter: (v) => formatCurrency(v, 'KRX') },
+      realized: { dataKey: 'realized_pnl', label: '실현손익', formatter: (v) => formatCurrency(v, 'KRX') },
+      unrealized: { dataKey: 'unrealized_pnl', label: '미실현손익', formatter: (v) => formatCurrency(v, 'KRX') },
+    };
+    return configs[chartType] || configs.total;
+  }, [chartType]);
+
+  // 차트 클릭 → 스냅샷 상세 조회
+  const handleChartClick = async (data) => {
+    if (!data?.activePayload?.[0]?.payload?.full_date) return;
+    const fullDate = data.activePayload[0].payload.full_date;
+    setSnapshotLoading(true);
+    try {
+      const detail = await statsService.getSnapshotDetail(fullDate);
+      setSnapshotDetail(detail);
+    } catch (error) {
+      console.error('Failed to fetch snapshot detail:', error);
+    } finally {
+      setSnapshotLoading(false);
+    }
+  };
 
   if (loading) {
     return <div className="text-center py-12 text-gray-500 dark:text-gray-400">로딩중...</div>;
@@ -224,16 +261,42 @@ export function Stats() {
                   </p>
                 )}
 
+                {/* 차트 타입 셀렉터 */}
+                <div className="flex gap-1 mt-4 mb-2">
+                  {CHART_TYPE_OPTIONS.map(opt => (
+                    <button
+                      key={opt.key}
+                      onClick={() => setChartType(opt.key)}
+                      className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                        chartType === opt.key
+                          ? isCurrentThemeDark
+                            ? 'bg-white/10 text-white font-medium'
+                            : 'bg-gray-900 text-white font-medium'
+                          : isCurrentThemeDark
+                            ? 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
                 {/* 수익 추이 차트 */}
-                <div className="mt-4 -mx-4 -mb-4">
-                  <div className="h-40 w-full">
+                <div className="-mx-4 -mb-4">
+                  <div className="h-44 w-full">
                     {chartLoading ? (
                       <div className="h-full flex items-center justify-center text-gray-400">
                         <span className="text-sm">차트 로딩중...</span>
                       </div>
                     ) : hasChartData ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                        <AreaChart
+                          data={chartData}
+                          margin={{ top: 10, right: 0, left: 0, bottom: 0 }}
+                          onClick={handleChartClick}
+                          style={{ cursor: 'pointer' }}
+                        >
                           <defs>
                             <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="5%" stopColor={totalReturnRate >= 0 ? '#10b981' : '#f43f5e'} stopOpacity={0.3}/>
@@ -247,7 +310,7 @@ export function Stats() {
                             tick={{ fontSize: 10, fill: '#6b7280' }}
                             interval="preserveStartEnd"
                           />
-                          <YAxis hide domain={['dataMin - 500000', 'dataMax + 500000']} />
+                          <YAxis hide domain={['auto', 'auto']} />
                           <Tooltip
                             contentStyle={{
                               backgroundColor: 'rgba(17, 24, 39, 0.95)',
@@ -256,11 +319,11 @@ export function Stats() {
                               padding: '8px 12px'
                             }}
                             labelStyle={{ color: '#9ca3af', fontSize: '12px' }}
-                            formatter={(value) => [formatCurrency(value, 'KRX'), '자산']}
+                            formatter={(value) => [chartConfig.formatter(value), chartConfig.label]}
                           />
                           <Area
                             type="monotone"
-                            dataKey="value"
+                            dataKey={chartConfig.dataKey}
                             stroke={totalReturnRate >= 0 ? '#10b981' : '#f43f5e'}
                             strokeWidth={2}
                             fill="url(#colorValue)"
@@ -275,6 +338,85 @@ export function Stats() {
                   </div>
                 </div>
               </Card>
+
+              {/* 스냅샷 상세 (차트 날짜 클릭 시) */}
+              {snapshotDetail && (
+                <div className={`mt-3 rounded-lg border ${isCurrentThemeDark ? 'bg-gray-800/50 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-medium ${isCurrentThemeDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                        {snapshotDetail.date} 스냅샷
+                      </span>
+                      <span className={`text-xs ${isCurrentThemeDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        총 {formatCurrency(snapshotDetail.total_krw, 'KRX')}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setSnapshotDetail(null)}
+                      className={`p-1 rounded ${isCurrentThemeDark ? 'text-gray-400 hover:text-gray-200 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}`}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* 요약 바 */}
+                  <div className={`grid grid-cols-4 gap-2 px-4 py-2 text-xs border-t ${isCurrentThemeDark ? 'border-white/5' : 'border-gray-200'}`}>
+                    <div>
+                      <span className={isCurrentThemeDark ? 'text-gray-400' : 'text-gray-500'}>실현</span>
+                      <p className={`font-medium ${getProfitLossClass(snapshotDetail.realized_pnl)}`}>
+                        {formatCurrency(snapshotDetail.realized_pnl, 'KRX')}
+                      </p>
+                    </div>
+                    <div>
+                      <span className={isCurrentThemeDark ? 'text-gray-400' : 'text-gray-500'}>미실현</span>
+                      <p className={`font-medium ${getProfitLossClass(snapshotDetail.unrealized_pnl)}`}>
+                        {formatCurrency(snapshotDetail.unrealized_pnl, 'KRX')}
+                      </p>
+                    </div>
+                    <div>
+                      <span className={isCurrentThemeDark ? 'text-gray-400' : 'text-gray-500'}>KRW 현금</span>
+                      <p className={`font-medium ${isCurrentThemeDark ? 'text-gray-200' : ''}`}>{formatCurrency(snapshotDetail.krw_cash, 'KRX')}</p>
+                    </div>
+                    <div>
+                      <span className={isCurrentThemeDark ? 'text-gray-400' : 'text-gray-500'}>USD 현금</span>
+                      <p className={`font-medium ${isCurrentThemeDark ? 'text-gray-200' : ''}`}>{formatCurrency(snapshotDetail.usd_cash, 'USD')}</p>
+                    </div>
+                  </div>
+
+                  {/* 포지션별 상세 */}
+                  {snapshotDetail.position_details?.length > 0 && (
+                    <div className={`px-4 py-2 border-t ${isCurrentThemeDark ? 'border-white/5' : 'border-gray-200'}`}>
+                      <div className="space-y-1.5">
+                        {snapshotDetail.position_details.map((pos, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className={`font-medium ${isCurrentThemeDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                                {pos.ticker_name || pos.ticker}
+                              </span>
+                              <span className={isCurrentThemeDark ? 'text-gray-500' : 'text-gray-400'}>
+                                {pos.ticker}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={isCurrentThemeDark ? 'text-gray-400' : 'text-gray-500'}>
+                                {formatCurrency(pos.eval_amount, pos.market)}
+                              </span>
+                              <span className={`font-medium whitespace-nowrap ${getProfitLossClass(pos.pnl)}`}>
+                                {pos.pnl_rate >= 0 ? '+' : ''}{pos.pnl_rate.toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {snapshotLoading && (
+                <div className="mt-3 text-center text-sm text-gray-400">스냅샷 로딩중...</div>
+              )}
 
               {/* 보유 현황 카드 그리드 */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">

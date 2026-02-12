@@ -28,5 +28,15 @@ export const statsService = {
   async getAssetHistory(period = '1m') {
     const response = await api.get(`/stats/asset-history?period=${period}`);
     return response.data.data;
+  },
+
+  async getSnapshotDetail(date) {
+    const response = await api.get(`/stats/asset-snapshot/${date}`);
+    return response.data.data;
+  },
+
+  async createSnapshot() {
+    const response = await api.post('/stats/asset-snapshot');
+    return response.data.data;
   }
 };
