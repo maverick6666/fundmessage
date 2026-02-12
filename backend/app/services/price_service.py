@@ -117,7 +117,11 @@ class PriceService:
         try:
             stock = yf.Ticker(ticker)
             info = stock.info
+            if not info:
+                return None
             fast_info = stock.fast_info
+            if not fast_info:
+                return None
 
             name = info.get("shortName") or info.get("longName") or ticker
             price = fast_info.get("lastPrice") or fast_info.get("regularMarketPrice")
@@ -190,6 +194,8 @@ class PriceService:
         try:
             stock = yf.Ticker(ticker)
             info = stock.fast_info
+            if not info:
+                return None
             price = info.get("lastPrice") or info.get("regularMarketPrice")
             if price:
                 return Decimal(str(price))
@@ -389,7 +395,7 @@ class PriceService:
 
             # 종목명 조회
             info = stock.info
-            name = info.get("shortName") or info.get("longName") or ticker
+            name = info.get("shortName") or info.get("longName") or ticker if info else ticker
 
             candles = []
             for idx, row in hist.iterrows():

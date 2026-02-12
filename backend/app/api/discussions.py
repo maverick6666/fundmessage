@@ -28,7 +28,7 @@ def discussion_to_response(discussion, message_count: int = 0) -> DiscussionResp
         summary=discussion.summary,
         session_count=discussion.session_count or 1,
         current_agenda=discussion.current_agenda,
-        opened_by=UserBrief.model_validate(discussion.opener),
+        opened_by=UserBrief.model_validate(discussion.opener) if discussion.opener else None,
         closed_by=UserBrief.model_validate(discussion.closer) if discussion.closer else None,
         opened_at=discussion.opened_at,
         closed_at=discussion.closed_at,
@@ -40,7 +40,7 @@ def message_to_response(message) -> MessageResponse:
     return MessageResponse(
         id=message.id,
         discussion_id=message.discussion_id,
-        user=UserBrief.model_validate(message.user),
+        user=UserBrief.model_validate(message.user) if message.user else None,
         content=message.content,
         message_type=message.message_type,
         chart_data=message.chart_data,
@@ -100,8 +100,8 @@ async def get_discussions(
             "ticker": ticker,
             "requester": requester,
             "last_message": {
-                "content": last_message.content[:50] + "..." if len(last_message.content) > 50 else last_message.content,
-                "user": last_message.user.full_name or last_message.user.username,
+                "content": (last_message.content[:50] + "..." if len(last_message.content or "") > 50 else last_message.content) if last_message.content else "",
+                "user": (last_message.user.full_name or last_message.user.username) if last_message.user else "알 수 없음",
                 "created_at": last_message.created_at.isoformat() if last_message.created_at else None
             } if last_message else None
         })

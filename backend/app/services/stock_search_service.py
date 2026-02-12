@@ -150,7 +150,15 @@ class StockSearchService:
                     return
 
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._load_korean_stocks_sync)
+            try:
+                await asyncio.wait_for(
+                    loop.run_in_executor(None, self._load_korean_stocks_sync),
+                    timeout=30.0
+                )
+            except asyncio.TimeoutError:
+                print("한국 주식 목록 로드 타임아웃 (30초)")
+            except Exception as e:
+                print(f"한국 주식 목록 로드 오류: {e}")
 
     async def search_stocks(
         self,
@@ -285,10 +293,13 @@ class StockSearchService:
         if len(results) < 5 and YFINANCE_AVAILABLE and len(query) >= 2:
             try:
                 loop = asyncio.get_event_loop()
-                yf_results = await loop.run_in_executor(
-                    None,
-                    self._yfinance_search,
-                    query
+                yf_results = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None,
+                        self._yfinance_search,
+                        query
+                    ),
+                    timeout=10.0
                 )
 
                 # 이미 있는 종목 제외하고 추가
@@ -298,6 +309,8 @@ class StockSearchService:
                         if not market or stock["market"] == market:
                             results.append(stock)
 
+            except asyncio.TimeoutError:
+                print(f"yfinance 검색 타임아웃 (10초): {query}")
             except Exception as e:
                 print(f"yfinance 검색 오류: {e}")
 

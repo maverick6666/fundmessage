@@ -58,8 +58,12 @@ async def get_team_stats(
 
     price_data = {}
     if open_positions:
-        price_service = PriceService()
-        price_data = await price_service.get_multiple_prices(open_positions)
+        try:
+            price_service = PriceService()
+            price_data = await price_service.get_multiple_prices(open_positions)
+        except Exception as e:
+            print(f"Team stats price fetch error: {e}")
+            price_data = {}
 
     stats_service = StatsService(db)
     stats = stats_service.get_team_stats(start_date, end_date, price_data=price_data)
@@ -223,8 +227,12 @@ async def get_team_ranking(
 
     price_data = {}
     if open_positions:
-        price_service = PriceService()
-        price_data = await price_service.get_multiple_prices(open_positions)
+        try:
+            price_service = PriceService()
+            price_data = await price_service.get_multiple_prices(open_positions)
+        except Exception as e:
+            print(f"Team ranking price fetch error: {e}")
+            price_data = {}
 
     # 이번 주 시작일 (월요일)
     today = datetime.now(KST).date()

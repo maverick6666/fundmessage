@@ -85,12 +85,16 @@ async def send_verification(
 
     # 인증 코드 생성 및 발송
     code = email_service.create_verification(data.email)
-    success = email_service.send_verification_email(data.email, code)
+    try:
+        success = email_service.send_verification_email(data.email, code)
+    except Exception as e:
+        print(f"SMTP 이메일 발송 중 예외 발생: {e}")
+        success = False
 
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="이메일 발송에 실패했습니다"
+            detail="이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요."
         )
 
     return APIResponse(
@@ -166,13 +170,16 @@ async def signup(
         )
     else:
         # 매니저에게 승인 대기 알림 전송
-        from app.services.notification_service import NotificationService
-        notification_service = NotificationService(db)
-        notification_service.create_notification_for_managers(
-            notification_type="user_pending_approval",
-            title=f"{data.full_name}님이 가입 승인을 요청했습니다",
-            message=f"이메일: {data.email}",
-        )
+        try:
+            from app.services.notification_service import NotificationService
+            notification_service = NotificationService(db)
+            notification_service.create_notification_for_managers(
+                notification_type="user_pending_approval",
+                title=f"{data.full_name}님이 가입 승인을 요청했습니다",
+                message=f"이메일: {data.email}",
+            )
+        except Exception as e:
+            print(f"가입 승인 알림 전송 실패 (가입은 완료됨): {e}")
 
         return APIResponse(
             success=True,

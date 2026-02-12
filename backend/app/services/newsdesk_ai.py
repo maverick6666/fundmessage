@@ -70,8 +70,14 @@ class NewsDeskAI:
             )
             raw_text = response.choices[0].message.content
 
+        if not raw_text:
+            raise ValueError("AI 응답이 비어있습니다 (content=None)")
+
         # 텍스트에서 JSON 추출 (모델이 앞뒤에 설명을 붙일 수 있음)
-        result = self._extract_json(raw_text)
+        try:
+            result = self._extract_json(raw_text)
+        except (ValueError, json.JSONDecodeError) as e:
+            raise ValueError(f"AI 응답 JSON 파싱 실패: {e}")
         return result
 
     def _extract_json(self, text: str) -> Dict[str, Any]:

@@ -69,7 +69,10 @@ class AIService:
         if not any(x in settings.openai_model for x in ["gpt-5-mini", "gpt-5-nano"]):
             api_params["temperature"] = settings.openai_temperature
         response = self.client.chat.completions.create(**api_params)
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        if content is None:
+            raise ValueError("AI 응답이 비어있습니다 (content=None)")
+        return content
 
     def _get_today_kst(self) -> date:
         """한국시간(KST) 기준 오늘 날짜"""

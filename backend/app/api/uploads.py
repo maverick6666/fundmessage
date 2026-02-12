@@ -14,7 +14,7 @@ router = APIRouter()
 
 # 업로드 디렉토리 설정 (컨테이너 환경에서는 /tmp 사용)
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/tmp/fundmessage_uploads")
-MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 
 
@@ -24,9 +24,9 @@ async def upload_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """이미지 업로드 (최대 2MB)"""
+    """이미지 업로드 (최대 10MB)"""
     # 파일 타입 검증
-    if file.content_type not in ALLOWED_TYPES:
+    if not file.content_type or file.content_type not in ALLOWED_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"허용되지 않는 파일 형식입니다. 허용: {', '.join(ALLOWED_TYPES)}"
@@ -71,6 +71,13 @@ async def upload_image(
 async def get_file(filename: str):
     """업로드된 파일 조회"""
     from fastapi.responses import FileResponse
+
+    # 경로 탐색 공격 방지
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="잘못된 파일명입니다"
+        )
 
     file_path = os.path.join(UPLOAD_DIR, filename)
 

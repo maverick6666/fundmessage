@@ -104,10 +104,13 @@ class NotificationService:
 
         self.db.commit()
 
-        # WebSocket으로 실시간 알림 전송
+        # WebSocket으로 실시간 알림 전송 (best-effort)
         for notification in notifications:
-            self.db.refresh(notification)
-            self._broadcast_ws(notification)
+            try:
+                self.db.refresh(notification)
+                self._broadcast_ws(notification)
+            except Exception as e:
+                print(f"Manager notification broadcast error (id={notification.id if hasattr(notification, 'id') else '?'}): {e}")
 
         return notifications
 
