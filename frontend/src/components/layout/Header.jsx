@@ -22,6 +22,17 @@ export function Header({ onMenuClick }) {
     return () => clearInterval(interval);
   }, []);
 
+  // PWA 앱 아이콘 뱃지 업데이트
+  useEffect(() => {
+    if ('setAppBadge' in navigator) {
+      if (unreadCount > 0) {
+        navigator.setAppBadge(unreadCount).catch(() => {});
+      } else {
+        navigator.clearAppBadge().catch(() => {});
+      }
+    }
+  }, [unreadCount]);
+
   useEffect(() => {
     if (!isConnected) return;
 

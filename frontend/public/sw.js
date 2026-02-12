@@ -56,6 +56,13 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     self.registration.showNotification(data.title || 'Fund Messenger', options)
+      .then(() => {
+        // 앱 아이콘 뱃지 숫자 증가
+        if ('setAppBadge' in navigator) {
+          return navigator.setAppBadge();
+        }
+      })
+      .catch(() => {})
   );
 });
 
