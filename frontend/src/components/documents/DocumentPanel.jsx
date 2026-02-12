@@ -453,7 +453,7 @@ export function DocumentPanel({ document: doc, type = 'decision-note', onDelete,
       )}
 
       {/* 댓글 섹션 */}
-      <section className={`mt-8 pt-6 border-t ${styles.border}`}>
+      <section className={`mt-8 pt-6 pb-16 border-t ${styles.border}`}>
         {/* 섹션 헤더 */}
         <div className="flex items-center gap-2 mb-5">
           <svg

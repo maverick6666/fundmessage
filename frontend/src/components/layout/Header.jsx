@@ -177,10 +177,10 @@ export function Header({ onMenuClick }) {
             )}
           </Link>
 
-          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="text-sm whitespace-nowrap truncate max-w-[150px]" style={{ color: 'var(--color-text-secondary)' }}>
             {user?.full_name}
             <span
-              className="ml-2 px-2 py-0.5 rounded text-xs"
+              className="ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap"
               style={{
                 backgroundColor: 'var(--color-bg-tertiary)',
                 color: 'var(--color-text-secondary)',

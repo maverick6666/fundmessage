@@ -539,7 +539,7 @@ export function Dashboard() {
                   <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className="font-medium truncate">{position.ticker_name || position.ticker}</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{position.ticker}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 whitespace-nowrap">{position.ticker}</span>
                       {!position.is_info_confirmed && (
                         <span className="text-yellow-500 shrink-0" title="정보 확인 필요">
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -694,7 +694,7 @@ export function Dashboard() {
                       <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
                         <span className="font-medium dark:text-gray-100 truncate min-w-0">{note.title}</span>
                         {note.position && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
+                          <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap ${
                             note.position.status === 'open'
                               ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                               : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
@@ -731,7 +731,7 @@ export function Dashboard() {
                       <div className="flex items-center justify-between gap-2 mb-1 min-w-0">
                         <span className="font-medium dark:text-gray-100 truncate min-w-0">{note.title}</span>
                         {note.position && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
+                          <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap ${
                             note.position.status === 'open'
                               ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                               : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
@@ -900,7 +900,7 @@ export function Dashboard() {
                   {/* 헤더 */}
                   <div className="flex items-center gap-2 mb-3">
                     <span className="font-bold text-lg dark:text-gray-100">{member.full_name}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${getRoleBadgeClass(member.role)}`}>
+                    <span className={`text-xs px-1.5 py-0.5 rounded whitespace-nowrap ${getRoleBadgeClass(member.role)}`}>
                       {getRoleLabel(member.role)}
                     </span>
                   </div>
@@ -997,7 +997,7 @@ export function Dashboard() {
                           {entry.rank === 3 && '🥉'}
                           {entry.rank > 3 && entry.rank}
                         </td>
-                        <td className="py-2 font-medium dark:text-gray-200">{entry.user.full_name || entry.user.username}</td>
+                        <td className="py-2 font-medium dark:text-gray-200 whitespace-nowrap">{entry.user.full_name || entry.user.username}</td>
                         <td className={`py-2 text-right ${getProfitLossClass(entry.realized_pl)}`}>
                           {formatCurrency(entry.realized_pl)}
                         </td>

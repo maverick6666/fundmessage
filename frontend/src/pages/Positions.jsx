@@ -998,7 +998,7 @@ function PositionCard({
               </h3>
               <span className="text-sm text-gray-400 dark:text-gray-500 font-mono shrink-0">{position.ticker}</span>
               {isOpen && !position.is_info_confirmed && (
-                <span className="badge-unconfirmed text-xs px-2 py-0.5 rounded-full">
+                <span className="badge-unconfirmed text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
                   미확인
                 </span>
               )}
@@ -1007,17 +1007,17 @@ function PositionCard({
             {isOpen && (position.remaining_buys > 0 || position.remaining_take_profits > 0 || position.remaining_stop_losses > 0) && (
               <div className="flex gap-3 mt-1">
                 {position.remaining_buys > 0 && (
-                  <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full">
+                  <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full whitespace-nowrap">
                     매수 {position.remaining_buys}건
                   </span>
                 )}
                 {position.remaining_take_profits > 0 && (
-                  <span className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">
+                  <span className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full whitespace-nowrap">
                     익절 {position.remaining_take_profits}건
                   </span>
                 )}
                 {position.remaining_stop_losses > 0 && (
-                  <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                  <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full whitespace-nowrap">
                     손절 {position.remaining_stop_losses}건
                   </span>
                 )}
@@ -1025,12 +1025,12 @@ function PositionCard({
             )}
           </div>
           <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getStatusBadgeClass(position.status)}`}>
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${getStatusBadgeClass(position.status)}`}>
               {getStatusLabel(position.status)}
             </span>
             {/* 포지션 상태 알림 */}
             {position.status_info?.alert && (
-              <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1 ${
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1 whitespace-nowrap ${
                 position.status_info.alert === 'danger'
                   ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                   : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'

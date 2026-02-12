@@ -21,6 +21,15 @@ export function SidePanel() {
   const { isCurrentThemeDark } = useTheme();
   const panelRef = useRef(null);
   const [isResizing, setIsResizing] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // 모바일 감지
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // ESC 키로 닫기
   useEffect(() => {
@@ -62,9 +71,9 @@ export function SidePanel() {
 
   return (
     <>
-      {/* 반투명 오버레이 - 모바일에서만 클릭으로 닫기 */}
+      {/* 반투명 오버레이 - 클릭으로 닫기 */}
       <div
-        className="fixed inset-0 bg-black/20 z-40 lg:hidden"
+        className={`fixed inset-0 z-40 ${isMobile ? 'bg-black/40' : 'bg-black/20 lg:hidden'}`}
         onClick={closePanel}
       />
 
@@ -72,43 +81,49 @@ export function SidePanel() {
       <aside
         ref={panelRef}
         className={`
-          fixed top-16 right-0 h-[calc(100vh-4rem)] z-30
+          fixed z-50
           transform transition-transform duration-300 ease-out
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
           flex flex-col
           shadow-2xl
+          ${isMobile
+            ? 'inset-0 w-full h-full'
+            : 'top-16 right-0 h-[calc(100vh-4rem)]'
+          }
           ${isCurrentThemeDark
             ? 'bg-[#18181b] border-l border-white/10'
             : 'bg-white border-l border-gray-200'
           }
         `}
-        style={{
+        style={isMobile ? {} : {
           width: `${sidePanelWidth}px`,
           minWidth: '400px',
           maxWidth: '90vw',
         }}
       >
-        {/* 리사이즈 핸들 */}
-        <div
-          className={`
-            absolute left-0 top-0 h-full w-1 cursor-ew-resize z-10
-            group transition-colors
-            ${isResizing
-              ? isCurrentThemeDark ? 'bg-emerald-500' : 'bg-emerald-400'
-              : 'hover:bg-emerald-500/50'
-            }
-          `}
-          onMouseDown={handleMouseDown}
-        >
-          {/* 핸들 시각적 표시 */}
+        {/* 리사이즈 핸들 - 데스크톱만 */}
+        {!isMobile && (
           <div
             className={`
-              absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-              w-1 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity
-              ${isCurrentThemeDark ? 'bg-white/30' : 'bg-gray-400'}
+              absolute left-0 top-0 h-full w-1 cursor-ew-resize z-10
+              group transition-colors
+              ${isResizing
+                ? isCurrentThemeDark ? 'bg-emerald-500' : 'bg-emerald-400'
+                : 'hover:bg-emerald-500/50'
+              }
             `}
-          />
-        </div>
+            onMouseDown={handleMouseDown}
+          >
+            {/* 핸들 시각적 표시 */}
+            <div
+              className={`
+                absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+                w-1 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity
+                ${isCurrentThemeDark ? 'bg-white/30' : 'bg-gray-400'}
+              `}
+            />
+          </div>
+        )}
 
         {/* 에디터 패널과 custom 패널은 자체 헤더를 가짐 */}
         {panelType !== 'column-editor' && panelType !== 'note-editor' && panelType !== 'custom' && (

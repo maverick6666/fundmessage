@@ -17,7 +17,7 @@ class Comment(Base):
     document_id = Column(Integer, nullable=False, index=True)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(KST))
-    updated_at = Column(DateTime, default=lambda: datetime.now(KST), onupdate=lambda: datetime.now(KST))
+    updated_at = Column(DateTime, nullable=True, onupdate=lambda: datetime.now(KST))
 
     # Relationships
     user = relationship("User", back_populates="comments")
