@@ -70,30 +70,33 @@ export const notificationService = {
   async initPushNotifications() {
     // 브라우저 지원 확인
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      console.log('Push notifications not supported');
+      console.warn('[Push] not supported: SW=' + ('serviceWorker' in navigator) + ' PM=' + ('PushManager' in window));
       return false;
     }
 
     // 알림 권한 요청
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      console.log('Push notification permission denied');
+      console.warn('[Push] permission:', permission);
       return false;
     }
 
     try {
       // Service Worker 등록 확인
       const registration = await navigator.serviceWorker.ready;
+      console.log('[Push] SW ready, scope:', registration.scope);
 
       // VAPID 공개키 가져오기
       const vapidKey = await this.getVapidKey();
       if (!vapidKey) {
-        console.log('VAPID key not configured');
+        console.warn('[Push] VAPID key empty');
         return false;
       }
+      console.log('[Push] VAPID key received:', vapidKey.substring(0, 20) + '...');
 
       // 기존 구독 확인
       let subscription = await registration.pushManager.getSubscription();
+      console.log('[Push] existing subscription:', subscription ? 'yes' : 'no');
 
       if (!subscription) {
         // 새 구독 생성
@@ -102,14 +105,15 @@ export const notificationService = {
           userVisibleOnly: true,
           applicationServerKey,
         });
+        console.log('[Push] new subscription created');
       }
 
       // 서버에 구독 정보 전송
       await this.subscribePush(subscription);
-      console.log('Push notifications enabled');
+      console.log('[Push] subscription registered with server');
       return true;
     } catch (error) {
-      console.error('Push subscription failed:', error);
+      console.error('[Push] subscription failed:', error.message || error);
       return false;
     }
   },
