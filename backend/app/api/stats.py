@@ -94,25 +94,31 @@ async def get_exchange_rate(
 
 @router.get("/asset-history", response_model=APIResponse)
 async def get_asset_history(
-    period: str = Query("1m", regex="^(1w|1m|3m|all)$"),
+    period: str = Query("1m", pattern="^(1w|1m|3m|all)$"),
+    start_date: str = Query(None, description="시작일 (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """기간별 자산 히스토리 조회 (한국시간 기준)"""
     today = datetime.now(KST).date()
 
-    if period == "1w":
-        start_date = today - timedelta(days=7)
+    if start_date:
+        try:
+            filter_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+        except ValueError:
+            filter_date = None
+    elif period == "1w":
+        filter_date = today - timedelta(days=7)
     elif period == "1m":
-        start_date = today - timedelta(days=30)
+        filter_date = today - timedelta(days=30)
     elif period == "3m":
-        start_date = today - timedelta(days=90)
+        filter_date = today - timedelta(days=90)
     else:
-        start_date = None
+        filter_date = None
 
     query = db.query(AssetSnapshot).order_by(AssetSnapshot.snapshot_date.asc())
-    if start_date:
-        query = query.filter(AssetSnapshot.snapshot_date >= start_date)
+    if filter_date:
+        query = query.filter(AssetSnapshot.snapshot_date >= filter_date)
 
     snapshots = query.all()
 
@@ -120,13 +126,54 @@ async def get_asset_history(
         success=True,
         data=[{
             "date": s.snapshot_date.strftime("%m/%d"),
+            "full_date": s.snapshot_date.strftime("%Y-%m-%d"),
             "value": float(s.total_krw) if s.total_krw else 0,
             "krw_cash": float(s.krw_cash) if s.krw_cash else 0,
             "krw_evaluation": float(s.krw_evaluation) if s.krw_evaluation else 0,
             "usd_cash": float(s.usd_cash) if s.usd_cash else 0,
             "usd_evaluation": float(s.usd_evaluation) if s.usd_evaluation else 0,
             "exchange_rate": float(s.exchange_rate) if s.exchange_rate else None,
+            "realized_pnl": float(s.realized_pnl) if s.realized_pnl else 0,
+            "unrealized_pnl": float(s.unrealized_pnl) if s.unrealized_pnl else 0,
         } for s in snapshots]
+    )
+
+
+@router.get("/asset-snapshot/{date}", response_model=APIResponse)
+async def get_snapshot_detail(
+    date: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """특정 날짜의 스냅샷 상세 (포지션별 정보 포함)"""
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="날짜 형식: YYYY-MM-DD")
+
+    snapshot = db.query(AssetSnapshot).filter(
+        AssetSnapshot.snapshot_date == target_date
+    ).first()
+
+    if not snapshot:
+        return APIResponse(success=False, message="해당 날짜의 스냅샷이 없습니다")
+
+    return APIResponse(
+        success=True,
+        data={
+            "date": snapshot.snapshot_date.strftime("%Y-%m-%d"),
+            "total_krw": float(snapshot.total_krw) if snapshot.total_krw else 0,
+            "krw_cash": float(snapshot.krw_cash) if snapshot.krw_cash else 0,
+            "krw_evaluation": float(snapshot.krw_evaluation) if snapshot.krw_evaluation else 0,
+            "usd_cash": float(snapshot.usd_cash) if snapshot.usd_cash else 0,
+            "usd_evaluation": float(snapshot.usd_evaluation) if snapshot.usd_evaluation else 0,
+            "usdt_evaluation": float(snapshot.usdt_evaluation) if snapshot.usdt_evaluation else 0,
+            "exchange_rate": float(snapshot.exchange_rate) if snapshot.exchange_rate else None,
+            "realized_pnl": float(snapshot.realized_pnl) if snapshot.realized_pnl else 0,
+            "unrealized_pnl": float(snapshot.unrealized_pnl) if snapshot.unrealized_pnl else 0,
+            "position_details": snapshot.position_details or [],
+        }
     )
 
 
@@ -136,7 +183,8 @@ async def create_snapshot_manually(
     current_user: User = Depends(get_manager)
 ):
     """수동으로 오늘의 자산 스냅샷 생성 (팀장 전용)"""
-    snapshot = create_daily_snapshot(db)
+    from app.services.asset_service import create_daily_snapshot_async
+    snapshot = await create_daily_snapshot_async(db)
     return APIResponse(
         success=True,
         message=f"스냅샷이 생성되었습니다: {snapshot.snapshot_date}",
@@ -145,6 +193,9 @@ async def create_snapshot_manually(
             "total_krw": float(snapshot.total_krw) if snapshot.total_krw else 0,
             "krw_cash": float(snapshot.krw_cash) if snapshot.krw_cash else 0,
             "usd_cash": float(snapshot.usd_cash) if snapshot.usd_cash else 0,
+            "realized_pnl": float(snapshot.realized_pnl) if snapshot.realized_pnl else 0,
+            "unrealized_pnl": float(snapshot.unrealized_pnl) if snapshot.unrealized_pnl else 0,
+            "positions_count": len(snapshot.position_details or []),
         }
     )
 

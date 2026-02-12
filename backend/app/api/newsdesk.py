@@ -68,7 +68,7 @@ async def get_today_newsdesk(
 
 @router.get("/benchmarks", response_model=APIResponse)
 async def get_benchmark_data(
-    period: str = Query("1M", regex="^(1W|1M|3M|6M|1Y)$"),
+    period: str = Query("1M", pattern="^(1W|1M|3M|6M|1Y)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):

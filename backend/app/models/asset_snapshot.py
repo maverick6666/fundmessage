@@ -1,6 +1,6 @@
 # backend/app/models/asset_snapshot.py
 from datetime import datetime, date
-from sqlalchemy import Column, Integer, Date, Numeric, DateTime
+from sqlalchemy import Column, Integer, Date, Numeric, DateTime, JSON
 from app.database import Base
 
 
@@ -25,5 +25,12 @@ class AssetSnapshot(Base):
     # 합산 (KRW 기준)
     total_krw = Column(Numeric(20, 2), default=0)  # 전체 자산 (KRW 환산)
     exchange_rate = Column(Numeric(10, 2), nullable=True)  # 스냅샷 당시 환율
+
+    # 손익 추적
+    realized_pnl = Column(Numeric(20, 2), default=0)  # 실현 손익 (종료 포지션 누적)
+    unrealized_pnl = Column(Numeric(20, 2), default=0)  # 미실현 손익
+
+    # 포지션별 상세 (JSON)
+    position_details = Column(JSON, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
