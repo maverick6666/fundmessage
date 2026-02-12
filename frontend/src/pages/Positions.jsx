@@ -1046,19 +1046,19 @@ function PositionCard({
 
         {/* Key Metrics Row */}
         <div className="px-5 pb-4">
-          <div className="flex items-end justify-between gap-4">
-            {/* Left metrics */}
-            <div className="flex gap-6 items-end">
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">평균매수가</p>
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          <div className="flex flex-col gap-3">
+            {/* Metrics grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2">
+              <div className="min-w-0">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5 whitespace-nowrap">평균매수가</p>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                   {formatCurrency(position.average_buy_price, position.market)}
                 </p>
               </div>
               {isOpen && price?.current_price && (
-                <div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">현재가</p>
-                  <p className={`text-sm font-semibold ${
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5 whitespace-nowrap">현재가</p>
+                  <p className={`text-sm font-semibold whitespace-nowrap ${
                     price.current_price > parseFloat(position.average_buy_price) ? 'text-red-500' :
                     price.current_price < parseFloat(position.average_buy_price) ? 'text-blue-500' : 'text-gray-700 dark:text-gray-300'
                   }`}>
@@ -1066,29 +1066,29 @@ function PositionCard({
                   </p>
                 </div>
               )}
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">손익</p>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5 whitespace-nowrap">손익</p>
                 {(() => {
                   const realized = parseFloat(position.realized_profit_loss) || 0;
                   const unrealized = profitLoss || 0;
                   const totalPL = isOpen ? realized + unrealized : realized;
                   return (
-                    <p className={`text-sm font-semibold ${getProfitLossClass(totalPL)}`}>
+                    <p className={`text-sm font-semibold whitespace-nowrap ${getProfitLossClass(totalPL)}`}>
                       {formatCurrency(totalPL, position.market)}
                     </p>
                   );
                 })()}
               </div>
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">보유기간</p>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{formatHours(holdingHours)}</p>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5 whitespace-nowrap">보유기간</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatHours(holdingHours)}</p>
               </div>
             </div>
 
-            {/* Right: P&L highlight */}
-            <div className="flex items-center gap-3">
+            {/* P&L highlight */}
+            <div className="flex items-center gap-3 justify-end">
               <div className="text-right">
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">{isOpen ? '수익률' : '실현 수익률'}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-1 whitespace-nowrap">{isOpen ? '수익률' : '실현 수익률'}</p>
                 {isOpen && hasTargets && price?.current_price ? (
                   <div className="flex items-center gap-2">
                     <MiniTargetProgressBar

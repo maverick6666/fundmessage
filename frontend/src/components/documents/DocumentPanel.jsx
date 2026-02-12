@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
 import { useSidePanelStore } from '../../stores/useSidePanelStore';
 import { columnService } from '../../services/columnService';
+import { decisionNoteService } from '../../services/decisionNoteService';
 import { commentService } from '../../services/commentService';
 import { useToast } from '../../context/ToastContext';
 
@@ -24,7 +25,7 @@ import { useToast } from '../../context/ToastContext';
 export function DocumentPanel({ document: doc, type = 'decision-note', onDelete, onSaved }) {
   const { user } = useAuth();
   const { isCurrentThemeDark } = useTheme();
-  const { openColumnEditor, openNoteEditor } = useSidePanelStore();
+  const { openColumnEditor, openNoteEditor, closePanel } = useSidePanelStore();
   const toast = useToast();
   const [verifying, setVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(doc?.is_verified || false);
@@ -189,9 +190,23 @@ export function DocumentPanel({ document: doc, type = 'decision-note', onDelete,
     setShowDeleteConfirm(true);
   };
 
-  const confirmDelete = () => {
-    if (onDelete) {
-      onDelete(doc?.id);
+  const confirmDelete = async () => {
+    try {
+      if (onDelete) {
+        onDelete(doc?.id);
+      } else if (type === 'column' || type === 'ai_column') {
+        await columnService.deleteColumn(doc?.id);
+        toast.success('칼럼이 삭제되었습니다');
+        if (onSaved) onSaved();
+        closePanel();
+      } else if ((type === 'decision-note' || type === 'report') && doc?.position_id && doc?.id) {
+        await decisionNoteService.deleteNote(doc.position_id, doc.id);
+        toast.success('문서가 삭제되었습니다');
+        if (onSaved) onSaved();
+        closePanel();
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || '삭제에 실패했습니다');
     }
     setShowDeleteConfirm(false);
   };

@@ -139,8 +139,9 @@ export function Header({ onMenuClick }) {
         </button>
 
         <div className="flex items-center">
-          <h1 className="text-xl font-bold" style={{ color: 'var(--color-accent)' }}>
-            Fund Messenger
+          <h1 className="text-lg sm:text-xl font-bold whitespace-nowrap" style={{ color: 'var(--color-accent)' }}>
+            <span className="hidden sm:inline">Fund Messenger</span>
+            <span className="sm:hidden">FM</span>
           </h1>
         </div>
 
