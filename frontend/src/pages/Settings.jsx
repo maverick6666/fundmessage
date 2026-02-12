@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme, THEMES } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
+import { notificationService } from '../services/notificationService';
 
 export function Settings() {
   const { appTheme, setAppTheme, themes } = useTheme();
@@ -78,6 +79,9 @@ export function Settings() {
         </section>
       )}
 
+      {/* 알림 설정 섹션 */}
+      <NotificationSettings />
+
       {/* 테마 설정 섹션 */}
       <section>
         <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
@@ -107,6 +111,139 @@ export function Settings() {
         </Card>
       </section>
     </div>
+  );
+}
+
+function NotificationSettings() {
+  const [pushStatus, setPushStatus] = useState('checking'); // checking, unsupported, denied, unsubscribed, subscribed, error
+  const [pushError, setPushError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    checkPushStatus();
+  }, []);
+
+  const checkPushStatus = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setPushStatus('unsupported');
+      return;
+    }
+    if (!('Notification' in window)) {
+      setPushStatus('unsupported');
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      setPushStatus('denied');
+      return;
+    }
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      setPushStatus(sub ? 'subscribed' : 'unsubscribed');
+    } catch {
+      setPushStatus('unsubscribed');
+    }
+  };
+
+  const handleSubscribe = async () => {
+    setLoading(true);
+    setPushError(null);
+    try {
+      const result = await notificationService.initPushNotifications();
+      if (result) {
+        setPushStatus('subscribed');
+      } else {
+        setPushStatus(Notification.permission === 'denied' ? 'denied' : 'error');
+        setPushError('구독에 실패했습니다. 브라우저 설정에서 알림을 허용해주세요.');
+      }
+    } catch (err) {
+      setPushStatus('error');
+      setPushError(err.message || '알 수 없는 오류');
+    }
+    setLoading(false);
+  };
+
+  const handleUnsubscribe = async () => {
+    setLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await notificationService.unsubscribePush(sub.endpoint);
+        await sub.unsubscribe();
+      }
+      setPushStatus('unsubscribed');
+    } catch {
+      // ignore
+    }
+    setLoading(false);
+  };
+
+  const statusConfig = {
+    checking: { label: '확인 중...', color: 'var(--color-text-muted)' },
+    unsupported: { label: '미지원 브라우저', color: 'var(--color-text-muted)' },
+    denied: { label: '차단됨', color: 'var(--color-danger)' },
+    unsubscribed: { label: '비활성', color: 'var(--color-warning, #f59e0b)' },
+    subscribed: { label: '활성', color: 'var(--color-success, #22c55e)' },
+    error: { label: '오류', color: 'var(--color-danger)' },
+  };
+
+  const status = statusConfig[pushStatus] || statusConfig.checking;
+
+  return (
+    <section className="pb-6" style={{ borderBottom: '1px solid var(--color-border)' }}>
+      <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+        Push 알림
+      </h2>
+      <div
+        className="flex items-center justify-between p-4 rounded-lg"
+        style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: 'var(--color-bg-tertiary)', color: status.color }}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          </div>
+          <div>
+            <p className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+              Push 알림
+              <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full" style={{ backgroundColor: status.color + '20', color: status.color }}>
+                {status.label}
+              </span>
+            </p>
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              {pushStatus === 'unsupported' && '이 브라우저는 Push 알림을 지원하지 않습니다'}
+              {pushStatus === 'denied' && '브라우저 설정에서 알림을 허용해주세요'}
+              {pushStatus === 'subscribed' && '새 요청, 승인, 토론 알림을 받습니다'}
+              {pushStatus === 'unsubscribed' && '활성화하면 중요 알림을 받을 수 있습니다'}
+              {pushStatus === 'error' && (pushError || '구독 중 오류가 발생했습니다')}
+              {pushStatus === 'checking' && '상태 확인 중...'}
+            </p>
+          </div>
+        </div>
+        <div>
+          {pushStatus === 'unsubscribed' && (
+            <Button onClick={handleSubscribe} disabled={loading} size="sm">
+              {loading ? '...' : '활성화'}
+            </Button>
+          )}
+          {pushStatus === 'subscribed' && (
+            <Button onClick={handleUnsubscribe} disabled={loading} variant="secondary" size="sm">
+              {loading ? '...' : '해제'}
+            </Button>
+          )}
+          {pushStatus === 'error' && (
+            <Button onClick={handleSubscribe} disabled={loading} size="sm">
+              {loading ? '...' : '재시도'}
+            </Button>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
