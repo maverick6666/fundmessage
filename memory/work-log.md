@@ -3,6 +3,88 @@
 
 ---
 
+## 2026-02-12 | PWA + Web Push 구현
+- **유형**: 🟢 신규 기능
+- **요청**: 앱으로 패키징 가능한지 + 알림 기능 사용 → PWA + Web Push 추천 후 구현
+- **수정**:
+  - `frontend/public/manifest.json`: PWA 매니페스트 (standalone, 테마 색상, SVG 아이콘)
+  - `frontend/public/sw.js`: Service Worker (push 이벤트, notificationclick, 캐싱)
+  - `frontend/public/icons/icon.svg`: FM 앱 아이콘
+  - `frontend/index.html`: PWA 메타태그 + SW 등록 스크립트
+  - `frontend/src/services/notificationService.js`: VAPID key 조회, Push 구독/해제, initPushNotifications
+  - `frontend/src/context/AuthContext.jsx`: 로그인 시 Push 구독, initPushIfGranted
+  - `backend/app/models/push_subscription.py`: PushSubscription 모델 (신규)
+  - `backend/app/services/push_service.py`: subscribe/unsubscribe/send_push (신규)
+  - `backend/app/api/notifications.py`: vapid-key, push/subscribe, push/unsubscribe 엔드포인트
+  - `backend/app/services/notification_service.py`: _send_web_push 메서드 (알림 생성 시 자동 발송)
+  - `backend/app/main.py`: _ensure_vapid_keys (cryptography 라이브러리로 ECDSA P-256 키 생성)
+  - `backend/app/config.py`: vapid_public_key, vapid_private_key, vapid_claims_email
+  - `backend/requirements.txt`: pywebpush>=2.0.0
+  - `docker-compose.yml`: VAPID 환경변수 매핑
+  - `backend/.env`, `.env`: VAPID 키 영구 저장
+- **문제 및 해결**:
+  - `py_vapid` API 불일치 (`Vapid02` has no `public_key_urlsafe_base64`) → `cryptography` 직접 사용
+  - `.env` VAPID 키가 컨테이너에 미전달 → docker-compose.yml environment 매핑 추가
+- **검증**: Playwright - manifest 200, SW activated, VAPID API 정상, Login + Push API 정상
+- **상태**: 완료 (로컬, 미푸시)
+
+---
+
+## 2026-02-12 | 자동로그인 개선
+- **유형**: 🔴 버그 수정 + 🔵 개선
+- **요청**: 자동로그인이 작동하지 않음, 브라우저 캐시 활용 요청
+- **원인 분석**:
+  - 유저 데이터 캐싱 없음 → 매번 API 호출 필요 (로딩 스피너 표시)
+  - 동시 401 요청 시 각각 refresh 시도 → 충돌 가능
+  - 네트워크 에러에도 토큰 삭제 → 불필요한 로그아웃
+  - Refresh token 7일 만료, 회전 없음 → 세션 연장 불가
+- **수정**:
+  - `AuthContext.jsx`: 캐시된 유저로 즉시 복원, 401/403만 로그아웃
+  - `api.js`: Refresh token 큐 (isRefreshing + failedQueue)
+  - `authService.js`: cacheUser/getCachedUser + 로그인/조회 시 자동 캐싱
+  - `auth.py`: refresh 시 새 refresh_token 발급 (토큰 회전)
+  - `schemas/auth.py`: TokenRefreshResponse에 refresh_token 필드 추가
+  - `config.py`: refresh_token_expire_days 7 → 30
+- **검증**: Playwright - 만료 토큰으로 새로고침 → 자동 갱신 후 메인 페이지 유지
+- **영향 파일**: AuthContext.jsx, api.js, authService.js, auth.py, schemas/auth.py, config.py
+- **상태**: 완료 (로컬, 미푸시)
+
+---
+
+## 2026-02-12 | CloudType 배포 + DB 마이그레이션 + 뉴스데스크 시드
+- **유형**: 🔵 배포 + 버그 수정
+- **요청**: CloudType 프로덕션 배포 및 로컬 뉴스데스크 데이터 이전
+- **수정**:
+  - `backend/Dockerfile`: COPY 경로 수정 (CloudType 빌드 컨텍스트 = 프로젝트 루트)
+  - `docker-compose.yml`: build context `.` + `dockerfile: backend/Dockerfile`
+  - Dockerfile CMD: `alembic upgrade head && uvicorn` (마이그레이션 자동 실행)
+  - `backend/app/main.py`: `_seed_newsdesk_data()` 시드 함수 추가 (startup에서 호출)
+  - `backend/seed_data/newsdesk_seed.json`: 3개 뉴스데스크(2/8, 2/10, 2/12) + 1,599 raw_news
+  - `backend/app/schemas/newsdesk.py`: 하위호환 (greed_score/category Optional, sentiment Any)
+- **문제 및 해결**:
+  - Dockerfile `requirements.txt not found` → `COPY backend/requirements.txt .`
+  - `attendance_shields` 컬럼 없음 → `alembic stamp head` + 수동 ALTER TABLE
+  - Pydantic ValidationError (greed_score required) → Optional로 변경
+  - Pydantic ValidationError (sentiment dict vs string) → `Any` 타입으로 변경
+  - 시드 함수가 모든 데이터 건너뜀 → per-date 체크로 수정
+- **커밋**: aa86613, 48ff4e1, 74fba3f, ec0d4df
+- **영향 파일**: Dockerfile, docker-compose.yml, main.py, newsdesk.py(스키마), newsdesk_seed.json
+- **상태**: 코드 완료, 재배포 필요
+
+---
+
+## 2026-02-12 | 코드베이스 건강성 분석 (병렬 3개 에이전트)
+- **유형**: 🔵 리서치
+- **요청**: 사용자들이 사용하면서 오류가 생길 수 있는 부분 탐색
+- **결과**:
+  - 모델-DB 스키마: 불일치 없음 (OK)
+  - 프론트-백엔드 API: 100% 매칭 (OK)
+  - 에러 핸들링: 12개 취약점 발견
+    - ai_service content None 체크, stats price exception, price_service stock.info None 등
+- **상태**: 분석 완료, 수정 대기
+
+---
+
 ## 2026-02-12 | Iter 4 뉴스데스크 프롬프트 근본 개선 + 크롤링 수정
 - **유형**: 🔵 개선 + ⚙️ 설정
 - **요청**: max_output_tokens + reasoning + 문단수 전환 + Few-shot 동시 적용

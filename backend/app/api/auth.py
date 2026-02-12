@@ -286,11 +286,13 @@ async def refresh_token(refresh_data: RefreshRequest, db: Session = Depends(get_
         )
 
     access_token = create_access_token(data={"sub": str(user.id)})
+    new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
     return APIResponse(
         success=True,
         data=TokenRefreshResponse(
             access_token=access_token,
+            refresh_token=new_refresh_token,
             token_type="bearer",
             expires_in=settings.access_token_expire_minutes * 60
         )

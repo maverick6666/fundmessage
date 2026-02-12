@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     secret_key: str = ""  # 환경변수 SECRET_KEY 필수 설정
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
-    refresh_token_expire_days: int = 7
+    refresh_token_expire_days: int = 30
 
     # SMTP (이메일 발송)
     smtp_host: str = "smtp.gmail.com"
@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     report_verbosity: str = "high"
     report_max_tokens: int = 16384
     report_reasoning_effort: str = "medium"
+
+    # Web Push (VAPID)
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_claims_email: str = "mailto:fund@messenger.app"
 
     # Environment
     environment: str = "development"

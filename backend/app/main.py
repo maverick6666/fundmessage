@@ -146,9 +146,50 @@ def _seed_newsdesk_data():
         db.close()
 
 
+def _ensure_vapid_keys():
+    """VAPID 키가 없으면 자동 생성 (cryptography 라이브러리 사용)"""
+    if settings.vapid_public_key and settings.vapid_private_key:
+        return
+    try:
+        import base64
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import serialization
+
+        # ECDSA P-256 키 쌍 생성
+        private_key = ec.generate_private_key(ec.SECP256R1())
+
+        # Private key: 32-byte raw value → base64url (no padding)
+        private_numbers = private_key.private_numbers()
+        private_bytes = private_numbers.private_value.to_bytes(32, 'big')
+        private_b64 = base64.urlsafe_b64encode(private_bytes).rstrip(b'=').decode()
+
+        # Public key: 65-byte uncompressed point → base64url (no padding)
+        public_bytes = private_key.public_key().public_bytes(
+            serialization.Encoding.X962,
+            serialization.PublicFormat.UncompressedPoint,
+        )
+        public_b64 = base64.urlsafe_b64encode(public_bytes).rstrip(b'=').decode()
+
+        print("=" * 60)
+        print("VAPID 키가 설정되지 않았습니다. 아래 키를 .env에 추가하세요:")
+        print(f"VAPID_PUBLIC_KEY={public_b64}")
+        print(f"VAPID_PRIVATE_KEY={private_b64}")
+        print("=" * 60)
+        # 런타임에 임시로 설정 (재시작 시 사라짐)
+        settings.__dict__['vapid_public_key'] = public_b64
+        settings.__dict__['vapid_private_key'] = private_b64
+    except Exception as e:
+        print(f"VAPID 키 생성 실패: {e}")
+
+
 @app.on_event("startup")
 async def startup_event():
     init_scheduler()
+    # VAPID 키 확인/생성
+    _ensure_vapid_keys()
+    # PushSubscription 모델 import (테이블 생성 보장)
+    from app.models.push_subscription import PushSubscription  # noqa: F401
+    Base.metadata.create_all(bind=engine)
     # 뉴스데스크 시드 데이터 임포트
     _seed_newsdesk_data()
     # 한국 종목 목록 미리 로드 (첫 검색 시 지연 방지)

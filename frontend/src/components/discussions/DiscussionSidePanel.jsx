@@ -5,6 +5,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useTheme } from '../../context/ThemeContext';
 import { formatDate } from '../../utils/formatters';
+import { ChartShareModal } from '../charts/ChartShareModal';
+import { MiniChart } from '../charts/MiniChart';
 
 /**
  * DiscussionSidePanel - SidePanel 내에서 표시되는 간소화된 토론/채팅 패널
@@ -24,6 +26,7 @@ export function DiscussionSidePanel({ discussionId, onClose }) {
   const [loading, setLoading] = useState(true);
   const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [showChartModal, setShowChartModal] = useState(false);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -119,6 +122,11 @@ export function DiscussionSidePanel({ discussionId, onClose }) {
     } finally {
       setSending(false);
     }
+  };
+
+  const handleShareChart = (content, chartData) => {
+    wsSendMessage(parseInt(discussionId), content, 'chart', chartData);
+    setShowChartModal(false);
   };
 
   const handleNavigateToFull = () => {
@@ -241,6 +249,32 @@ export function DiscussionSidePanel({ discussionId, onClose }) {
               );
             }
 
+            // 차트 메시지
+            if (message.message_type === 'chart' && message.chart_data) {
+              return (
+                <div
+                  key={message.id}
+                  className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[85%] ${isOwn ? 'order-1' : ''}`}>
+                    <div
+                      className={`
+                        text-[10px] mb-0.5 flex items-center gap-1.5
+                        ${isOwn ? 'justify-end' : 'justify-start'}
+                        ${isCurrentThemeDark ? 'text-gray-500' : 'text-gray-400'}
+                      `}
+                    >
+                      <span>{message.user?.full_name || '알 수 없음'}</span>
+                      <span>{formatDate(message.created_at, 'HH:mm')}</span>
+                    </div>
+                    <div className="w-[280px]">
+                      <MiniChart chartData={message.chart_data} height={130} />
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             // 사용자 메시지
             return (
               <div
@@ -291,6 +325,22 @@ export function DiscussionSidePanel({ discussionId, onClose }) {
             ${isCurrentThemeDark ? 'border-white/10' : 'border-gray-200'}
           `}
         >
+          <button
+            type="button"
+            onClick={() => setShowChartModal(true)}
+            className={`
+              p-2 rounded-lg transition-colors shrink-0
+              ${isCurrentThemeDark
+                ? 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }
+            `}
+            title="차트 공유"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+            </svg>
+          </button>
           <input
             type="text"
             value={messageInput}
@@ -333,6 +383,13 @@ export function DiscussionSidePanel({ discussionId, onClose }) {
           이 토론은 종료되었습니다
         </div>
       )}
+
+      {/* 차트 공유 모달 */}
+      <ChartShareModal
+        isOpen={showChartModal}
+        onClose={() => setShowChartModal(false)}
+        onShare={handleShareChart}
+      />
     </div>
   );
 }

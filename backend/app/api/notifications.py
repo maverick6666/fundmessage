@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.notification import (
     NotificationResponse, NotificationListResponse,
-    NotificationMarkRead, UnreadCountResponse
+    NotificationMarkRead, UnreadCountResponse,
+    PushSubscribeRequest, PushUnsubscribeRequest
 )
 from app.schemas.common import APIResponse
 from app.services.notification_service import NotificationService
@@ -126,4 +127,54 @@ async def delete_all_notifications(
     return APIResponse(
         success=True,
         message=f"{deleted}개의 알림이 삭제되었습니다"
+    )
+
+
+# ===== Web Push 구독 =====
+
+@router.get("/vapid-key", response_model=APIResponse)
+async def get_vapid_public_key():
+    """VAPID 공개키 조회 (Push 구독에 필요)"""
+    from app.config import settings
+    return APIResponse(
+        success=True,
+        data={"vapid_public_key": settings.vapid_public_key}
+    )
+
+
+@router.post("/push/subscribe", response_model=APIResponse)
+async def push_subscribe(
+    data: PushSubscribeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Push 알림 구독 등록"""
+    from app.services.push_service import PushService
+    push_service = PushService(db)
+    sub = push_service.subscribe(
+        user_id=current_user.id,
+        endpoint=data.endpoint,
+        p256dh=data.keys.get("p256dh", ""),
+        auth=data.keys.get("auth", ""),
+    )
+    return APIResponse(
+        success=True,
+        message="Push 알림이 활성화되었습니다",
+        data={"id": sub.id}
+    )
+
+
+@router.post("/push/unsubscribe", response_model=APIResponse)
+async def push_unsubscribe(
+    data: PushUnsubscribeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Push 알림 구독 해제"""
+    from app.services.push_service import PushService
+    push_service = PushService(db)
+    push_service.unsubscribe(current_user.id, data.endpoint)
+    return APIResponse(
+        success=True,
+        message="Push 알림이 비활성화되었습니다"
     )

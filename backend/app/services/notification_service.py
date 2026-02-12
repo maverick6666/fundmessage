@@ -35,6 +35,9 @@ class NotificationService:
         # WebSocket으로 실시간 알림 전송
         self._broadcast_ws(notification)
 
+        # Web Push 알림 전송
+        self._send_web_push(notification)
+
         return notification
 
     def _broadcast_ws(self, notification: Notification):
@@ -71,6 +74,33 @@ class NotificationService:
                     pass  # 이벤트 루프 접근 실패 시 무시
         except Exception as e:
             print(f"WebSocket broadcast error: {e}")  # 디버깅을 위해 에러 출력
+
+    def _send_web_push(self, notification: Notification):
+        """Web Push로 알림 발송 (best-effort)"""
+        try:
+            from app.services.push_service import PushService
+            push_service = PushService(self.db)
+
+            # URL 결정
+            url = "/notifications"
+            if notification.related_type == "position" and notification.related_id:
+                url = f"/positions/{notification.related_id}"
+            elif notification.related_type == "discussion" and notification.related_id:
+                url = f"/discussions/{notification.related_id}"
+            elif notification.notification_type == "user_pending_approval":
+                url = "/team"
+
+            push_service.send_push(
+                user_id=notification.user_id,
+                title=notification.title,
+                body=notification.message or "",
+                url=url,
+                notification_type=notification.notification_type,
+                related_type=notification.related_type,
+                related_id=notification.related_id,
+            )
+        except Exception as e:
+            print(f"Web Push error: {e}")
 
     def create_notification_for_managers(
         self,

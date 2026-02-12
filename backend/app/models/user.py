@@ -43,6 +43,7 @@ class User(Base):
     attendances = relationship("Attendance", back_populates="user", foreign_keys="Attendance.user_id")
     trading_plans = relationship("TradingPlan", back_populates="user")
     comments = relationship("Comment", back_populates="user")
+    push_subscriptions = relationship("PushSubscription", back_populates="user", cascade="all, delete-orphan")
 
     def is_manager_or_admin(self) -> bool:
         return self.role in [UserRole.MANAGER.value, UserRole.ADMIN.value]

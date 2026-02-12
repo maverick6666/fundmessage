@@ -37,5 +37,8 @@ rapidfuzz>=3.6.0
 # AI
 openai>=2.0.0  # Responses API (verbosity, reasoning, max_output_tokens) 지원
 
+# Web Push
+pywebpush>=2.0.0
+
 # Scheduler
 apscheduler>=3.10.0

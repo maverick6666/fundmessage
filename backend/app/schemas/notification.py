@@ -29,3 +29,12 @@ class NotificationMarkRead(BaseModel):
 
 class UnreadCountResponse(BaseModel):
     unread_count: int
+
+
+class PushSubscribeRequest(BaseModel):
+    endpoint: str
+    keys: dict  # { "p256dh": "...", "auth": "..." }
+
+
+class PushUnsubscribeRequest(BaseModel):
+    endpoint: str

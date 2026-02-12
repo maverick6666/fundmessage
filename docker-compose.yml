@@ -36,6 +36,10 @@ services:
       KIS_APP_KEY: ${KIS_APP_KEY:-}
       KIS_APP_SECRET: ${KIS_APP_SECRET:-}
       KIS_ACCOUNT_NO: ${KIS_ACCOUNT_NO:-}
+      # Web Push (VAPID)
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_CLAIMS_EMAIL: ${VAPID_CLAIMS_EMAIL:-mailto:fund@messenger.app}
     ports:
       - "8000:8000"
     depends_on:
