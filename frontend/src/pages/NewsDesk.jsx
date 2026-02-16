@@ -1080,7 +1080,7 @@ function NewsDetailPanel({ content, documentId, onClose }) {
         document_type: 'news',
         document_id: documentId,
       });
-      setComments(data || []);
+      setComments(Array.isArray(data) ? data : (data?.comments || []));
     } catch (error) {
       console.error('Failed to fetch comments:', error);
     } finally {
