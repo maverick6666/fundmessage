@@ -2,6 +2,47 @@
 
 ---
 
+## 2026-02-19 | FastAPI 폐기, Spring Boot 단독 백엔드로 전환
+- **Before**: FastAPI(Python) 백엔드 운영 중, Spring Boot는 리팩토링 대상
+- **After**: FastAPI 더 이상 사용 안 함. Spring Boot가 유일한 백엔드.
+- **이유**: Spring Boot Phase A 완료로 기능 동일. 두 백엔드 유지할 이유 없음.
+- **영향**: docker-compose.yml FastAPI → Spring Boot로 교체 필요, 프론트엔드 API URL 변경 없음 (경로 동일하게 맞춤)
+
+---
+
+## 2026-02-19 | Spring Boot 리팩토링 인계 + 작업 분담
+- **결정**: 친구(Maverixxk)가 만든 Spring Boot 프로젝트를 `spring-backend/` 폴더로 클론하여 이어받기
+- **작업 분담**:
+  - 빠진 기능(시세API, 통계, 매매계획, WebSocket, AI호출) → 내가 구현
+  - 뉴스데스크 v2 → 내가 구현
+  - 프론트엔드(React) → 수정 없이 그대로 인계 (API 경로만 일치시키면 됨)
+- **핵심**: 펀드메신저에서 크롤링/AI생성 파이프라인은 제거. 뉴스데스크 센터(별개 프로젝트)가 담당.
+
+## 2026-02-19 | 전체 로드맵 순서 확정
+- **Phase A**: Spring Boot 완성 (빠진 기능 구현 → 돌아가는 프로젝트)
+- **Phase B**: 펀드메신저 프론트엔드 뉴스데스크 v2 페이지
+- **Phase C**: 뉴스데스크 센터(F:/newsdesk) 수정 → 로컬 AI 커플링 → 업로드 → 눈으로 확인 → 개선
+- **이유**: Spring Boot가 돌아가야 프론트가 연결되고, 프론트가 있어야 센터 결과를 확인할 수 있음
+
+---
+
+## 2026-02-19 | 뉴스데스크 v2 아키텍처 결정
+- **Before**: 날짜 기반 뉴스 브리핑 (칼럼/뉴스카드/감성분석/주목종목), 단일 GPT 호출
+- **After**: 종목 중심 뉴스 인텔리전스
+  - 프론트: 지수카드 4개 + 섹터 히트맵 + 종목별 뉴스 타래(관련도순)
+  - 뉴스데스크 센터: 로컬 비정기(서버 아님), Ollama Qwen3, fundmessage DB 업로드
+  - 뉴스-종목 커플링: 초기엔 뉴스→종목 연결, 축적 후 클러스터 기반, N:M 관계
+  - 증시 데이터: KIS API (초당 20건, 섹터 코드 지원)
+- **이유**: 기존 뉴스데스크는 날짜 단위 브리핑이라 종목별 분석이 불가. 펀드팀 실무에 맞게 종목 중심으로 재설계
+
+## 2026-02-19 | Talk to Figma MCP Windows 설정 (참고용)
+- **이슈**: `"command": "cmd /c npx"` → Claude Code 파싱 실패
+- **해결**: `"command": "node"` + 빌드된 `server.js` 직접 실행
+- **원인**: launcher 빌드 스크립트 내 `chmod`가 Windows에서 실패 → MCP 서버 미시작
+- **현재 상태**: 삭제됨 (Figma 레이아웃 작업 속도 이슈로 중단)
+
+---
+
 ## 2026-02-12 | docker-compose.yml env_file 추가
 - **Before**: backend 환경변수를 docker-compose.yml environment에 개별 나열 (NAVER/OPENAI 누락)
 - **After**: `env_file: ./backend/.env` 추가하여 모든 환경변수 자동 전달

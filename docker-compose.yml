@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL 데이터베이스
   db:
@@ -19,34 +17,23 @@ services:
       timeout: 5s
       retries: 5
 
-  # FastAPI 백엔드
+  # Spring Boot 백엔드
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./spring-backend/backend
+      dockerfile: Dockerfile
     container_name: fundmessage-backend
     env_file:
-      - ./backend/.env
+      - ./spring-backend/backend/.env
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-funduser}:${DB_PASSWORD:-fundpass123}@db:5432/${DB_NAME:-fundmessenger}
-      SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-in-production}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
-      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
-      # 시세 API 키
-      KIS_APP_KEY: ${KIS_APP_KEY:-}
-      KIS_APP_SECRET: ${KIS_APP_SECRET:-}
-      KIS_ACCOUNT_NO: ${KIS_ACCOUNT_NO:-}
-      # Web Push (VAPID)
-      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
-      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
-      VAPID_CLAIMS_EMAIL: ${VAPID_CLAIMS_EMAIL:-mailto:fund@messenger.app}
+      DATABASE_URL: jdbc:postgresql://db:5432/${DB_NAME:-fundmessenger}
+      DB_USERNAME: ${DB_USER:-funduser}
+      DB_PASSWORD: ${DB_PASSWORD:-fundpass123}
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
-    command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   # React 프론트엔드
   frontend:
@@ -55,6 +42,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+        VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8000}
     container_name: fundmessage-frontend
     ports:
       - "80:80"

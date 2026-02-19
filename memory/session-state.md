@@ -1,85 +1,81 @@
 # 현재 세션 상태
-> 마지막 업데이트: 2026-02-12 (PWA + Web Push 완료)
+> 마지막 업데이트: 2026-02-19 (뉴스데스크 v2 UI 대규모 개선 완료)
 
 ## 개발 환경
 - **로컬 개발** (Docker 사용)
 - 프론트엔드: React + Vite (localhost:80 via Docker nginx)
-- 백엔드: FastAPI (localhost:8000)
+- **백엔드: Spring Boot** (`spring-backend/`) — FastAPI 폐기, Spring Boot 단독
+- FastAPI는 더 이상 사용하지 않음
 - DB: PostgreSQL (Docker 로컬)
 - 빌드/테스트: `docker-compose up -d --build`
 - **푸쉬 규칙**: 사용자가 지시할 때만 git push (로컬 작업 우선)
 - **PWA 지원**: manifest.json + sw.js + Web Push (VAPID)
 
-## 추가 수정 (Phase 완료 후)
+## 전체 로드맵 (3단계)
 
-### PWA + Web Push ✅
-- [x] manifest.json + sw.js + index.html PWA 메타태그
-- [x] PushSubscription 모델 + VAPID 설정 (cryptography 키 생성)
-- [x] Push 구독 API (subscribe/unsubscribe/vapid-key)
-- [x] 알림 서비스: WebSocket + Web Push 동시 발송
-- [x] 프론트엔드: 로그인 시 자동 Push 구독 + initPushIfGranted
-- [x] VAPID 키 자동 생성 수정 (py_vapid → cryptography 직접 사용)
-- [x] docker-compose.yml VAPID 환경변수 매핑
-- Playwright 검증 완료 (manifest, SW, VAPID API, Push API 모두 정상)
+### Phase A: Spring Boot 리팩토링 완성 ✅ 완료
+- [x] Step 1: WebSocket 메시지 포맷 수정 (data 필드 unwrap)
+- [x] Step 2: Stats API 경로 불일치 4개 수정
+- [x] Step 3: Price API candles 파라미터 수정
+- [x] Step 4: LocalDateTime → OffsetDateTime 통일 (~19개 파일)
+- [x] Step 5: 뉴스데스크 v2 엔티티 + API (4개 엔티티, 4개 레포, 서비스, DTO, 컨트롤러)
+- [x] Step 6: Docker 빌드 + 실행 검증 완료 (2026-02-19)
+  - Java 21 Temurin 설치, docker-compose Spring Boot 전환
+  - 3개 서비스 정상 기동 (db/backend/frontend)
+  - 로그인 API ✅, 포지션 API ✅, 사용자 API ✅, Health UP ✅
+  - Mail health indicator 비활성화 (SMTP 미설정)
 
-### 자동로그인 개선 ✅
-- [x] AuthContext: 캐시 기반 즉시 복원 + 네트워크 에러 시 로그아웃 방지
-- [x] api.js: Refresh token 큐 (동시 401 요청 처리)
-- [x] authService: localStorage 유저 캐싱
-- [x] auth.py: Refresh token 회전 (새 refresh_token 발급)
-- [x] config.py: refresh_token 만료 7일 → 30일
-- Playwright 검증 완료 (만료 토큰 → 자동 갱신 확인)
+**주요 발견**: 이전 분석에서 "6개 기능 미구현"이라 했으나, 재확인 결과 거의 모든 기능이 이미 구현되어 있었음 (~95% 완료). 실제 필요했던 작업은 경로/포맷 수정 + 뉴스데스크 v2 신규.
 
-### 모바일 UI 수정 ✅ (이전 세션)
-- [x] Header: FM on mobile, Fund Messenger on desktop
-- [x] Positions: grid-cols-2 sm:grid-cols-4 레이아웃
-- [x] DocumentPanel: 내부 삭제 처리 추가
+### Phase B: 펀드메신저 프론트엔드 — 뉴스데스크 v2 페이지 ✅ 완료
+- [x] 지수 카드 4개 (코스피/코스닥/NASDAQ/BTC)
+- [x] 브리핑 패널 (요약 + 상승/하락 업종 + 거래통계)
+- [x] 섹터 히트맵 (Finviz 스타일 트리맵, 4개 시장 탭 전환, **로그 스케일**)
+- [x] 종목 상세 사이드 패널 (**차트 + AI 기술적 분석 + 종목 소개 + 아코디언 뉴스**)
+- [x] 사이드 패널 닫기 버튼 + ESC 지원
+- [x] 뉴스 관련도순 정렬 (100+ 빨간 배지, % 없이 숫자만)
+- [x] 프로젝트 전반 텍스트 overflow 수정 (Layout.jsx overflow-x-hidden + min-w-0)
+- [x] 목업 데이터 포함 (`USE_MOCK = true`, OHLCV + AI 분석 + 프로필)
+- 실제 API 연동은 Phase C (뉴스데스크 센터) 이후
 
-## 작업 계획 완료 상태
+### Phase C: 뉴스데스크 센터 (F:/newsdesk) 대폭 수정
+- 기존 클러스터링 → 종목 커플링으로 전환
+- MarketAux 엔티티 변환 (해외, AI 불필요) + 네이버 뉴스 Qwen3 분석 (국내)
+- fundmessage API로 업로드
 
-### Phase 0: 빠른 버그 수정 ✅
-- [x] 🔴 댓글 "수정됨" 표시 버그 — updated_at nullable + onupdate only
-- [x] 🟡 문서 하단 여백 부족 — pb-16 추가
+## Spring Boot 프로젝트 정보
+- **위치**: `F:/fundmessage/spring-backend/`
+- **GitHub**: https://github.com/Maverixxk/FundMassagenger.git
+- **스택**: Java 21, Spring Boot 3.5.10, Gradle 8.14.4, PostgreSQL
+- **구현 완료**: 인증, 포지션, 요청, 토론, 의사결정, 알림, 출석, 팀칼럼, 댓글, 감사로그, 매매계획, 통계/랭킹, AI호출(OpenAI), 시세(Yahoo+Binance), WebSocket, 리포트, 업로드, 뉴스데스크 v1+v2
+- **인프라**: JWT(JJWT), JSONB(hypersistence-utils), Web Push(VAPID), CORS, KstUtil
 
-### Phase 1: UI 줄바꿈/모바일 ✅
-- [x] 🟡 텍스트 줄바꿈 방지 (전체) — .badge whitespace-nowrap + 22개 위치 개별 수정
-- [x] 🟡 사이드뷰어 모바일 풀스크린 — isMobile state, fullscreen overlay
+## 설계 문서
+- `docs/newsdesk-v2-design.md` ✅ (2026-02-19)
+- `docs/NEWSDESK_CENTER_PROPOSAL.md` (참조용)
 
-### Phase 2: 자산 스냅샷 인프라 ✅
-- [x] asset_service.py 전면 재작성 — PriceService 실시간 가격 조회
-- [x] AssetSnapshot 모델 확장 — realized_pnl, unrealized_pnl, position_details
-- [x] stats.py API — /asset-history start_date 파라미터, /asset-snapshot/{date} 신규
-- [x] regex → pattern deprecation 수정
+## 현재 작업 목록 (2026-02-19 사용자 요청)
+- [x] 🔵 [리서치] 사용자 매매 데이터 활용 투자 AI 모델 학습 종합 리서치
+- [x] 🔵 [리서치] GPU 서버 인프라 비용 종합 리서치 (하드웨어/클라우드/LLM추론/파인튜닝/OpenAI API/한국VPS)
+- [x] 🔵 [문서] 인프라 & AI 전략 종합 리서치 문서 작성 → `docs/INFRASTRUCTURE_AI_STRATEGY.md`
+- [x] 🔵 [리서치] gpt-oss-120b 이상 성능 오픈소스 LLM 종합 비교 리서치 (2025-2026)
+- [x] 🟢 [기능] 뉴스데스크 v2 프론트엔드 구현 (Phase B)
+- [x] 🔵 [개선] 히트맵 로그 스케일, 사이드 패널 닫기, 뉴스 아코디언, overflow 수정
+- [x] 🔵 [개선] 사이드 패널 재설계 (OHLCV 차트 + AI 기술적 분석 + 종목 소개)
 
-### Phase 3: 통계 그래프 확장 ✅
-- [x] 3탭 차트 (총 자산/실현손익/미실현손익) — chartType state + chartConfig
-- [x] 날짜 클릭 → 스냅샷 상세 — handleChartClick + snapshotDetail 인라인 UI
-
-### Phase 4: 기능 추가 ✅
-- [x] 토론 사이드뷰어 — DiscussionSidePanel.jsx + openDiscussion() 헬퍼
-- [x] 뉴스데스크 댓글 — NewsDetailPanel에 commentService 연동, document_type='news'
-
-### Phase 5: 백엔드 에러 핸들링 ✅ (12건)
-- [x] ai_service: response.content null check
-- [x] price_service: yfinance info/fast_info null check
-- [x] newsdesk_ai: content null + JSON parse error
-- [x] discussions API: opener/user relation null safety
-- [x] auth API: SMTP failure graceful handling
-- [x] uploads API: content_type guard + path traversal check
-- [x] notification_service: per-item try/except
-- [x] stats API: price fetch try/except
-- [x] stock_search_service: asyncio.wait_for timeout
-
-## 커밋 이력 (이번 세션)
-1. `121d5a6` Phase 0+1: comment bug + padding + nowrap + mobile SidePanel
-2. `adc3f5c` Phase 2: asset snapshot infrastructure
-3. `8c0c8e4` Phase 3: stats chart 3-tab + date click detail
-4. `a55d447` Phase 4: discussion side panel + newsdesk comments
-5. `232b52d` Phase 5: backend error handling 12건
+## 프로젝트 비전 (확정)
+- **대상**: 전국 50개 대학 투자동아리, 1,500~2,000명
+- **성격**: 투자 커뮤니티 정보교환 플랫폼
+- **AI 전략**: 자체 GPU 서버 + gpt-oss-120b (Apache 2.0) → OpenAI API 대체
+- **뉴스데스크**: 24시간 자동 운영 서비스 (서버 상시 가동)
+- **확장 AI**: 매매습관 분석, 개인화 종목추천, 자체 투자모델 학습
+- **지원금**: 5천만~1억 (정부 지원금)
 
 ## 알려진 이슈
-- 해외 칼럼 길이 부족: yfinance 뉴스 30건으로는 깊이 있는 분석이 어려움
+- Spring Boot 테스트 코드 0개
+- Stats overview API 500 에러 (경로 또는 내부 로직 이슈)
+- **🔴 텍스트 overflow (불구대천의 원수)**: Layout.jsx 1차 수정만 완료. 프로젝트 전반 개별 페이지 전수 점검 + 수정 필요. 뷰포트 축소 시 텍스트가 줄바꿈 반복 후 삐져나오는 문제가 여러 페이지에서 반복 발생.
 
-## 다음 할 일
-- 뉴스데스크 BenchmarkChart 'fund' 라인 연동 확인 (스냅샷 데이터 수집 후)
-- 추가 모바일 UI 검증
+## 사용자 아이디어 (Phase C 검토 대상)
+- **EMA 기반 관련도 점수 정규화**: 클러스터링에 EMA 개념 적용, min-max 정규화로 100점 기준
+- **로컬 AI 역할**: OHLCV 차트 분석 → 기술적 분석 생성, 뉴스-종목 커플링 관련도 점수 산출

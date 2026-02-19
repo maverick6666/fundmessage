@@ -1,0 +1,86 @@
+spring:
+  application:
+    name: fundmessenger
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/fundmessenger}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:123580}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+server:
+  port: 8000
+
+app:
+  jwt:
+    secret: ${SECRET_KEY:}
+    algorithm: HS256
+    access-token-expire-minutes: 60
+    refresh-token-expire-days: 30
+  cors:
+    allowed-origins:
+      - http://localhost
+      - http://localhost:5173
+      - http://localhost:3000
+      - https://fundmessage.vercel.app
+  kis:
+    app-key: ${KIS_APP_KEY:}
+    app-secret: ${KIS_APP_SECRET:}
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: ${OPENAI_MODEL:gpt-5-mini}
+    temperature: ${OPENAI_TEMPERATURE:0.7}
+  newsdesk:
+    verbosity: ${NEWSDESK_VERBOSITY:high}
+    max-tokens: ${NEWSDESK_MAX_TOKENS:32768}
+    reasoning-effort: ${NEWSDESK_REASONING_EFFORT:medium}
+  decision:
+    verbosity: ${DECISION_VERBOSITY:medium}
+    max-tokens: ${DECISION_MAX_TOKENS:16384}
+    reasoning-effort: ${DECISION_REASONING_EFFORT:medium}
+  report:
+    verbosity: ${REPORT_VERBOSITY:high}
+    max-tokens: ${REPORT_MAX_TOKENS:16384}
+    reasoning-effort: ${REPORT_REASONING_EFFORT:medium}
+  vapid:
+    public-key: ${VAPID_PUBLIC_KEY:}
+    private-key: ${VAPID_PRIVATE_KEY:}
+    claims-email: ${VAPID_CLAIMS_EMAIL:mailto:fund@messenger.app}
+  upload:
+    dir: ${UPLOAD_DIR:/tmp/fundmessage_uploads}
+  smtp:
+    from-email: ${SMTP_FROM_EMAIL:}
+  environment: ${ENVIRONMENT:development}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  health:
+    mail:
+      enabled: false

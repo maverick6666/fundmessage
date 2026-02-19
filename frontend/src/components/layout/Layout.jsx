@@ -38,7 +38,7 @@ export function Layout({ children }) {
         />
 
         <main
-          className="flex-1 overflow-y-auto overflow-x-auto p-4 lg:p-6 animate-fade-in transition-all duration-300"
+          className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 p-4 lg:p-6 animate-fade-in transition-all duration-300"
           style={{
             // 사이드 패널이 열렸을 때 margin-right 적용
             marginRight: sidePanelOpen ? `${sidePanelWidth}px` : 0,

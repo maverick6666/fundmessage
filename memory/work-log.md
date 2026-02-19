@@ -3,6 +3,203 @@
 
 ---
 
+## 2026-02-19 | 뉴스데스크 v2 UI 대규모 개선
+- **유형**: 🔵 개선 (사용자 피드백 반영)
+- **요청**: 사이드 패널 닫기 불가, 히트맵 로그 스케일, 뉴스 아코디언, AI 역할 상정, overflow 수정
+- **작업 내용**:
+  1. **히트맵 로그 스케일**: `Math.log(cap + 1)` 적용 → 시총 35x 차이를 2.4x로 시각적 압축
+  2. **사이드 패널 닫기**: custom 타입에 직접 X 버튼 + `closePanel` 호출
+  3. **사이드 패널 재설계**:
+     - 당일 시세(숫자) → SVG 30일 가격 차트
+     - 종목정보(시총/PER/PBR) → 종목 소개(회사 설명)
+     - AI 기술적 분석 섹션 추가 (analysis.technical + signals badges)
+  4. **뉴스 아코디언**: 클릭으로 펼치기/접기, expandedId state
+  5. **관련도 점수**: % 제거, 100+ 빨간 배경, 관련도순 정렬
+  6. **overflow 수정**: Layout.jsx `overflow-x-hidden` + `min-w-0`
+  7. **목업 데이터 교체**: OHLCV 생성기, AI 분석 데이터, 종목 프로필, 다양한 관련도 점수
+- **수정 파일**:
+  - `frontend/src/pages/NewsDesk.jsx` (전체 재작성)
+  - `frontend/src/services/newsdeskService.js` (목업 데이터 전면 교체)
+  - `frontend/src/components/layout/Layout.jsx` (overflow 수정)
+- **검증**: Playwright 스크린샷 — 히트맵, 사이드 패널 차트/AI분석/종목소개/뉴스 모두 확인
+- **상태**: 완료
+
+---
+
+## 2026-02-19 | 뉴스데스크 v2 프론트엔드 구현 (Phase B)
+- **유형**: 🟢 신규 기능
+- **요청**: 뉴스데스크 v2 프론트엔드 구현 (목업 데이터 포함)
+- **작업 내용**:
+  1. `newsdeskService.js` 완전 재작성 — v2 API 서비스 + 목업 데이터 (4개 시장 지수, 브리핑, 히트맵, 종목뉴스)
+  2. `NewsDesk.jsx` 완전 재작성 — v2 UI 컴포넌트:
+     - `IndexCard`: 지수 카드 4개 (코스피/코스닥/NASDAQ/BTC)
+     - `BriefingPanel`: 브리핑 패널 (요약 + 상승/하락 업종 + 거래통계)
+     - `SectorHeatmap`: Finviz 스타일 트리맵 (ResizeObserver, 시총 비중 기반)
+     - `StockDetailContent`: 사이드 패널 (시세 + 종목정보 + 뉴스 타래)
+  3. 버그 수정: `openPanel` 호출 시그니처 (`positional args` → `{ type, data }` 객체)
+  4. 버그 수정: `activeIndex` TDZ 에러 (선언 순서 이동)
+  5. 시장명 전달 수정: 히트맵 stock에 activeIndex.name 추가
+- **수정 파일**: `frontend/src/pages/NewsDesk.jsx`, `frontend/src/services/newsdeskService.js`
+- **검증**: Playwright 테스트 — 4개 탭 전환 ✅, 브리핑 ✅, 히트맵 ✅, 사이드 패널 ✅
+- **상태**: 완료 (목업 데이터, 실제 API 연동은 Phase C 이후)
+
+---
+
+## 2026-02-19 | Spring Boot Docker 빌드 + 실행 검증 완료
+- **유형**: ⚙️ 환경 설정 + 검증
+- **요청**: Java 21 설치 + docker-compose Spring Boot 전환 + 서비스 기동 + API 검증
+- **작업 내용**:
+  1. Java 21 Temurin 설치 (winget)
+  2. docker-compose.yml FastAPI → Spring Boot 전환 (Dockerfile, .env 생성)
+  3. Docker 빌드 성공, 3개 서비스 기동 (db/backend/frontend)
+  4. Login API 500 에러 원인 분석 → bash `!` escape 문제 (코드 이상 없음)
+  5. Health DOWN 원인 → Mail health indicator 비활성화 (`management.health.mail.enabled: false`)
+  6. 핵심 API 검증: 로그인 ✅, /users/me ✅, /positions ✅ (5개 포지션 정상), Health UP ✅
+- **수정 파일**: `application.yaml` (mail health 비활성화)
+- **상태**: 완료
+
+---
+
+## 2026-02-19 | RTX 5090 기준 인프라 전략 문서 업데이트
+- **유형**: 🔵 리서치 + 문서 업데이트
+- **요청**: RTX 4090 → RTX 5090 기준 전환, H100 vs 소비자 GPU 분석, 500명 동시 요청 처리 분석
+- **작업 내용**:
+  1. RTX 5090 실측 벤치마크 수집 (RunPod, CloudRift, Hardware Corner)
+  2. 다나와 기준 한국 실가격 반영 (520~680만원)
+  3. Consumer GPU vs H100 비교 분석 (NVLink, VRAM, 가성비)
+  4. 500명 동시 운용보고서 처리 계산 (4,500,000 토큰 → 8× RTX 5090 = 4.7분)
+  5. 문서 전면 업데이트: 섹션 5(GPU 분석), 6(비용), 8(지원금), 9(결론), 부록 D
+- **핵심 결론**:
+  - RTX 5090은 RTX 4090 대비 1.7배 성능, 가격은 2배 → 4090보다 약간 비효율이나 32GB VRAM이 핵심
+  - H100은 학습용. 추론만 하면 소비자 GPU가 가성비 3~5배
+  - 8× RTX 5090 (서버 2대)로 500명 동시 처리 + 24시간 뉴스데스크 + ML 학습 모두 가능
+  - 5천만원 예산: 빠듯하지만 가능. 1억: 여유롭게 확장
+- **수정 파일**: `docs/INFRASTRUCTURE_AI_STRATEGY.md`
+- **상태**: 완료
+
+---
+
+## 2026-02-19 | gpt-oss-120b 이상 성능 오픈소스 LLM 종합 비교 리서치
+- **유형**: 🔵 리서치
+- **요청**: gpt-oss-120b 이상 성능의 오픈소스/오픈웨이트 LLM 모델 종합 리서치
+- **작업 내용**:
+  1. gpt-oss-120b 벤치마크 성능 확인 (MMLU 90%, AIME'25 97.9%, GPQA 80.9%, TauBench 67.8%)
+  2. 경쟁 모델 10종 비교: DeepSeek R1/V3, Qwen3-235B, Llama 4 Maverick/Scout, Mistral Large 3, GLM-4.5, Kimi K2, K-EXAONE, Gemma 3
+  3. 각 모델별 파라미터/아키텍처/라이선스/컨텍스트/벤치마크/VRAM 정리
+  4. 로컬 구동 하드웨어 요구사항 (RTX 4090 기준)
+  5. 한국어 성능 비교 (Qwen3 > K-EXAONE > DeepSeek R1 > gpt-oss-120b 순)
+- **핵심 발견**:
+  - gpt-oss-120b: MoE 117B/5.1B active, Apache 2.0, RTX 4090 4장 구동 가능, MXFP4 양자화
+  - RTX 4090 단일 구동 가능: Qwen3-30B-A3B(17.5GB), Llama 4 Scout 1.78bit(24GB), Gemma 3 27B
+  - 한국어 최강: K-EXAONE-236B (LG AI Research, 한국어 특화 MoE)
+  - 가성비 최강: gpt-oss-120b (5.1B active로 80GB GPU 1장 가능, Apache 2.0)
+- **상태**: 완료
+
+---
+
+## 2026-02-19 | 인프라 & AI 전략 종합 리서치 문서 작성
+- **유형**: 리서치 + 문서
+- **요청**: 지원금 집행계획 수립을 위한 인프라/AI 전략 종합 리서치
+- **작업 내용**:
+  1. 프로젝트 비전 정리 (50개 대학, 1,500~2,000명, 투자 커뮤니티 플랫폼)
+  2. 규모 분석 (DAU, 동시접속, 데이터량, 트래픽 추정)
+  3. AI 워크로드 분석 (현재 3.1M tok/일 → 확장 10M tok/일)
+  4. 인프라 3대 시나리오 비교 (API확장 vs 클라우드GPU vs 자체GPU)
+  5. gpt-oss-120b 구동 분석 (MoE 117B/5.1B active, RTX 4090 × 4 가능)
+  6. 비용 시뮬레이션 (API $30~75만/월 vs 자체 $35~70만/월 → 비슷한 비용에 압도적 가치)
+  7. 사용자 데이터 분석 & 자체 투자모델 학습 설계
+  8. 지원금 활용 전략 (5천만/1억 시나리오)
+- **결론**: 하이브리드(클라우드VPS + 자체GPU RTX4090×4 코로케이션) 추천
+- **신규 파일**: `docs/INFRASTRUCTURE_AI_STRATEGY.md`
+- **주요 발견**: gpt-oss-120b는 Apache 2.0, MoE 5.1B active로 RTX4090 4장에서 구동 가능, o4-mini급 성능
+- **상태**: 리서치 문서 완료, 의사결정 대기
+
+---
+
+## 2026-02-19 | GPU 서버 인프라 비용 종합 리서치
+- **유형**: 리서치
+- **요청**: 2026년 기준 GPU 하드웨어/클라우드/LLM 추론/파인튜닝/OpenAI API/한국 VPS 가격 조사
+- **작업 내용**: 6개 카테고리(GPU 하드웨어, 클라우드 GPU, LLM 추론 성능, 파인튜닝 비용, OpenAI API, 한국 VPS) 종합 리서치
+- **상태**: 완료
+
+---
+
+## 2026-02-19 | 사용자 매매 데이터 활용 투자 AI 모델 학습 종합 리서치
+- **유형**: 🔵 리서치
+- **요청**: 매매 데이터 기반 AI 분석/모델 학습에 대한 6개 영역 종합 리서치
+- **작업 내용**:
+  1. **AI 분석 유형 정리**: 매매 패턴 분류(5가지), 매매 습관 분석(6개 항목), 포트폴리오 리스크, 종목 추천(CF+CB+하이브리드), 성과 예측
+  2. **데이터 규모 산정**: 2,000명 기준 연간 36,000 포지션/57,600 요청 추정, 모델별 최소/권장 데이터 크기 정리
+  3. **기술 스택 비교**: XGBoost/LightGBM, LoRA(FinGPT), LSTM/Transformer, NCF 추천, RL(FinRL) 각각 장단점/적용 시나리오
+  4. **GPU 요구사항**: 모델별 학습/추론 GPU 사양, VRAM 요구량, 클라우드 GPU 비용 ($0.30~0.75/hr)
+  5. **실제 사례**: 토스증권 AI시그널, 알파스퀘어, FinGPT(14k stars), FinRL(12.9k stars), 5개 LLM 투자 실험
+  6. **법적/윤리적**: 개인정보보호법, 자본시장법(투자자문업 5억, 유사투자자문업 신고), AI기본법(2026.1 시행), 금융AI 가이드라인 7대원칙
+- **핵심 발견**:
+  - 펀드메신저 현재 데이터 모델(Position, Request, Discussion)로 대부분의 AI 분석 가능
+  - Phase 1(통계 분석)은 GPU 없이 즉시 가능, Phase 4(LLM 파인튜닝)는 RTX 4090급 필수
+  - 종목 "추천"은 유사투자자문업 신고 필요 → "유사 종목 탐색 도구"로 포지셔닝 권장
+  - QLoRA 7B 모델 학습 비용: 클라우드 GPU로 $2~4/회
+- **상태**: 완료
+
+---
+
+## 2026-02-19 | Spring Boot Phase A 리팩토링 완료 (6 Steps)
+- **유형**: 리팩토링 + 신규 기능
+- **요청**: Spring Boot 프로젝트를 프론트엔드와 완전 호환되도록 완성
+- **작업 내용**:
+  1. **Step 1: WebSocket 메시지 포맷 수정** - FundWebSocketHandler.java의 `data` 필드 unwrap 로직 추가 (프론트엔드 `{type, data:{...}}` ↔ Spring Boot flat 포맷 호환)
+  2. **Step 2: Stats API 경로 4개 수정** - `/user/` → `/users/`, `/ranking` → `/team-ranking`, `/assets/history` → `/asset-history?period=`, `/assets/{id}` → `/asset-snapshot/{date}`
+  3. **Step 3: Price API candles 파라미터** - `interval` → `timeframe`, `count` → `limit`, `before` 파라미터 추가
+  4. **Step 4: LocalDateTime → OffsetDateTime 통일** - 19개 파일 일괄 수정, KstUtil 확장
+  5. **Step 5: 뉴스데스크 v2 엔티티 + API** - 4개 신규 엔티티(MarketStock, StockDailyPrice, StockNews, MarketSummary), 4개 레포지토리, NewsDeskV2Service, 4개 DTO, NewsDeskController에 v2 엔드포인트 9개 추가, RawNews v2 확장 필드 4개
+  6. **Step 6: 코드 검증** - Java/Docker Desktop 미설치로 수동 코드 리뷰 (20개 파일, 컴파일 이슈 0건)
+- **주요 발견**: 이전 분석("6개 기능 미구현")이 오류였음. 실제로는 ~95% 구현 완료 상태. API 경로/포맷 수정 + 뉴스데스크 v2만 필요.
+- **신규 파일**: MarketStock.java, StockDailyPrice.java, StockNews.java, MarketSummary.java, MarketStockRepository.java, StockDailyPriceRepository.java, StockNewsRepository.java, MarketSummaryRepository.java, MarketStockResponse.java, StockNewsResponse.java, MarketSummaryResponse.java, NewsDeskUploadRequest.java, NewsDeskV2Service.java
+- **수정 파일**: FundWebSocketHandler.java, StatsController.java, AssetService.java, PriceController.java, PriceService.java, KstUtil.java, RawNews.java, NewsDeskController.java, + 엔티티/서비스/DTO ~19개 (OffsetDateTime)
+- **상태**: 코드 완료. 실제 빌드/실행은 Java 설치 후 검증 필요.
+
+---
+
+## 2026-02-19 | Spring Boot 리팩토링 분석 + 로드맵 확정
+- **유형**: 리서치 + 기획
+- **요청**: Spring Boot 프로젝트(친구 작업물) 분석 + 뉴스데스크 v2 포함 전체 로드맵 수립
+- **작업 내용**:
+  1. **Spring Boot 프로젝트 클론 및 분석**:
+     - GitHub: Maverixxk/FundMassagenger → `spring-backend/` 폴더로 클론
+     - Java 21, Spring Boot 3.5.10, Gradle 8.14.4
+     - 핵심 기능 ~80% 포팅 완료 (인증, 포지션, 요청, 토론 등 10개 도메인)
+     - 빠진 기능: 시세 API, 통계/랭킹, 매매계획, WebSocket 채팅, AI 실제 호출
+     - 뉴스데스크: v1 엔티티만 (크롤링/AI생성은 제외 — 센터가 담당)
+  2. **전체 로드맵 확정**:
+     - Phase A: Spring Boot 완성 (빠진 기능 구현)
+     - Phase B: 펀드메신저 프론트엔드 뉴스데스크 v2 페이지
+     - Phase C: 뉴스데스크 센터(F:/newsdesk) 수정 + 로컬 AI 커플링
+  3. **뉴스데스크 v2 설계 문서 수정**: MarketAux 엔티티 활용 반영
+- **영향 파일**: `spring-backend/`(신규 클론), `docs/newsdesk-v2-design.md`(수정), `memory/`(갱신)
+- **상태**: 로드맵 확정, Phase A 시작 대기
+
+---
+
+## 2026-02-19 | 뉴스데스크 v2 기획 + Talk to Figma MCP 설정
+- **유형**: 기획 + ⚙️ 환경 설정
+- **요청**: 뉴스데스크를 종목 중심 뉴스 인텔리전스로 재설계, Figma 연동
+- **작업 내용**:
+  1. **Talk to Figma MCP 연결**: Windows 환경에서 Claude Code ↔ Figma 연동
+     - `cmd /c npx` 파싱 실패 → `cmd` + `/c` 분리 → `chmod` Windows 실패
+     - 최종 해결: `node` + 빌드된 `server.js` 직접 실행 (55 tools 로드)
+     - Figma에서 레이아웃 그리기 시도 → 속도/색상 문제로 중단
+     - 사용자 요청으로 `.mcp.json` 삭제 (MCP 제거)
+  2. **뉴스데스크 v2 방향 확정**:
+     - 기존: 날짜 기반 클러스터링 뉴스 브리핑
+     - 변경: 종목 중심 뉴스 인텔리전스 (지수카드 + 히트맵 + 종목-뉴스 커플링)
+     - 뉴스데스크 센터: 로컬 비정기 수작업, Ollama Qwen3, N:M 커플링
+     - 증시 데이터: KIS API (초당 20건, 코스피 ~900종목 ≈ 1분)
+  3. **설계 문서 작성**: `docs/newsdesk-v2-design.md`
+- **영향 파일**: `.mcp.json`(삭제), `memory/session-state.md`, `docs/newsdesk-v2-design.md`(신규)
+- **상태**: 기획 완료, 구현 대기
+
+---
+
 ## 2026-02-12 | PWA + Web Push 구현
 - **유형**: 🟢 신규 기능
 - **요청**: 앱으로 패키징 가능한지 + 알림 기능 사용 → PWA + Web Push 추천 후 구현
