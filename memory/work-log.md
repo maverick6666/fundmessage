@@ -3,6 +3,59 @@
 
 ---
 
+## 2026-02-20 | 클라우드타입 배포 준비 + DB 마이그레이션 분석
+- **유형**: 🔵 배포 준비
+- **요청**: 클라우드타입에 Spring Boot 배포, 기존 FastAPI PostgreSQL DB 재사용
+- **분석 결과**:
+  - 테이블명/컬럼명: 19개 모두 일치 (문제 없음)
+  - **신규 테이블 5개**: universities, market_stocks, stock_news, stock_daily_price, market_summary → `ddl-auto: update`가 자동 생성
+  - **신규 컬럼 8개**: users(2) + raw_news(6) → `ddl-auto: update`가 자동 추가
+  - **⚠️ timestamp→timestamptz**: ~9개 테이블 수동 ALTER 필요 (기존 데이터 시간대 해석 변경 위험)
+  - **json→jsonb**: ~7개 테이블 (기능 호환, 성능 차이만 → 선택적)
+- **상태**: 분석 완료, 배포 미착수. `memory/session-state.md`에 상세 배포 가이드 기록.
+
+---
+
+## 2026-02-20 | GitHub 양쪽 레포 동기화 완료
+- **유형**: 🟢 배포/통합
+- **요청**: 조직 레포 + 개인 레포 모두 최신 코드 올리기
+- **작업**:
+  - `Maverixxk/FundMassagenger` (서버용): Phase C 파이프라인 12파일 푸시 (5f7485c)
+  - `maverick6666/fundmessage` (작업용): Phase C + 대학교 기능 모두 푸시 (e88f43d, 7d2fd5b)
+- **레포 역할 정리**: 개인=작업용(전부), 조직=서버배포용(클린)
+
+---
+
+## 2026-02-20 | 대학교(university) 기능 org-repo → 로컬 레포 복사
+- **유형**: 🟢 기능 복사/병합
+- **요청**: org-repo(`C:/Users/lhhh0/Desktop/org-repo`)의 `claude/determined-yonath` 브랜치에서 머지된 대학교 기능을 로컬 레포(`F:/fundmessage`)로 복사
+- **작업 내용**:
+  1. **백엔드 신규 6파일** (university 패키지):
+     - `university/controller/UniversityController.java` — CRUD + 활성 목록(공개)
+     - `university/dto/UniversityRequest.java` — name, code, logoUrl
+     - `university/dto/UniversityResponse.java` — from() 팩토리
+     - `university/entity/University.java` — JPA 엔티티 (universities 테이블)
+     - `university/repository/UniversityRepository.java` — JPA 레포
+     - `university/service/UniversityService.java` — 비즈니스 로직
+  2. **백엔드 수정 5파일**:
+     - `User.java` — University @ManyToOne + positionTitle 필드 추가
+     - `UserResponse.java` — positionTitle, universityId, universityName 필드 추가
+     - `SignupRequest.java` — universityId(@NotNull), positionTitle(@NotBlank) 추가
+     - `AuthController.java` — UniversityRepository 주입, signup에서 university 조회/설정, toUserResponse에 university 필드
+     - `UserController.java` — toUserResponse에 university 필드
+     - `SecurityConfig.java` — `/api/v1/universities/active` GET permitAll 추가
+  3. **프론트엔드 신규 2파일**:
+     - `pages/AdminUniversities.jsx` — 대학교 관리 페이지 (CRUD + 로고 업로드)
+     - `services/universityService.js` — API 서비스
+  4. **프론트엔드 수정 3파일**:
+     - `App.jsx` — AdminUniversities import + `/admin/universities` 라우트 (ManagerRoute)
+     - `Sidebar.jsx` — 대학교 관리 메뉴 아이템 추가 (managerOnly)
+     - `Signup.jsx` — 대학교 선택 + 직책 선택 UI (org-repo 버전으로 교체)
+- **경로 매핑**: org-repo `backend/` → `spring-backend/backend/`, org-repo `frontend/` → `frontend/`
+- **영향 파일**: 총 16파일 (백엔드 11 + 프론트엔드 5)
+
+---
+
 ## 2026-02-20 | 조직 레포 코드 푸시 완료
 - **유형**: 🟢 배포/통합
 - **요청**: Maverixxk/FundMassagenger 조직 레포에 Phase C 코드 + 대학교 기능 머지

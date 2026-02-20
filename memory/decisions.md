@@ -2,6 +2,22 @@
 
 ---
 
+## 2026-02-20 | 클라우드타입 배포 재개 결정 (로컬 → 서버)
+- **Before**: 로컬 Docker에서만 개발 (클라우드타입/Vercel 배포 중단 상태)
+- **After**: 클라우드타입(Spring Boot + PostgreSQL) + Vercel(React) 배포 재개
+- **이유**: 파이프라인을 서버 DB에 돌려야 실제 데이터 확인 가능. 로컬만으로는 효용 부족
+- **영향**:
+  - 클라우드타입 기존 FastAPI 서비스 → Spring Boot로 교체
+  - 기존 PostgreSQL 인스턴스 재사용 (마이그레이션 필요)
+  - Vercel 프론트엔드는 VITE_API_URL만 맞추면 됨
+
+## 2026-02-20 | GitHub 레포 역할 분리 확정
+- **개인 레포** (`maverick6666/fundmessage`): 작업용, 모든 것 포함 (spring-backend/, frontend/, memory/, docs/)
+- **조직 레포** (`Maverixxk/FundMassagenger`): 서버 배포용, 클린 구조 (backend/, frontend/)
+- **주의**: 조직 레포에는 memory/, docs/ 등 불필요한 파일 올리지 않음
+
+---
+
 ## 2026-02-19 | FastAPI 폐기, Spring Boot 단독 백엔드로 전환
 - **Before**: FastAPI(Python) 백엔드 운영 중, Spring Boot는 리팩토링 대상
 - **After**: FastAPI 더 이상 사용 안 함. Spring Boot가 유일한 백엔드.
