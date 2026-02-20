@@ -66,6 +66,16 @@ app:
     verbosity: ${REPORT_VERBOSITY:high}
     max-tokens: ${REPORT_MAX_TOKENS:16384}
     reasoning-effort: ${REPORT_REASONING_EFFORT:medium}
+  cerebras:
+    api-key: ${CEREBRAS_API_KEY:}
+    model: ${CEREBRAS_MODEL:gpt-oss-120b}
+    base-url: ${CEREBRAS_BASE_URL:https://api.cerebras.ai/v1}
+    max-completion-tokens: ${CEREBRAS_MAX_TOKENS:8192}
+  marketaux:
+    api-key: ${MARKETAUX_API_KEY:}
+  naver:
+    client-id: ${NAVER_CLIENT_ID:}
+    client-secret: ${NAVER_CLIENT_SECRET:}
   vapid:
     public-key: ${VAPID_PUBLIC_KEY:}
     private-key: ${VAPID_PRIVATE_KEY:}

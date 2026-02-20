@@ -1,5 +1,5 @@
 # 현재 세션 상태
-> 마지막 업데이트: 2026-02-19 (뉴스데스크 v2 UI 대규모 개선 완료)
+> 마지막 업데이트: 2026-02-20 (Phase C 뉴스데스크 센터 v2 코드 작성 완료)
 
 ## 개발 환경
 - **로컬 개발** (Docker 사용)
@@ -38,10 +38,14 @@
 - [x] 목업 데이터 포함 (`USE_MOCK = true`, OHLCV + AI 분석 + 프로필)
 - 실제 API 연동은 Phase C (뉴스데스크 센터) 이후
 
-### Phase C: 뉴스데스크 센터 (F:/newsdesk) 대폭 수정
-- 기존 클러스터링 → 종목 커플링으로 전환
-- MarketAux 엔티티 변환 (해외, AI 불필요) + 네이버 뉴스 Qwen3 분석 (국내)
-- fundmessage API로 업로드
+### Phase C: 뉴스데스크 센터 (F:/newsdesk) 대폭 수정 — 🔵 코드 작성 완료
+- [x] Step 1: config.py Cerebras 설정 + cerebras_client.py 작성
+- [x] Step 2: coupling_agent.py (종목 커플링: MarketAux 변환 + 네이버 AI + 크립토 태그)
+- [x] Step 3: technical_analysis_agent.py (OHLCV → AI 기술적 분석)
+- [x] Step 4: market_summary_agent.py (시장별 AI 브리핑) + scoring.py (EMA 점수)
+- [x] Step 5: upload_client.py (fundmessage API 업로드) + pipeline.py 재설계
+- [ ] Step 6: Docker 빌드 + 실행 검증 (미착수)
+- [ ] Step 7: 프론트엔드 `USE_MOCK = false` 전환 + 실제 데이터 연동 (미착수)
 
 ## Spring Boot 프로젝트 정보
 - **위치**: `F:/fundmessage/spring-backend/`
@@ -54,19 +58,33 @@
 - `docs/newsdesk-v2-design.md` ✅ (2026-02-19)
 - `docs/NEWSDESK_CENTER_PROPOSAL.md` (참조용)
 
-## 현재 작업 목록 (2026-02-19 사용자 요청)
-- [x] 🔵 [리서치] 사용자 매매 데이터 활용 투자 AI 모델 학습 종합 리서치
-- [x] 🔵 [리서치] GPU 서버 인프라 비용 종합 리서치 (하드웨어/클라우드/LLM추론/파인튜닝/OpenAI API/한국VPS)
-- [x] 🔵 [문서] 인프라 & AI 전략 종합 리서치 문서 작성 → `docs/INFRASTRUCTURE_AI_STRATEGY.md`
-- [x] 🔵 [리서치] gpt-oss-120b 이상 성능 오픈소스 LLM 종합 비교 리서치 (2025-2026)
-- [x] 🟢 [기능] 뉴스데스크 v2 프론트엔드 구현 (Phase B)
-- [x] 🔵 [개선] 히트맵 로그 스케일, 사이드 패널 닫기, 뉴스 아코디언, overflow 수정
-- [x] 🔵 [개선] 사이드 패널 재설계 (OHLCV 차트 + AI 기술적 분석 + 종목 소개)
+## 현재 작업 목록 (2026-02-20 Phase C → Spring Boot 병합)
+- [x] 🟢 [기능] 뉴스데스크 전면 재설계 (설계 수정 반영)
+- [x] 🟢 [검증] 뉴스 수집 테스트 성공 (487건: MA29 + NV384 + CC74)
+- [x] 🟢 [검증] Cerebras 모델 비교 완료 → GPT-OSS-120B 확정
+- [x] 🟢 [검증] 전체 파이프라인 테스트 성공 (487건 재작성, 471 커플링, 5 시장요약)
+- [x] 🟢 [기능] Spring Boot 병합 8단계 완료:
+  - [x] Step 1: 설정 추가 (AppProperties + yaml + .env)
+  - [x] Step 2: CerebrasClient.java
+  - [x] Step 3: NewsCollectorService.java
+  - [x] Step 4: RewriterService.java
+  - [x] Step 5: CouplingService.java
+  - [x] Step 6: MarketSummaryService.java
+  - [x] Step 7: NewsDeskPipelineService.java + Controller + RawNews 확장
+  - [x] Step 8: Docker 빌드 성공 + 서비스 기동 확인
+- [ ] 🟡 [대기] 파이프라인 실제 실행 테스트 (POST /api/v1/newsdesk/v2/run-pipeline)
+- [ ] 🟡 [대기] 프론트엔드 `USE_MOCK = false` 전환 + 실제 데이터 연동
+
+## 최근 완료 (2026-02-20)
+- [x] 🟢 조직 레포 푸시 완료 (5f7485c) — Phase C 12파일 + 대학교 PR 머지
+- [x] 🟢 Spring Boot 뉴스데스크 파이프라인 병합 (8단계, 신규 6파일 + 수정 7파일)
+- [x] 🔵 Cerebras 모델 비교 + 전체 파이프라인 검증
+- [x] 🟢 Docker 빌드 + 서비스 기동 확인 (Health UP)
 
 ## 프로젝트 비전 (확정)
 - **대상**: 전국 50개 대학 투자동아리, 1,500~2,000명
 - **성격**: 투자 커뮤니티 정보교환 플랫폼
-- **AI 전략**: 자체 GPU 서버 + gpt-oss-120b (Apache 2.0) → OpenAI API 대체
+- **AI 전략**: Cerebras API + GPT-OSS-120B (확정) → 트래픽 증가 시 자체 GPU 서버 전환
 - **뉴스데스크**: 24시간 자동 운영 서비스 (서버 상시 가동)
 - **확장 AI**: 매매습관 분석, 개인화 종목추천, 자체 투자모델 학습
 - **지원금**: 5천만~1억 (정부 지원금)
@@ -76,6 +94,27 @@
 - Stats overview API 500 에러 (경로 또는 내부 로직 이슈)
 - **🔴 텍스트 overflow (불구대천의 원수)**: Layout.jsx 1차 수정만 완료. 프로젝트 전반 개별 페이지 전수 점검 + 수정 필요. 뷰포트 축소 시 텍스트가 줄바꿈 반복 후 삐져나오는 문제가 여러 페이지에서 반복 발생.
 
-## 사용자 아이디어 (Phase C 검토 대상)
-- **EMA 기반 관련도 점수 정규화**: 클러스터링에 EMA 개념 적용, min-max 정규화로 100점 기준
-- **로컬 AI 역할**: OHLCV 차트 분석 → 기술적 분석 생성, 뉴스-종목 커플링 관련도 점수 산출
+## 설계 수정 사항 (2026-02-20 사용자 피드백)
+- **소스별 차별 처리 폐기**: MarketAux 메타데이터 정확도 낮음 → 모든 소스 동일 AI 처리
+- **뉴스 재작성 추가**: 저작권 우회 + 품질 통일
+- **EMA = 코드 계산 아님**: 모델에게 기준으로 제공, 모델이 점수 직접 산출
+- **Spring Boot 통합 검토**: Cerebras API 쓰면 별도 프로젝트 불필요 (추후 결정)
+- **OpenAI API → Cerebras 통합**: 운용보고서/의사결정서도 전환 가능
+
+## 뉴스데스크 센터 v2 파일 구조 (F:/newsdesk)
+```
+run.py                       # CLI 진입점 (python run.py)
+backend/app/services/
+├── cerebras_client.py       # Cerebras API (OpenAI 호환)
+├── collector.py             # DB-free 뉴스 수집 (JSON 반환)
+├── pipeline.py              # v2 파이프라인 (JSON 파일 출력)
+└── agents/
+    ├── rewriter_agent.py    # 뉴스 재작성 (저작권 우회)
+    ├── coupling_agent.py    # 통일 AI 커플링 (incremental)
+    └── market_summary_agent.py  # 시장별 AI 브리핑
+output/YYYY-MM-DD/
+├── 01_raw_news.json         # 수집 결과
+├── 02_rewritten.json        # 재작성 결과
+├── 03_coupled.json          # 커플링 결과
+└── 04_market_summary.json   # 시장 요약
+```

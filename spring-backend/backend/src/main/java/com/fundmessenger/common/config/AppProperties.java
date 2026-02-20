@@ -23,7 +23,29 @@ public class AppProperties {
     private Vapid vapid = new Vapid();
     private Upload upload = new Upload();
     private Smtp smtp = new Smtp();
+    private Cerebras cerebras = new Cerebras();
+    private MarketAux marketaux = new MarketAux();
+    private Naver naver = new Naver();
     private String environment = "development";
+
+    @Getter @Setter
+    public static class Cerebras {
+        private String apiKey;
+        private String model = "gpt-oss-120b";
+        private String baseUrl = "https://api.cerebras.ai/v1";
+        private int maxCompletionTokens = 8192;
+    }
+
+    @Getter @Setter
+    public static class MarketAux {
+        private String apiKey;
+    }
+
+    @Getter @Setter
+    public static class Naver {
+        private String clientId;
+        private String clientSecret;
+    }
 
     @Getter @Setter
     public static class Jwt {

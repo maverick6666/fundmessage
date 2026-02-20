@@ -16,4 +16,7 @@ public interface StockNewsRepository extends JpaRepository<StockNews, Long> {
     List<StockNews> findByStockIdOrderByRecent(Long stockId);
 
     long countByStockId(Long stockId);
+
+    @Query("SELECT sn FROM StockNews sn JOIN FETCH sn.stock JOIN FETCH sn.news WHERE sn.news.newsdeskDate = :date")
+    List<StockNews> findByNewsNewsdeskDate(java.time.LocalDate date);
 }

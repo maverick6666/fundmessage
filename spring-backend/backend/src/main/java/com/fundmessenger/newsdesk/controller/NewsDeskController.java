@@ -7,6 +7,7 @@ import com.fundmessenger.common.security.UserPrincipal;
 import com.fundmessenger.newsdesk.dto.*;
 import com.fundmessenger.newsdesk.entity.NewsDesk;
 import com.fundmessenger.newsdesk.repository.NewsDeskRepository;
+import com.fundmessenger.newsdesk.service.NewsDeskPipelineService;
 import com.fundmessenger.newsdesk.service.NewsDeskV2Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,7 @@ public class NewsDeskController {
     private final AssetSnapshotRepository assetSnapshotRepository;
     private final WebClient webClient;
     private final NewsDeskV2Service newsDeskV2Service;
+    private final NewsDeskPipelineService newsDeskPipelineService;
 
     // ──────────────────────────────────────────────
     // Today's newsdesk
@@ -303,6 +305,48 @@ public class NewsDeskController {
         LocalDate targetDate = date != null ? LocalDate.parse(date) : LocalDate.now(KST);
         List<StockNewsResponse> news = newsDeskV2Service.getStockNews(ticker, targetDate, limit);
         return ApiResponse.success(news);
+    }
+
+    /**
+     * POST /api/v1/newsdesk/v2/run-pipeline - Run the full newsdesk pipeline.
+     * Manager only. Collects news, rewrites, couples with stocks, generates market summaries.
+     */
+    @PostMapping("/v2/run-pipeline")
+    public ApiResponse<Map<String, Object>> runPipeline(
+            @RequestParam(required = false) String date,
+            @RequestParam(defaultValue = "false") boolean skipCollect,
+            @RequestParam(defaultValue = "false") boolean async,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        LocalDate targetDate = date != null ? LocalDate.parse(date) : LocalDate.now(KST);
+
+        if (async) {
+            newsDeskPipelineService.runPipelineAsync(targetDate, skipCollect);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("status", "started");
+            result.put("date", targetDate.toString());
+            result.put("skipCollect", skipCollect);
+            return ApiResponse.success(result, "Pipeline started asynchronously");
+        }
+
+        NewsDeskPipelineService.PipelineResult pipelineResult =
+                newsDeskPipelineService.runPipeline(targetDate, skipCollect);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("date", targetDate.toString());
+        result.put("collected", pipelineResult.collected());
+        result.put("rewritten", pipelineResult.rewritten());
+        result.put("couplings", pipelineResult.couplings());
+        result.put("uniqueStocks", pipelineResult.uniqueStocks());
+        result.put("marketSummaries", pipelineResult.marketSummaries());
+        result.put("durationMs", pipelineResult.durationMs());
+
+        if (pipelineResult.error() != null) {
+            result.put("error", pipelineResult.error());
+            return ApiResponse.success(result, "Pipeline completed with errors");
+        }
+
+        return ApiResponse.success(result, "Pipeline completed successfully");
     }
 
     /**

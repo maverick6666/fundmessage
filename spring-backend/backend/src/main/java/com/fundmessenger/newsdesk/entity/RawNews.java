@@ -62,4 +62,11 @@ public class RawNews {
 
     @Column(name = "coupling_status", length = 20, columnDefinition = "varchar(20) default 'uncoupled'")
     private String couplingStatus = "uncoupled";
+
+    // Rewriter fields
+    @Column(name = "original_title", length = 500)
+    private String originalTitle;
+
+    @Column(name = "rewritten", columnDefinition = "boolean default false")
+    private Boolean rewritten = false;
 }

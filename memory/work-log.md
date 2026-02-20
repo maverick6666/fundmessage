@@ -3,6 +3,140 @@
 
 ---
 
+## 2026-02-20 | 조직 레포 코드 푸시 완료
+- **유형**: 🟢 배포/통합
+- **요청**: Maverixxk/FundMassagenger 조직 레포에 Phase C 코드 + 대학교 기능 머지
+- **작업 내용**:
+  1. `claude/determined-yonath` 브랜치 PR #1 GitHub 머지 (대학교 관리 + 회원가입 학교/직책)
+  2. Phase C 파이프라인 코드 12개 파일 복사 (신규 6 + 수정 6)
+  3. 프론트엔드는 이미 최신 상태 확인 (별도 복사 불필요)
+  4. 커밋 `5f7485c` 푸시 완료
+- **최종 커밋 히스토리**: 5f7485c(Phase C) → 22ae2be(대학교 머지) → e31288a(Phase A+프론트)
+- **클론 위치**: `C:/Users/lhhh0/Desktop/org-repo`
+
+---
+
+## 2026-02-20 | 뉴스데스크 파이프라인 Spring Boot 병합 완료 (8단계)
+- **유형**: 🟢 신규 기능 (대규모 병합)
+- **요청**: Python(F:/newsdesk) 뉴스데스크 파이프라인을 Spring Boot(F:/fundmessage/spring-backend)에 통합
+- **작업 내용**:
+  1. **Step 1**: AppProperties에 Cerebras/MarketAux/Naver 설정 3개 클래스 추가, application.yaml + .env 환경변수
+  2. **Step 2**: CerebrasClient.java — WebClient 기반 Cerebras API 클라이언트 (429 재시도, 5xx 백오프, JSON 스키마 강제)
+  3. **Step 3**: NewsCollectorService.java — MarketAux/CryptoCompare/Naver 3소스 뉴스 수집 (Python collector.py 포팅)
+  4. **Step 4**: RewriterService.java — AI 뉴스 재작성 (10건 배치, 영→한/한→한 변환, originalTitle 보존)
+  5. **Step 5**: CouplingService.java — AI 종목-뉴스 커플링 (incremental context, EMA 기반 점수, MarketStock findOrCreate)
+  6. **Step 6**: MarketSummaryService.java — 시장별 AI 브리핑 생성 (top 15 종목 컨텍스트, themes/hot/cold sectors)
+  7. **Step 7**: NewsDeskPipelineService.java — 4단계 오케스트레이터 (수집→재작성→커플링→요약) + @Async 지원
+  8. **Step 7b**: Controller run-pipeline 엔드포인트 + RawNews 엔티티 확장 (originalTitle, rewritten)
+  9. **Step 8**: Docker 빌드 성공 + 서비스 정상 기동 확인 (Health UP)
+- **빌드 에러 수정**: NewsCollectorService `page` 변수 → `final int currentPage` (lambda effectively final)
+- **신규 파일 6개**: CerebrasClient.java, NewsCollectorService.java, RewriterService.java, CouplingService.java, MarketSummaryService.java, NewsDeskPipelineService.java
+- **수정 파일 6개**: AppProperties.java, application.yaml, .env, RawNews.java, StockNewsRepository.java, NewsDeskController.java, FundmessengerApplication.java
+- **상태**: 빌드 성공, 서비스 기동 확인. 실제 파이프라인 실행 테스트는 미수행.
+
+---
+
+## 2026-02-20 | Spring Boot CouplingService.java 작성
+- **유형**: 🟢 신규 기능
+- **요청**: Python coupling_agent.py의 Spring Boot 포팅 — Cerebras AI를 활용한 뉴스-종목 커플링 서비스
+- **작업 내용**:
+  1. `CouplingService.java` 작성 — CerebrasClient, MarketStockRepository, StockNewsRepository, RawNewsRepository 주입
+  2. `coupleAll(List<RawNews>)` 메서드: 배치(10건) 분할, incremental context 유지, 에러 시 배치 스킵
+  3. `CouplingResult` inner record: totalCouplings, uniqueStocks
+  4. `StockContext` inner class: tickerName, market, newsCount, totalScore, recentReasons(max 3)
+  5. Incremental context: 상위 20개 종목 (newsCount DESC, totalScore DESC) 컨텍스트 문자열 생성
+  6. DB persistence: MarketStock findOrCreate, StockNews 생성, RawNews.couplingStatus = "coupled"
+  7. JSON schema: couplings[].stocks[].{ticker, ticker_name, market, score, reason} 구조
+  8. Score < 30 필터링, 실패 배치는 couplingStatus = "failed" 마킹
+- **영향 파일**: `spring-backend/backend/src/main/java/com/fundmessenger/newsdesk/service/CouplingService.java` (신규)
+- **상태**: 완료
+
+---
+
+## 2026-02-20 | NewsCollectorService.java 작성 (Spring Boot 뉴스 수집)
+- **유형**: 🟢 신규 기능
+- **요청**: Python collector.py를 Spring Boot Java 서비스로 포팅
+- **작업 내용**:
+  1. `NewsCollectorService.java` 완성 — 3개 소스(MarketAux, CryptoCompare, Naver) 뉴스 수집
+  2. WebClient.Builder 주입, AppProperties로 API 키 관리
+  3. URL 기반 중복 제거 (HashSet), 소스별 try/catch 격리
+  4. MarketAux: 페이지네이션 (limit=3, max 90 requests), 엔티티 추출 → JSONB keywords
+  5. CryptoCompare: Unix timestamp 기반 3회 역방향 루프, 날짜 필터링
+  6. Naver: 8개 쿼리, HTML 태그 제거, RFC 1123 날짜 파싱, 날짜 필터링
+  7. `@Transactional collectAll(LocalDate)` → `rawNewsRepository.saveAll()` 일괄 저장
+- **신규 파일**: `spring-backend/backend/src/main/java/com/fundmessenger/newsdesk/service/NewsCollectorService.java`
+- **상태**: 완료
+
+---
+
+## 2026-02-20 | Spring Boot RewriterService.java 작성
+- **유형**: 🟢 신규 기능
+- **요청**: Python rewriter_agent.py의 Spring Boot 포팅 — Cerebras AI를 활용한 뉴스 기사 재작성 서비스
+- **작업 내용**:
+  1. `RewriterService.java` 작성 — CerebrasClient 주입, 배치 처리(10건), JSON 스키마 구조적 출력
+  2. `rewriteAll(List<RawNews>)` 메서드: 배치 분할, 에러 시 배치 스킵 후 계속
+  3. `processBatch()`: 프롬프트 생성 → Cerebras generate 호출 → 응답 파싱 → DB 업데이트
+  4. `buildPrompt()`: 한국어 프롬프트 (ID/소스/제목/내용 300자 truncate)
+  5. `buildJsonSchema()`: articles 배열 (id/title/summary) 스키마 맵 구성
+  6. originalTitle 보존, rewritten 플래그 설정, error 키 체크
+- **영향 파일**: `spring-backend/backend/src/main/java/com/fundmessenger/newsdesk/service/RewriterService.java` (신규)
+- **참고**: RawNews 엔티티에 `originalTitle(String)`, `rewritten(Boolean)` 필드 추가 필요 (별도 작업)
+- **상태**: 완료
+
+---
+
+## 2026-02-20: Cerebras 모델 비교 + 전체 파이프라인 테스트
+
+### 모델 비교 (test_models.py)
+- 사용 가능: llama3.1-8b, gpt-oss-120b (Qwen3/GLM은 접근 불가 404)
+- GPT-OSS-120B 승리: 재작성 10/10, 커플링 정확
+- config.py 기본 모델 → `gpt-oss-120b` 변경
+
+### 전체 파이프라인 성공
+- 재작성 487건 (0 실패), 커플링 471건 → 110종목, 시장 요약 5개
+- 2배치 JSON 잘림 (max_tokens 이슈)
+- 결과: `F:/newsdesk/output/2026-02-20/`
+
+---
+
+## 2026-02-20 | Cerebras 4개 모델 벤치마크 비교 리서치
+- **유형**: 🔵 리서치
+- **요청**: Cerebras Inference 플랫폼 4개 모델(Llama3.1-8B, GPT-OSS-120B, Qwen3-235B-A22B-Instruct-2507, ZAI GLM-4.7) 성능 비교
+- **작업 내용**:
+  1. 모델별 벤치마크 수집 (MMLU-Pro, AIME, GPQA, HumanEval, LiveCodeBench, IFEval, BFCL)
+  2. 한국어 능력 비교 (Qwen3 > GLM-4.7 > GPT-OSS-120B >> Llama3.1-8B)
+  3. JSON/구조적 출력 품질 비교
+  4. 500K tok/day 비용 시뮬레이션 ($0.05~$1.25/day)
+  5. 용도별 추천 (뉴스 재작성, 커플링, 구조적 출력, 비용효율)
+- **핵심 결론**:
+  - 한국어 금융 뉴스 재작성: **Qwen3-235B** 1순위 (119개 언어, KMMLU 평가 포함)
+  - 종목-뉴스 커플링: **GPT-OSS-120B** (MMLU-Pro 90.0%, 가성비 최강)
+  - JSON 출력: **GPT-OSS-120B** (네이티브 Structured Outputs, OpenAI 호환)
+  - 비용효율: **Llama3.1-8B** ($0.05/day) or **GPT-OSS-120B** ($0.275/day)
+- **상태**: 완료
+
+---
+
+## 2026-02-20 | Phase C: 뉴스데스크 센터 v2 코드 작성
+- **유형**: 🟢 신규 기능 (전면 재설계)
+- **요청**: 기존 클러스터링 기반 → 종목 커플링 기반으로 뉴스데스크 센터 전환
+- **작업 내용**:
+  1. **config.py**: Cerebras API 설정 추가 (API key, model, base URL, fundmessage URL)
+  2. **cerebras_client.py**: OpenAI 호환 Cerebras API 클라이언트 (JSON 스키마, 재시도, rate limit)
+  3. **coupling_agent.py**: MarketAux 엔티티 변환 + 네이버 AI 커플링 (10건 배치) + CryptoCompare 태그 매핑
+  4. **technical_analysis_agent.py**: OHLCV 30일 → AI 기술적 분석 (시그널, 트렌드, 지지/저항)
+  5. **market_summary_agent.py**: 커플링 데이터 기반 시장별 AI 브리핑 생성
+  6. **scoring.py**: EMA 시간 감쇠 + min-max 정규화 (100 기준, 초과 허용)
+  7. **upload_client.py**: fundmessage Spring Boot API 업로드 (뉴스/커플링/시장요약)
+  8. **pipeline.py**: v2 오케스트레이터 (수집 → 커플링 → EMA → 요약 → 업로드)
+  9. **api/pipeline.py**: Ollama → Cerebras 전환, PipelineRunRequest 추가
+  10. **agents/__init__.py**: v2 에이전트 export 추가
+- **영향 파일**: 10개 (신규 6, 수정 4)
+- **Cerebras 모델**: `qwen-3-235b-a22b-instruct-2507` (1,400 tok/s, 무료 1M/일)
+- **다음 단계**: Docker 빌드 검증 + 실제 데이터 테스트
+
+---
+
 ## 2026-02-19 | 뉴스데스크 v2 UI 대규모 개선
 - **유형**: 🔵 개선 (사용자 피드백 반영)
 - **요청**: 사이드 패널 닫기 불가, 히트맵 로그 스케일, 뉴스 아코디언, AI 역할 상정, overflow 수정
