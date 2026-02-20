@@ -9,6 +9,7 @@ import com.fundmessenger.discussion.entity.Discussion;
 import com.fundmessenger.discussion.entity.Message;
 import com.fundmessenger.discussion.repository.DiscussionRepository;
 import com.fundmessenger.discussion.repository.MessageRepository;
+import com.fundmessenger.newsdesk.service.CerebrasClient;
 import com.fundmessenger.position.entity.Position;
 import com.fundmessenger.position.entity.TeamSettings;
 import com.fundmessenger.position.repository.PositionRepository;
@@ -24,8 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -35,7 +34,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class AiService {
 
-    private final WebClient webClient;
+    private final CerebrasClient cerebrasClient;
     private final AppProperties appProperties;
     private final PositionRepository positionRepository;
     private final UserRepository userRepository;
@@ -276,136 +275,22 @@ public class AiService {
     }
 
     // ──────────────────────────────────────────────
-    // OpenAI API call
+    // Cerebras API call
     // ──────────────────────────────────────────────
 
     /**
-     * Call OpenAI API. Tries the Responses API first, falls back to Chat Completions.
+     * Call Cerebras API (OpenAI-compatible Chat Completions) for AI content generation.
      */
-    @SuppressWarnings("unchecked")
     private String callOpenAi(String userPrompt, String noteType) {
-        String apiKey = appProperties.getOpenai().getApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new BusinessException("OpenAI API key is not configured");
+        if (!cerebrasClient.isAvailable()) {
+            throw new BusinessException("Cerebras API key is not configured");
         }
-
-        String model = appProperties.getOpenai().getModel();
-        double temperature = appProperties.getOpenai().getTemperature();
-
-        // Determine config based on note type
-        AppProperties.AiConfig config = "report".equals(noteType)
-                ? appProperties.getReport()
-                : appProperties.getDecision();
-
-        int maxTokens = config.getMaxTokens();
 
         String systemPrompt = buildSystemPrompt(noteType);
 
-        // Try Responses API first
-        try {
-            return callResponsesApi(apiKey, model, systemPrompt, userPrompt, maxTokens);
-        } catch (Exception e) {
-            log.warn("Responses API failed, falling back to Chat Completions: {}", e.getMessage());
-        }
-
-        // Fallback to Chat Completions API
-        return callChatCompletionsApi(apiKey, model, temperature, systemPrompt, userPrompt, maxTokens);
-    }
-
-    @SuppressWarnings("unchecked")
-    private String callResponsesApi(String apiKey, String model, String systemPrompt, String userPrompt, int maxTokens) {
-        Map<String, Object> requestBody = new LinkedHashMap<>();
-        requestBody.put("model", model);
-
-        List<Map<String, Object>> input = new ArrayList<>();
-
-        Map<String, Object> systemMsg = new LinkedHashMap<>();
-        systemMsg.put("role", "system");
-        systemMsg.put("content", systemPrompt);
-        input.add(systemMsg);
-
-        Map<String, Object> userMsg = new LinkedHashMap<>();
-        userMsg.put("role", "user");
-        userMsg.put("content", userPrompt);
-        input.add(userMsg);
-
-        requestBody.put("input", input);
-
-        Map<String, Object> response = webClient.post()
-                .uri("https://api.openai.com/v1/responses")
-                .header("Authorization", "Bearer " + apiKey)
-                .header("Content-Type", "application/json")
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(Map.class)
-                .block();
-
-        if (response == null) {
-            throw new BusinessException("Empty response from OpenAI Responses API");
-        }
-
-        // Extract text from Responses API output
-        Object output = response.get("output");
-        if (output instanceof List) {
-            List<Map<String, Object>> outputList = (List<Map<String, Object>>) output;
-            for (Map<String, Object> item : outputList) {
-                if ("message".equals(item.get("type"))) {
-                    Object content = item.get("content");
-                    if (content instanceof List) {
-                        List<Map<String, Object>> contentList = (List<Map<String, Object>>) content;
-                        for (Map<String, Object> contentItem : contentList) {
-                            if ("output_text".equals(contentItem.get("type"))) {
-                                return (String) contentItem.get("text");
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Fallback: try output_text at top level
-        if (response.containsKey("output_text")) {
-            return (String) response.get("output_text");
-        }
-
-        throw new BusinessException("Could not extract text from OpenAI Responses API");
-    }
-
-    @SuppressWarnings("unchecked")
-    private String callChatCompletionsApi(String apiKey, String model, double temperature,
-                                          String systemPrompt, String userPrompt, int maxTokens) {
-        Map<String, Object> requestBody = new LinkedHashMap<>();
-        requestBody.put("model", model);
-        requestBody.put("temperature", temperature);
-        requestBody.put("max_tokens", maxTokens);
-
-        List<Map<String, String>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", systemPrompt));
-        messages.add(Map.of("role", "user", "content", userPrompt));
-        requestBody.put("messages", messages);
-
-        try {
-            Map<String, Object> response = webClient.post()
-                    .uri("https://api.openai.com/v1/chat/completions")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .bodyValue(requestBody)
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .block();
-
-            if (response != null && response.containsKey("choices")) {
-                List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
-                if (!choices.isEmpty()) {
-                    Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
-                    if (message != null) {
-                        return (String) message.get("content");
-                    }
-                }
-            }
-        } catch (WebClientResponseException e) {
-            log.error("OpenAI Chat Completions API error: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new BusinessException("OpenAI API error: " + e.getStatusCode());
+        Object result = cerebrasClient.generate(userPrompt, systemPrompt, null, 0.7);
+        if (result instanceof String text && !text.isBlank()) {
+            return text;
         }
 
         throw new BusinessException("Failed to generate AI content");
