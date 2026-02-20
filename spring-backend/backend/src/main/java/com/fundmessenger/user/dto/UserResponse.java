@@ -13,6 +13,9 @@ public class UserResponse {
     private String username;
     private String fullName;
     private String role;
+    private String positionTitle;
+    private Long universityId;
+    private String universityName;
     private boolean isActive;
     private int attendanceShields;
     private OffsetDateTime createdAt;

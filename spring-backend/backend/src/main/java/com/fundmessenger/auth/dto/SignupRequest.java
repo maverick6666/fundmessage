@@ -2,6 +2,7 @@ package com.fundmessenger.auth.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,4 +22,10 @@ public class SignupRequest {
     @NotBlank(message = "이름을 입력해주세요")
     @Size(min = 2, max = 100, message = "이름은 2~100자 사이여야 합니다")
     private String fullName;
+
+    @NotNull(message = "소속 대학교를 선택해주세요")
+    private Long universityId;
+
+    @NotBlank(message = "직책을 선택해주세요")
+    private String positionTitle;
 }

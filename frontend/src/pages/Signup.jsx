@@ -1,21 +1,53 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { authService } from '../services/authService';
+import { universityService } from '../services/universityService';
+
+const POSITION_OPTIONS = [
+  { value: '', label: '직책을 선택하세요' },
+  { value: '대표', label: '대표' },
+  { value: '부대표', label: '부대표' },
+  { value: '운용역', label: '운용역' },
+  { value: '리서치', label: '리서치' },
+  { value: '리스크관리', label: '리스크관리' },
+  { value: '컴플라이언스', label: '컴플라이언스' },
+  { value: '회계', label: '회계' },
+  { value: '일반부원', label: '일반부원' },
+];
 
 export function Signup() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [universities, setUniversities] = useState([]);
+  const [loadingUniversities, setLoadingUniversities] = useState(true);
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     passwordConfirm: '',
-    full_name: ''
+    full_name: '',
+    universityId: '',
+    positionTitle: '',
   });
+
+  useEffect(() => {
+    loadUniversities();
+  }, []);
+
+  const loadUniversities = async () => {
+    try {
+      const data = await universityService.getActiveUniversities();
+      setUniversities(data);
+    } catch (err) {
+      console.error('Failed to load universities:', err);
+    } finally {
+      setLoadingUniversities(false);
+    }
+  };
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -36,17 +68,28 @@ export function Signup() {
       return;
     }
 
+    if (!formData.universityId) {
+      setError('소속 대학교를 선택해주세요');
+      return;
+    }
+
+    if (!formData.positionTitle) {
+      setError('직책을 선택해주세요');
+      return;
+    }
+
     setLoading(true);
 
     try {
       await authService.signup({
         email: formData.email,
         password: formData.password,
-        full_name: formData.full_name
+        full_name: formData.full_name,
+        university_id: Number(formData.universityId),
+        position_title: formData.positionTitle,
       });
 
       setSuccess(true);
-      // 3초 후 로그인 페이지로 이동
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
       setError(err.response?.data?.detail || '회원가입에 실패했습니다');
@@ -85,6 +128,58 @@ export function Signup() {
         )}
 
         <form onSubmit={handleSignup} className="mt-8 space-y-5">
+          {/* 소속 대학교 선택 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              소속 대학교
+            </label>
+            {loadingUniversities ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 py-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary-600"></div>
+                대학교 목록을 불러오는 중...
+              </div>
+            ) : universities.length === 0 ? (
+              <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 rounded-lg">
+                등록된 대학교가 없습니다. 관리자에게 문의해주세요.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <select
+                  name="universityId"
+                  value={formData.universityId}
+                  onChange={handleChange}
+                  className="input"
+                  required
+                >
+                  <option value="">대학교를 선택하세요</option>
+                  {universities.map((uni) => (
+                    <option key={uni.id} value={uni.id}>
+                      {uni.name} ({uni.code})
+                    </option>
+                  ))}
+                </select>
+                {/* 선택한 대학교 로고 미리보기 */}
+                {formData.universityId && (() => {
+                  const selected = universities.find(u => String(u.id) === String(formData.universityId));
+                  const logoUrl = selected?.logo_url || selected?.logoUrl;
+                  if (!selected || !logoUrl) return null;
+                  return (
+                    <div className="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <img
+                        src={logoUrl}
+                        alt={selected.name}
+                        className="h-8 w-8 rounded object-contain"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                        {selected.name}
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+
           <Input
             label="이메일"
             type="email"
@@ -106,6 +201,26 @@ export function Signup() {
             autoComplete="name"
             required
           />
+
+          {/* 직책 선택 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              직책
+            </label>
+            <select
+              name="positionTitle"
+              value={formData.positionTitle}
+              onChange={handleChange}
+              className="input"
+              required
+            >
+              {POSITION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <Input

@@ -7,11 +7,14 @@ import com.fundmessenger.auth.service.AuthService;
 import com.fundmessenger.common.config.AppProperties;
 import com.fundmessenger.common.dto.ApiResponse;
 import com.fundmessenger.common.exception.BusinessException;
+import com.fundmessenger.common.exception.NotFoundException;
 import com.fundmessenger.common.security.JwtTokenProvider;
 import com.fundmessenger.common.util.KstUtil;
 import com.fundmessenger.email.service.EmailService;
 import com.fundmessenger.notification.entity.Notification;
 import com.fundmessenger.notification.repository.NotificationRepository;
+import com.fundmessenger.university.entity.University;
+import com.fundmessenger.university.repository.UniversityRepository;
 import com.fundmessenger.user.dto.UserResponse;
 import com.fundmessenger.user.entity.User;
 import com.fundmessenger.user.repository.UserRepository;
@@ -42,6 +45,7 @@ public class AuthController {
     private final AttendanceRepository attendanceRepository;
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
+    private final UniversityRepository universityRepository;
 
     /**
      * POST /api/v1/auth/send-verification
@@ -96,6 +100,10 @@ public class AuthController {
             counter++;
         }
 
+        // University 조회
+        University university = universityRepository.findById(request.getUniversityId())
+                .orElseThrow(() -> new BusinessException(HttpStatus.BAD_REQUEST, "존재하지 않는 대학교입니다"));
+
         boolean isFirstUser = authService.getUserCount() == 0;
         String role = isFirstUser ? "manager" : "member";
         boolean isActive = isFirstUser;
@@ -108,6 +116,9 @@ public class AuthController {
                 role,
                 isActive
         );
+        user.setUniversity(university);
+        user.setPositionTitle(request.getPositionTitle());
+        userRepository.save(user);
 
         // Try to notify managers about the new registration (non-first users)
         if (!isFirstUser) {
@@ -247,6 +258,9 @@ public class AuthController {
                 .username(user.getUsername())
                 .fullName(user.getFullName())
                 .role(user.getRole())
+                .positionTitle(user.getPositionTitle())
+                .universityId(user.getUniversity() != null ? user.getUniversity().getId() : null)
+                .universityName(user.getUniversity() != null ? user.getUniversity().getName() : null)
                 .isActive(Boolean.TRUE.equals(user.getIsActive()))
                 .attendanceShields(user.getAttendanceShields() != null ? user.getAttendanceShields() : 0)
                 .createdAt(user.getCreatedAt())

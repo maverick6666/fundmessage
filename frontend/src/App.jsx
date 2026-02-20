@@ -20,6 +20,7 @@ import { Settings } from './pages/Settings';
 import { Reports } from './pages/Reports';
 import { ColumnEditor } from './pages/ColumnEditor';
 import { NewsDesk } from './pages/NewsDesk';
+import { AdminUniversities } from './pages/AdminUniversities';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -229,6 +230,17 @@ function AppRoutes() {
           <PrivateRoute>
             <ManagerRoute>
               <TeamManagement />
+            </ManagerRoute>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/admin/universities"
+        element={
+          <PrivateRoute>
+            <ManagerRoute>
+              <AdminUniversities />
             </ManagerRoute>
           </PrivateRoute>
         }

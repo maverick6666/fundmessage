@@ -1,5 +1,6 @@
 package com.fundmessenger.user.entity;
 
+import com.fundmessenger.university.entity.University;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -37,6 +38,13 @@ public class User {
 
     @Column(name = "role", length = 20, nullable = false, columnDefinition = "varchar(20) default 'member'")
     private String role = "member";
+
+    @Column(name = "position_title", length = 50)
+    private String positionTitle;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "university_id")
+    private University university;
 
     @Column(name = "is_active", columnDefinition = "boolean default true")
     private Boolean isActive = true;
