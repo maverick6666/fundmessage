@@ -1,74 +1,32 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false;MODE=PostgreSQL;INIT=RUNSCRIPT FROM 'classpath:schema-h2.sql'
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
     username: sa
     password:
-    driver-class-name: org.h2.Driver
   jpa:
     hibernate:
       ddl-auto: create-drop
-    show-sql: false
+    show-sql: true
     properties:
       hibernate:
+        format_sql: true
         dialect: org.hibernate.dialect.H2Dialect
-        format_sql: false
-  jackson:
-    property-naming-strategy: SNAKE_CASE
-    serialization:
-      write-dates-as-timestamps: false
-    default-property-inclusion: non_null
-  mail:
-    host: localhost
-    port: 25
-    username: test
-    password: test
+        physical_naming_strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+
+  h2:
+    console:
+      enabled: true
+
+jwt:
+  secret: test-secret-key-for-testing-only-must-be-256-bits-long-ok
+  access-token-expiration: 3600000
+  refresh-token-expiration: 86400000
 
 server:
-  port: 0
+  port: 0   # 랜덤 포트 사용
 
-app:
-  jwt:
-    secret: test-secret-key-for-integration-tests-must-be-at-least-256-bits-long-enough
-    algorithm: HS256
-    access-token-expire-minutes: 60
-    refresh-token-expire-days: 30
-  cors:
-    allowed-origins:
-      - http://localhost
-  kis:
-    app-key: test-key
-    app-secret: test-secret
-  openai:
-    api-key: test-key
-    model: gpt-5-mini
-    temperature: 0.7
-  newsdesk:
-    verbosity: high
-    max-tokens: 32768
-    reasoning-effort: medium
-  decision:
-    verbosity: medium
-    max-tokens: 16384
-    reasoning-effort: medium
-  report:
-    verbosity: high
-    max-tokens: 16384
-    reasoning-effort: medium
-  vapid:
-    public-key:
-    private-key:
-    claims-email: mailto:test@test.com
-  upload:
-    dir: ${java.io.tmpdir}/fundmessage_test_uploads
-  smtp:
-    from-email: test@test.com
-  environment: test
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health
-  health:
-    mail:
-      enabled: false
+logging:
+  level:
+    com.fundmessenger: DEBUG
+    org.springframework.security: DEBUG
